@@ -449,7 +449,9 @@ class IndexRow(Model):
     tone: Optional[ToneValue] = None
     delta_clv: Optional[float] = None
     p_accept: Optional[float] = None
+    contact_cost: Optional[float] = None
     confidence: Optional[Confidence] = None
+    checklist_failed: list[ChecklistKey] = Field(default_factory=list)  # bulk approval refuses these rows
     service_mode: bool = False
     personalised: Optional[bool] = None
     n_signals: int = 0
@@ -468,6 +470,9 @@ class Summary(Model):
     archetype_counts: dict[str, int] = Field(default_factory=dict)
     urgency_counts: dict[str, int] = Field(default_factory=dict)
     flag_counts: dict[str, int] = Field(default_factory=dict)
+    sources: dict[str, SourceInfo] = Field(default_factory=dict)  # refresh/latency per table, for worklist tooltips
+    column_src: dict[str, str] = Field(default_factory=dict)  # IndexRow field -> "table.column"
+    value_date: Optional[str] = None  # customer_value.clv_calc_date
 
 
 class TupleRef(Model):

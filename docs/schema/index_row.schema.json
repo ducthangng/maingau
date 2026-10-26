@@ -50,6 +50,21 @@
       "default": null,
       "title": "Channel"
     },
+    "checklist_failed": {
+      "items": {
+        "enum": [
+          "consent_for_channel",
+          "profiling_consent",
+          "no_exclusion",
+          "not_owned",
+          "contact_cap",
+          "data_fresh"
+        ],
+        "type": "string"
+      },
+      "title": "Checklist Failed",
+      "type": "array"
+    },
     "chosen_offer": {
       "title": "Chosen Offer",
       "type": "string"
@@ -118,6 +133,18 @@
       ],
       "default": null,
       "title": "Confidence"
+    },
+    "contact_cost": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Contact Cost"
     },
     "customer_id": {
       "title": "Customer Id",

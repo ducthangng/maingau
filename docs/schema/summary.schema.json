@@ -1,4 +1,37 @@
 {
+  "$defs": {
+    "SourceInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "latency": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Latency"
+        },
+        "refresh": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Refresh"
+        }
+      },
+      "title": "SourceInfo",
+      "type": "object"
+    }
+  },
   "additionalProperties": false,
   "properties": {
     "archetype_counts": {
@@ -23,6 +56,13 @@
         "type": "object"
       },
       "title": "Chosen By Offer",
+      "type": "object"
+    },
+    "column_src": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Column Src",
       "type": "object"
     },
     "eval_time": {
@@ -54,12 +94,31 @@
       "title": "Signal Counts",
       "type": "object"
     },
+    "sources": {
+      "additionalProperties": {
+        "$ref": "#/$defs/SourceInfo"
+      },
+      "title": "Sources",
+      "type": "object"
+    },
     "urgency_counts": {
       "additionalProperties": {
         "type": "integer"
       },
       "title": "Urgency Counts",
       "type": "object"
+    },
+    "value_date": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Value Date"
     }
   },
   "required": [

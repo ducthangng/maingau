@@ -504,7 +504,8 @@ The values below are illustrative, **not expected results**. `nba/contracts.py` 
  "urgency_tier": "P3", "urgency_score": 212.3, "top_reason": "price guarantee ends in 8 days [S4]",
  "flags": ["top_clv"], "outlier": false, "triggers": ["S1", "S4"],
  "chosen_offer": "P-EN-03", "chosen_tuple": "P-EN-03|newsletter_email|sie", "channel": "newsletter_email", "tone": "sie",
- "delta_clv": 0, "p_accept": 0.034, "confidence": "low", "service_mode": false, "personalised": true,
+ "delta_clv": 0, "p_accept": 0.034, "contact_cost": 0.01, "confidence": "low", "checklist_failed": [],
+ "service_mode": false, "personalised": true,
  "n_signals": 2, "n_candidates": 5, "n_blocked": 4, "exclusions": []}
 ```
 
@@ -513,7 +514,8 @@ The values below are illustrative, **not expected results**. `nba/contracts.py` 
 - blocked tuples by `rule_id`;
 - customers with NO_ACTION, by reason;
 - signal counts;
-- archetype, urgency-tier and flag counts.
+- archetype, urgency-tier and flag counts;
+- `sources` (refresh/latency per table), `column_src` (each `IndexRow` number → `table.column`) and `value_date`, so worklist numbers get tooltips too.
 
 ### 5.5 IDs and enums
 
