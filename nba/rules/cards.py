@@ -295,6 +295,13 @@ def build(sections: dict, names: Names, stats: dict | None, by: str = "preview")
         Field("not working when chance it helps is at most", gr, pr, "percent"),
         Field("alarm after sends with zero purchases", gz, pz, "int"),
     ]))
+    ga, pa = _path("learn", "lookalike", "active")
+    gk, pk = _path("learn", "lookalike", "neighbours")
+    loop.cards.append(Card("Learn from similar customers", [
+        "Offers marked working learn who bought them. Customers who look like the buyers get a higher chance,",
+        "customers who look like the non-buyers a lower one. Only customers with profiling consent take part.",
+        "See one customer: python -m nba.learn similar MG-100001",
+    ], [Field("active", ga, pa, "bool"), Field("similar customers compared", gk, pk, "int")]))
     out.append(loop)
     return out
 

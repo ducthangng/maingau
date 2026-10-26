@@ -46,6 +46,7 @@ class EngineConfig:
     value_date: str | None
     template_dir: Path = REPO / "templates" / "de"
     _history_index: Any = field(default=None, repr=False)
+    lookalike: Any = field(default=None, repr=False)  # nba.learn.lookalike.Lookalike, attached by Runtime.load
     _versions: Any = field(default=None, repr=False)
 
     @property
@@ -65,7 +66,7 @@ class EngineConfig:
             self._versions = Versions(
                 policy=f"{policy.version}:{fingerprint(asdict(policy))}",
                 value_model=f"{self.settings['value_model']}:{fingerprint([self.assumptions, self.offers])}",
-                propensity=f"{self.settings['propensity_version']}:{self.p_mode}:{fingerprint([self.settings, self.history])}",
+                propensity=f"{self.settings['propensity_version']}:{self.p_mode}:{fingerprint([self.settings, self.history, self.lookalike and self.lookalike.version])}",
                 templates=f"{self.settings['templates_version']}:{fingerprint([(p.name, p.read_text(encoding='utf-8')) for p in sorted(self.template_dir.glob('*.yaml'))])}",
             )
         return self._versions.model_copy(deep=True)

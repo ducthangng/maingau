@@ -84,10 +84,34 @@ def status_of(n: int, conv: int, p: float, s: dict) -> str:
 # ---------------------------------------------------------------- main
 
 
+def raw_features(x: dict, columns: list[str]) -> pd.DataFrame:
+    """The look-alike comparison columns, straight from the workbook."""
+    master = x["customer_master"].set_index("customer_id")
+    value = x["customer_value"].set_index("customer_id")
+    f = pd.DataFrame(index=master.index)
+    f["age"] = EVAL_TIME.year - master["birth_year"]
+    f["household_size"] = master["household_size"]
+    f["tenure_years"] = (EVAL_TIME - pd.to_datetime(master["customer_since"])).dt.days / 365.25
+    for col in ("active_business_lines", "annual_margin_eur", "clv_eur", "churn_prob_12m"):
+        f[col] = value[col]
+    ps = x["portal_sessions"].assign(t=lambda d: pd.to_datetime(d["session_start"]))
+    ps = ps[(ps["t"] <= EVAL_TIME) & (ps["t"] > EVAL_TIME - pd.Timedelta(days=90))]
+    f["portal_sessions_90d"] = ps.groupby("customer_id").size().reindex(f.index).fillna(0)
+    f["portal_minutes_avg"] = ps.groupby("customer_id")["duration_s"].mean() / 60
+    si = x["service_interactions"].assign(t=lambda d: pd.to_datetime(d["created_at"]))
+    si = si[(si["t"] <= EVAL_TIME) & (si["t"] > EVAL_TIME - pd.Timedelta(days=365))]
+    f["tickets_12m"] = si.groupby("customer_id").size().reindex(f.index).fillna(0)
+    f["csat_avg"] = si.groupby("customer_id")["csat_1to5"].mean()
+    ec = x["energy_contracts"]
+    ec = ec[(ec["commodity"] == "electricity") & (ec["status"] == "active")]
+    f["consumption_kwh"] = ec.groupby("customer_id")["annual_consumption_kwh"].sum(min_count=1)
+    return f[columns].astype(float)
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--out", type=Path, help="Where nba.learn writes; default a temporary folder")
-    parser.add_argument("--skip-rules", action="store_true", help="Skip the 750-customer hard-rule re-runs (check 6)")
+    parser.add_argument("--skip-rules", action="store_true", help="Skip the 750-customer hard-rule re-runs (check 7)")
     args = parser.parse_args(argv)
 
     from nba.engine.assemble import assemble
@@ -185,8 +209,48 @@ def main(argv=None) -> int:
             total = sum(g["n_treated"] for g in sp["subgroups"])
             check(total == len(as01), f"split '{sp['dimension']}' covers all {len(as01)} sends", str(total))
 
+    section("6. Look-alike learning (recomputed from the raw tables)")
+    model = runtime.cfg.lookalike
+    look = settings.get("lookalike") or {}
+    if model is None:
+        check(not look.get("active"), "look-alike is off only when config/learn.yaml says so")
+    else:
+        greens = sorted(p["offer_id"] for p in loop.values() if p["channel"] is None and p["status"] == "green")
+        check(sorted(model.offers) == greens, "only offers marked working (🟢) learn", f"{sorted(model.offers)} vs {greens}")
+        profiled = raw_rules(x, policy_yaml["channels"], EVAL_TIME, (1, 1))["profiled"]
+        check(set(model.profiled) == set(profiled), "only customers with profiling consent are scored or used as peers",
+              f"{len(model.profiled)} vs {len(profiled)} in consent_status")
+        for oid, outcomes in model.offers.items():
+            raw = treated[treated["offer_id"] == oid]
+            good = set(raw[(raw["conv"] == 1) & (pd.to_numeric(raw["conversion_value_eur"], errors="coerce") > 0)]["customer_id"])
+            mine_good = {c for c, o in outcomes.items() if o[0]}
+            check(mine_good == good and set(outcomes) == set(raw["customer_id"]),
+                  f"{oid}: buyers = sends converted with a positive value ({len(good)} of {raw['customer_id'].nunique()} customers)")
+        features = raw_features(x, list(model.weights))
+        target = "MG-100001"
+        z = (features - features.median()) / ((features.quantile(0.75) - features.quantile(0.25)) / 1.349)
+        w = pd.Series(model.weights)
+        sim_bad, self_peer, lifts = [], 0, {o: [] for o in model.offers}
+        for pid, sim in model.nearest(target, model.profiled, 5):
+            d = (z.loc[target] - z.loc[pid])
+            present = d.notna()
+            mine_sim = float(np.exp(-((d[present] ** 2) * w[present]).sum() / w[present].sum() / 2))
+            if abs(mine_sim - sim) > 1e-3:
+                sim_bad.append(f"{pid} {mine_sim:.4f} vs {sim:.4f}")
+        check(not sim_bad, f"similarity of {target} to its 5 closest customers matches", "; ".join(sim_bad))
+        for cid in sorted(model.profiled):
+            for oid in model.offers:
+                m = model.score(cid, oid, 1.0)
+                if m:
+                    self_peer += any(p.customer_id == cid or p.customer_id not in profiled for p in m.peers)
+                    lifts[oid].append(m.lift)
+        check(not self_peer, "no customer is their own peer, no peer without profiling consent", str(self_peer))
+        for oid, values in lifts.items():
+            mean = float(np.mean(values))
+            check(0.75 <= mean <= 1.25, f"{oid}: average lift {mean:.2f} (redistributes, does not inflate)")
+
     if not args.skip_rules:
-        section("6. Hard rules on all 750 customers, before and after each fix option")
+        section("7. Hard rules on all 750 customers, before and after each fix option")
         kg = yaml.safe_load((REPO / "config" / "kg.yaml").read_text(encoding="utf-8"))
         cap = (int(kg["contact_cap"]["max_contacts"]), int(kg["contact_cap"]["window_days"]))
         rules = raw_rules(x, policy_yaml["channels"], EVAL_TIME, cap)

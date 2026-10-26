@@ -2,6 +2,7 @@
 
   python -m nba.learn run   [--out out/learn] [--decisions decisions.json]
   python -m nba.learn apply FIX-P-EN-05 --option A --reviewer "Name" [--out out/learn]
+  python -m nba.learn similar MG-100001 [--top 5] [--out out/learn]
 """
 from __future__ import annotations
 
@@ -16,6 +17,7 @@ from nba.learn.backtest import backtest
 from nba.learn.diagnose import cases as find_cases
 from nba.learn.evidence import Evidence, load_settings
 from nba.learn.health import ledger_entries, patterns
+from nba.learn.lookalike import summary as lookalike_summary, summary_markdown
 from nba.learn.report import case_markdown, report
 
 NBA_CONFIG = REPO / "config" / "nba.yaml"
@@ -64,7 +66,9 @@ def run(runtime, out: Path, decisions=None, *, with_backtest=True):
         (out / "cases" / f"{case.id}.json").write_text(dump(case.as_dict()), encoding="utf-8")
         (out / "cases" / f"{case.id}.md").write_text(case_markdown(case, meta), encoding="utf-8")
     new = append_ledger(out / "ledger.jsonl", ledger_entries(found, ev, eval_time))
-    (out / "report.md").write_text(report(found, found_cases, new, meta), encoding="utf-8")
+    learned = lookalike_summary(runtime.cfg.lookalike, _names(runtime))
+    (out / "lookalike.json").write_text(dump(learned), encoding="utf-8")
+    (out / "report.md").write_text(report(found, found_cases, new, meta) + "\n" + summary_markdown(learned), encoding="utf-8")
     return found, found_cases, new
 
 
@@ -95,6 +99,13 @@ def apply(out: Path, case_id: str, option_id: str, reviewer: str, config_path: P
     return record
 
 
+def _names(runtime):
+    from nba.rules.book import load_sources, plain
+    from nba.rules.__main__ import names_for
+
+    return names_for({n: plain(v) for n, v in load_sources().items()}, runtime.tables)
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -108,8 +119,21 @@ def main(argv=None):
     a.add_argument("--option", required=True)
     a.add_argument("--reviewer", required=True)
     a.add_argument("--out", type=Path, default=Path("out/learn"))
+    m = sub.add_parser("similar", help="Similar customers, what they bought, and what the engine learned for this customer")
+    m.add_argument("customer_id")
+    m.add_argument("--top", type=int, default=5)
+    m.add_argument("--out", type=Path, default=Path("out/learn"))
     args = parser.parse_args(argv)
-    if args.cmd == "run":
+    if args.cmd == "similar":
+        from nba.learn.similar import report as similar_report
+
+        runtime = Runtime.load()
+        text = similar_report(runtime, args.customer_id, _names(runtime), args.top)
+        path = args.out / "similar" / f"{args.customer_id}.md"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+        print(text + f"\nSaved: {path}")
+    elif args.cmd == "run":
         runtime = Runtime.load(args.workbook)
         found, found_cases, new = run(runtime, args.out, read_decisions(args.decisions), with_backtest=not args.no_backtest)
         counts = {s: sum(p.status == s for p in found) for s in ("green", "amber", "red")}

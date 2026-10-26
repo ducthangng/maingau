@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from nba.contracts import PSource
 from nba.engine.config import EngineConfig, MissingDataError
@@ -95,3 +95,18 @@ def p_accept(offer_id, channel, tone, history, cfg: EngineConfig, *, generic=Fal
     return Propensity(p, confidence, PSource(mode=mode, level=level, n_treated=n, conv_treated=conv,
                                            n_control=nc, conv_control=cc, baseline_control=baseline),
                       rate, uplift, "offer" if own_baseline else "global")
+
+
+def personalise(p: Propensity, offer_id, customer_id, cfg: EngineConfig):
+    """Look-alike chance for an offer that works (cfg.lookalike): the engine's chance at whatever level it
+    chose (catalog-wide for a generic candidate) times the lift from similar customers. Reviewed overrides
+    and assumptions win. -> (propensity, match or None)."""
+    model = cfg.lookalike
+    if model is None or p.source.mode == "assumption" or p.baseline_level.startswith("override:"):
+        return p, None
+    base = p.p_accept if cfg.p_mode == "rate" else p.rate_treated
+    match = model.score(customer_id, offer_id, base)
+    if match is None:
+        return p, None
+    value = match.p if cfg.p_mode == "rate" else max(0.0, match.p - (p.source.baseline_control or 0.0))
+    return replace(p, p_accept=value, baseline_level=f"lookalike:{p.baseline_level}"), match

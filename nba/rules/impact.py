@@ -17,6 +17,7 @@ from nba.engine.runtime import Runtime
 from nba.kg.policy import load_policy
 from nba.learn.evidence import Evidence
 from nba.learn.health import patterns
+from nba.learn.lookalike import attach
 from nba.profile import profile_population
 from nba.rules.book import SOURCES
 from nba.rules.check import raw_rules, violations
@@ -35,7 +36,7 @@ def runtime_from(sections: dict[str, dict], tables) -> Runtime:
     t = datetime.fromisoformat(policy.config["eval_time"])
     states = build_states(tables, t, snapshot_mode=policy.config["snapshot_mode"])
     cfg.history = [r for r in cfg.history if r.get("decided_at") and r["decided_at"] <= t]
-    return Runtime(tables, states, profile_population(states), policy, cfg)
+    return attach(Runtime(tables, states, profile_population(states), policy, cfg), sections["learn"])
 
 
 def offer_of(tuple_id: str) -> str:

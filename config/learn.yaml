@@ -28,3 +28,27 @@ harm:
 # README §9 reference customers. A fix option that changes one of them is flagged in its backtest,
 # because the jury checks these (e.g. MG-100023 is the agreed P-AS-01 case).
 reference_customers: [MG-100051, MG-100060, MG-100096, MG-100186, MG-100068, MG-100023, MG-100112, MG-100009, MG-100659, MG-100035, MG-100087, MG-100004]
+
+# Look-alike learning: a 🟢 offer (works against its control group) learns which customers bought it
+# (converted within 14 days with a positive value) and gives customers who look like them a personal
+# chance. The k most similar recipients vote with their similarity; their buying rate, pulled toward the
+# rate of all recipients by prior_strength, divided by that rate is the lift on the engine's chance;
+# max_ratio caps the lift. Only customers with profiling consent take part. Refit on every load.
+lookalike:
+  active: true
+  neighbours: 25
+  prior_strength: 10
+  max_ratio: 3.0
+  features:                  # weight of each column in the similarity (0 = ignore)
+    age: 1
+    household_size: 1
+    tenure_years: 1
+    active_business_lines: 1
+    annual_margin_eur: 1
+    clv_eur: 1
+    churn_prob_12m: 1
+    portal_sessions_90d: 1
+    portal_minutes_avg: 1
+    tickets_12m: 1
+    csat_avg: 1
+    consumption_kwh: 1
