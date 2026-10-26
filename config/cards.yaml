@@ -9,3 +9,9 @@ highlights:
   percentile_low: 10
 tone:
   min_newsletter_clicks: 2
+# Real date range of each trend source, verified against the snapshot (README §3, §4.1 B2).
+trend_ranges:
+  charging: [2026-06-01, 2026-09-30]
+  portal: [2026-07-02, 2026-09-30]
+  newsletter: [2026-01-15, 2026-09-24]
+  hems: [2026-09-01, 2026-09-30]

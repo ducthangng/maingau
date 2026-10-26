@@ -1,0 +1,21 @@
+{
+ "customers": 40,
+ "generator": "web/mock/build_mock.py",
+ "mock": [
+  "valuation",
+  "rank",
+  "chosen",
+  "content",
+  "alternatives",
+  "legacy_comparison.delta_clv_our_model",
+  "decision_log scores"
+ ],
+ "real": [
+  "profile (nba.profile)",
+  "timeline",
+  "sources",
+  "signals, candidates, blocked, triage, paths, consent/channels/exclusions, data_quality (nba.kg.bundle.kg_bundle)"
+ ],
+ "snapshot": "data/maingau_nba_mockdata.xlsx at 2026-09-30T23:59:59",
+ "source": "mock"
+}
