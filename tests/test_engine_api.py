@@ -91,3 +91,19 @@ def test_current_consent_is_rechecked_after_a_card_was_cached(client):
                         'tuple': {'offer_id': 'P-EN-03', 'channel': 'email', 'tone': 'sie'}})
     assert response.status_code == 409 and 'CONSENT-CHANNEL' in response.json()['detail']['rule_ids']
     assert not (directory / 'decision_log.jsonl').exists()
+
+
+def test_replay_preview_redecides_affected_customers_without_mutating_snapshot(client):
+    api, runtime, directory = client
+    revisions = {cid: state.revision for cid, state in runtime.states.items()}
+    response = api.post('/api/replay', params={'until': '2026-10-03T19:27:39'})
+    assert response.status_code == 200
+    result = response.json()
+    assert result['preview_only'] is True and len(result['affected']) == 118
+    assert result['pending_revocations']
+    assert {card['customer_id'] for card in result['customers']} == set(result['affected'])
+    assert all(card['meta']['events_applied_until'] == result['eval_time'] for card in result['customers'])
+    assert any('EXCL-OPEN-TICKET' in row['revoked_by'] for row in result['pending_revocations'].values())
+    assert revisions == {cid: state.revision for cid, state in runtime.states.items()}
+    assert not (directory / 'decision_log.jsonl').exists()
+    assert api.post('/api/replay', params={'until': '2026-09-01T00:00:00'}).status_code == 422

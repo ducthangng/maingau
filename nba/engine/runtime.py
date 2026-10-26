@@ -12,7 +12,8 @@ from nba.engine.assemble import assemble
 from nba.engine.config import EngineConfig, load_config
 from nba.kg.bundle import COLUMN_SRC
 from nba.kg.policy import load_policy
-from nba.state import build_states, population
+from nba.state import build_states
+from nba.profile import profile_population
 
 COLUMN_SOURCES = {
     **COLUMN_SRC,
@@ -41,7 +42,7 @@ class Runtime:
         cfg = load_config(tables, p_mode=p_mode)
         # A propensity estimate must never use action outcomes recorded after evaluation.
         cfg.history = [r for r in cfg.history if r.get("decided_at") and r["decided_at"] <= t]
-        return cls(tables, states, population(tables), policy, cfg)
+        return cls(tables, states, profile_population(states), policy, cfg)
 
     def card(self, customer_id):
         state = self.states[customer_id]

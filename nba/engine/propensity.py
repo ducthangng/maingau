@@ -68,7 +68,7 @@ def p_accept(offer_id, channel, tone, history, cfg: EngineConfig, *, generic=Fal
     ng, cg = index.treated[()]
     ncg, ccg = index.control[()]
     if not ng or not ncg:
-        raise MissingDataError("Nicht genug Daten: nba_action_history treated/control observations")
+        raise MissingDataError("Not enough data: nba_action_history treated/control observations")
     mode, n_min = cfg.p_mode, int(cfg.settings["n_min"])
     key, level = (), "global"
     if not generic:
