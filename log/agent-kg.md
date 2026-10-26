@@ -69,6 +69,8 @@ These are kept up to date and edited in place. Status values: `open`, `answered`
 | Q-KG-22 | README §6.11 does not list the ontology's `Archetype` node and `INSTANCE_OF` / `IN_ARCHETYPE` edges, nor the `GENERIC_OFFER` edge used in generic explanation paths. Document them in §6.11 (and add `GENERIC_OFFER` to `kg/ontology.yaml`) or remove them | Ontology = README contract (audit tests `test_ontology_*`, `test_path_edges_are_ontology_edge_types`) | Agent KG | closed | README §6.11 + ontology document Archetype, INSTANCE_OF, IN_ARCHETYPE, GENERIC_OFFER (26 Oct) |
 | Q-KG-23 | Agent NBA: on Windows with fresh installs, (a) `api/app.py` imports `fcntl` (POSIX only), so `tests/test_engine_api.py` cannot be collected; (b) `tests/test_engine_build.py::test_all_four_schema_files_match_the_models` fails with pydantic 2.14.1 (`requirements.txt` has `pydantic>=2.5`): pin pydantic or regenerate `docs/schema/` | Whole-suite `pytest -q` for every team member | Agent NBA | open | — |
 | Q-KG-24 | Agent NBA (from the A–D review): (a) `nba/engine/runtime.py` should call `load_policy(tables=tables)` (KG now infers the workbook from the catalog, but explicit is safer) and send `--asof` through `nba.state.resolve_eval_time` (timezone offsets); (b) `content.py` / `assemble.py` hard-code `< 90` days for the P-EN-02 date and note: use the S4 hit (`P.price_guarantee_ending(state, policy.params)`) or `policy.params['price_guarantee_window_days']`; (c) optionally gate `nba.build` with `nba.kg.intake.validate_workbook` (exit on ERROR) | New snapshots and tunable thresholds (README §6.15) | Agent NBA | open | — |
+| Q-KG-25 | Rule Center R1: do newsletters count toward B-02 (2 contacts / 30 days)? As in the spec: 336 of 549 marketing decisions deferred (204 until 03.10), including test customers MG-100023/100001/100267/100102/100051. Recommended: newsletters only in B-01, with a per-rule `sources` setting | docs/rule-center.md §9 | User / mentor | open | — |
+| Q-KG-26 | Rule Center R2–R5: C-07 stricter scope (recommended: keep, same result today); B-05 test MG-100051 (block ended 23.09; test at 2026-09-01); who builds the page (`web/` = CARDS, busy); B-08 €10 drops 9 of 12 chosen calls | docs/rule-center.md §9 | User / mentor | open | — |
 
 ## Session entries
 
@@ -508,4 +510,30 @@ Claude Code (Opus) on Windows, in the user's checkout `E:\Projects\maingau`. On 
 **Questions:** Q-KG-20, 21 and 22 answered; Q-KG-24 opened for Agent NBA; Q-KG-19 and Q-KG-23 still open for Agent NBA.
 
 **Next session starts with:** the Rule Center spec from the mentor (user, 26 Oct): plan the split. Agent NBA owns the tier-2 rule engine; KG aligns the tier-1 compliance gates (C-01…C-09) and the shared contact counter.
+
+### Session 11 · 2026-10-26 21:40–22:30 Europe/Berlin · Claude Code (Opus) · branch feat/kg · commits 092d493..(this commit)
+
+**Goal:** sync with `main` (CARDS' new UI version + the audit PR #1), and turn the mentor's Rule Center spec into an English spec checked against the data (user: "these belong to NBA").
+
+**Done:**
+- Merged `origin/main` (beb92a7: CARDS `web/` changes + PR #1) into `feat/kg`. No conflicts; nothing of CARDS edited. 351 tests pass; `main` fast-forwarded to 092d493.
+- `docs/rule-center.md`:
+  - the spec in English;
+  - each tier 1 rule mapped to the existing KG gate (all built; C-07 is stricter);
+  - each tier 2 default checked against the workbook, with its impact on today's 750 decisions;
+  - the shared contact counter, evaluation order, NBA's pieces, card fields;
+  - the legacy audit and test cases, checked;
+  - open decisions R1–R5.
+- README §6.16 points to it.
+
+**Verified against the data:**
+- B-01 claims exact: 673 customers, median 4, 328 at ≥ 5.
+- B-02 "p90 = 4" not reproduced (3 with all sources). The "4% → 1.2%" claim holds per customer over Jun–Sep, not per 30 days.
+- B-03 and B-04 max of 2 in 90 days: confirmed.
+- Legacy "~830" = 829 sends without channel consent at send time; 114 app pushes to customers without the app.
+- Test customers: all tier 1 cases already pass. MG-100112's call is worth €14.87 (≥ €10, passes B-08). MG-100051's B-05 block ended 23.09, before the snapshot.
+
+**Questions:** Q-KG-25 and Q-KG-26 (R1–R5) for the user and mentor.
+
+**Next session starts with:** after R1–R5, build `nba/kg/contacts.py` (shared counter with per-rule `sources`), switch the old contact cap to it, and add the C-xx IDs to the tier 1 checks; then hand over to Agent NBA.
 

@@ -1035,6 +1035,14 @@ The KG is **not a stored graph**. Customer nodes and edges are rebuilt from the 
 
 On the current workbook it reports 0 errors and 7 warnings, including the known snapshot inconsistencies of §3.
 
+### 6.16 Rule Center (mentor spec, 26 Oct; owner: Agent NBA, with Agent KG)
+
+Marketing sets rules that block or limit actions before ranking. The rules come in two tiers:
+- tier 1 (C-01…C-09): compliance rules that can only be tightened; they are the existing KG gates;
+- tier 2 (B-01…B-09): business rules with defaults, which marketing edits.
+
+The full spec, data checks, ownership and open decisions R1–R5 are in **`docs/rule-center.md`**. Do not build on R1–R5 until they are answered. Agent KG provides the shared contact counter (`nba/kg/contacts.py`); Agent NBA must not build a second one.
+
 ## 7. Tasks: three agents in parallel
 
 ### 7.1 Agent KG: ontology, knowledge graph, signals, rules and triage
