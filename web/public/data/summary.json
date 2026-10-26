@@ -1,0 +1,197 @@
+{
+ "archetype_counts": {
+  "A0": 5,
+  "A1": 5,
+  "A2": 12,
+  "A3": 6,
+  "A4": 9,
+  "A5": 3
+ },
+ "blocked_by_rule": {
+  "CHANNEL-AVAILABLE": 17,
+  "CONSENT-CHANNEL": 111,
+  "CONSENT-PROFILING": 19,
+  "CONTACT-CAP": 3,
+  "DATA-MISSING": 80,
+  "ECON-NONPOSITIVE": 23,
+  "EXCL-AUTOSTROM-CANCELLED": 1,
+  "EXCL-CANCELLATION": 3,
+  "EXCL-DUNNING": 7,
+  "EXCL-OPEN-TICKET": 4,
+  "HOLDING-PRECONDITION": 53
+ },
+ "chosen_by_offer": {
+  "P-AS-01": {
+   "count": 1.0,
+   "sum_delta_clv": 7.14
+  },
+  "P-EN-01": {
+   "count": 7.0,
+   "sum_delta_clv": 100.08
+  },
+  "P-EN-02": {
+   "count": 2.0,
+   "sum_delta_clv": 67.69
+  },
+  "P-EN-03": {
+   "count": 2.0,
+   "sum_delta_clv": 39.92
+  },
+  "P-EN-05": {
+   "count": 1.0,
+   "sum_delta_clv": 3.36
+  },
+  "P-MO-01": {
+   "count": 9.0,
+   "sum_delta_clv": 89.8
+  },
+  "P-MO-03": {
+   "count": 2.0,
+   "sum_delta_clv": 11.04
+  },
+  "P-SL-01": {
+   "count": 2.0,
+   "sum_delta_clv": 19.58
+  },
+  "P-SL-02": {
+   "count": 1.0,
+   "sum_delta_clv": 8.6
+  },
+  "P-SL-03": {
+   "count": 1.0,
+   "sum_delta_clv": 6.4
+  },
+  "P-SV-01": {
+   "count": 5.0,
+   "sum_delta_clv": 399.81
+  }
+ },
+ "column_src": {
+  "age_band": "customer_master.birth_year",
+  "archetype": "nba.kg.segments (README §6.13)",
+  "churn": "customer_value.churn_prob_12m",
+  "city": "customer_master.city",
+  "clv_eur": "customer_value.clv_eur",
+  "contact_cost": "value_assumptions.contact_cost_*",
+  "delta_clv": "nba.engine.value (README §6.5)",
+  "lines": "customer_value.active_business_lines",
+  "p_accept": "nba_action_history.converted_within_14d (README §6.6)",
+  "triggers": "nba.kg.signals (README §6.3)",
+  "urgency_tier": "nba.kg.segments (README §6.13)"
+ },
+ "eval_time": "2026-09-30T23:59:59",
+ "flag_counts": {
+  "annoyed_before": 2,
+  "contact_fatigue": 11,
+  "data_inconsistent": 4,
+  "negative_clv": 1,
+  "no_marketing_channel": 1,
+  "no_profiling": 14,
+  "prefers_en": 1,
+  "service_critical": 7,
+  "top_clv": 6
+ },
+ "n_customers": 40,
+ "no_action_by_reason": {
+  "all sales blocked": 1,
+  "every candidate is blocked by consent, holdings or the contact cap": 2,
+  "no candidate has expected ΔCLV > 0": 4
+ },
+ "signal_counts": {
+  "S1": 6,
+  "S10": 1,
+  "S11": 4,
+  "S12": 2,
+  "S13": 6,
+  "S2": 2,
+  "S3": 5,
+  "S4": 7,
+  "S5": 1,
+  "S6": 4,
+  "S7": 3,
+  "S8": 5,
+  "S9": 7
+ },
+ "sources": {
+  "autostrom_contracts": {
+   "latency": "~24 h; card/app status near-real-time",
+   "refresh": "daily sync + events"
+  },
+  "call_transcripts": {
+   "latency": "~10-15 min after call",
+   "refresh": "event-driven"
+  },
+  "charge_sessions": {
+   "latency": "own stations minutes; roaming CDRs 1-72 h late",
+   "refresh": "event-driven"
+  },
+  "consent_status": {
+   "latency": "< 1 min (must be!)",
+   "refresh": "event-driven"
+  },
+  "customer_master": {
+   "latency": "< 5 min",
+   "refresh": "near-real-time (CDC)"
+  },
+  "customer_value": {
+   "latency": "~1 month",
+   "refresh": "monthly + on major events"
+  },
+  "energy_contracts": {
+   "latency": "2-26 h",
+   "refresh": "daily batch 02:00"
+  },
+  "hems_devices": {
+   "latency": "~1 h",
+   "refresh": "hourly sync"
+  },
+  "hems_telemetry_daily": {
+   "latency": "~24 h (raw 15 min)",
+   "refresh": "daily 00:30"
+  },
+  "mobile_contracts": {
+   "latency": "~24 h; usage alerts as events",
+   "refresh": "daily batch 03:00"
+  },
+  "nba_action_history": {
+   "latency": "~24 h",
+   "refresh": "daily"
+  },
+  "newsletter_campaigns": {
+   "latency": "~1 h",
+   "refresh": "per send"
+  },
+  "newsletter_performance": {
+   "latency": "1-2 h",
+   "refresh": "hourly"
+  },
+  "portal_sessions": {
+   "latency": "< 10 s",
+   "refresh": "streaming"
+  },
+  "product_catalog": {
+   "latency": null,
+   "refresh": "on change"
+  },
+  "service_interactions": {
+   "latency": "< 1 min",
+   "refresh": "event-driven"
+  },
+  "service_nba_feedback": {
+   "latency": "< 1 min",
+   "refresh": "event-driven"
+  },
+  "shop_orders": {
+   "latency": "< 1 min",
+   "refresh": "event-driven"
+  }
+ },
+ "urgency_counts": {
+  "P1": 7,
+  "P2": 5,
+  "P3": 6,
+  "P4": 10,
+  "P5": 12
+ },
+ "value_date": "2026-09-30"
+}

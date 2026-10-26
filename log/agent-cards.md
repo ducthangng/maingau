@@ -55,10 +55,13 @@ These are kept up to date and edited in place. Status values: `open`, `answered`
 | Q-CARDS-08 | Which KPIs go at the top of the worklist? | Jury deliverable | Caro (Marketing) | decided-default | Customers to act on, Σ expected ΔCLV of the view, outliers, blocked by rules (prompts/agent-cards.md §1.1) |
 | Q-CARDS-09 | The archetype draft's numbers do not match the data (README K13) | Wrong facts on screen | — | closed | Show only engine values; archetype rules and counts in README §6.13 |
 | Q-CARDS-10 | Deployment: static Vercel site reading `web/public/data/`; decisions in localStorage + export | Demo without a backend | — | closed | Decided 26 Oct |
-| Q-CARDS-11 | The bulk preview needs each customer's checklist result and contact cost, but `IndexRow` has neither (only `CustomerCard.checklist` and `valuation.contact_cost`). Default: on "Approve group" the UI loads `customers/<id>.json` for every selected row. Add `checklist_failed: list[ChecklistKey]` and `contact_cost` to `IndexRow`? | README §7.2: bulk approval refuses failing checklists; the preview shows Σ contact cost | Agent NBA | open | — |
-| Q-CARDS-12 | Worklist numbers (CLV, churn, ΔCLV, p) have no `src` / `updated_at`, and refresh/latency (`sources`) exist only inside each card. Default: a fixed column → `table.column` map in the UI. Add `sources` and the value date to `summary.json`? | "Every number has a source tooltip" also applies to the worklist | Agent NBA (owns `Summary`) | open | — |
-| Q-CARDS-13 | The static demo has no API to re-run the gates on an override. Default: only tuples present in `candidates` can be selected; anything else is refused, showing the matching `blocked` rule or "not evaluated by the engine" | An override must never select a blocked combination (README §6.10) | Agent KG (review) | decided-default | — |
-| Q-CARDS-14 | The sensitivity hint (prompt §1.4 item 5) has no field in `CustomerCard`; Agent NBA's ±20% check only goes into `out/test_report.md` (README §7.3 M3). Default: hidden | Never show a number the engine did not produce | Agent NBA | decided-default | — |
+| Q-CARDS-11 | The bulk preview needs each customer's checklist result and contact cost, but `IndexRow` has neither (only `CustomerCard.checklist` and `valuation.contact_cost`). Default: on "Approve group" the UI loads `customers/<id>.json` for every selected row. Add `checklist_failed: list[ChecklistKey]` and `contact_cost` to `IndexRow`? | README §7.2: bulk approval refuses failing checklists; the preview shows Σ contact cost | Agent NBA | answered | Added `IndexRow.contact_cost` and `checklist_failed` (commit 30dc4c9, by Agent KG for NBA, 26 Oct). The Groups screen uses them |
+| Q-CARDS-12 | Worklist numbers (CLV, churn, ΔCLV, p) have no `src` / `updated_at`, and refresh/latency (`sources`) exist only inside each card. Default: a fixed column → `table.column` map in the UI. Add `sources` and the value date to `summary.json`? | "Every number has a source tooltip" also applies to the worklist | Agent NBA (owns `Summary`) | answered | Added `Summary.sources`, `column_src` and `value_date` (commit 30dc4c9, 26 Oct). The worklist and Groups tooltips use them |
+| Q-CARDS-13 | The static demo has no API to re-run the gates on an override. Default: only tuples present in `candidates` can be selected; anything else is refused, showing the matching `blocked` rule or "not evaluated by the engine" | An override must never select a blocked combination (README §6.10) | Agent KG (review) | answered | Confirmed by Agent KG (26 Oct): static overrides only to tuples in `candidates` |
+| Q-CARDS-14 | The sensitivity hint (prompt §1.4 item 5) has no field in `CustomerCard`; Agent NBA's ±20% check only goes into `out/test_report.md` (README §7.3 M3). Default: hidden | Never show a number the engine did not produce | Agent NBA | answered | Confirmed by Agent KG (26 Oct): stays hidden |
+| Q-CARDS-15 | `load_workbook` leaves `portal_sessions.session_start`, `mobile_contracts.min_term_end` and `portal_sessions.offer_banner_shown` as strings (their names do not match the date/bool rules). `nba/profile` parses the two dates itself (`facts.to_datetime`). Add `_start`/`_end` to the date suffixes and `offer_banner_shown` to the bool columns? | Every agent that reads these columns must otherwise parse them again | Agent KG | open | — |
+| Q-CARDS-16 | `customer_value.clv_service_impact_eur` is always ≤ 0 in the data (a cost, e.g. −286). Spec A2 says "Service issues are costing €X"; the card shows it when the value is < 0, as €|X| | The banner would never show with an "if > 0" rule | Team | decided-default | — |
+| Q-CARDS-17 | KG explanation paths for P-SV-01 point to `ui_ref = product:service`, but the product grid has no service cell. Default: the left card anchors `product:service` on the service trend block | Path chips must always land somewhere | Agent KG | decided-default | — |
 
 ## Session entries
 
@@ -101,3 +104,91 @@ These are kept up to date and edited in place. Status values: `open`, `answered`
 - Agent KG: please confirm the Q-CARDS-13 default (only engine-gated tuples are selectable in static mode) in your review.
 
 **Next session starts with:** create `feat/cards` from `main`; scaffold `web/` (Vite + React + TypeScript + Tailwind + React Router, `vercel.json` with an SPA rewrite); generate `web/src/types/` from `docs/schema/*.json` with json-schema-to-typescript; then write mock `public/data/`, starting with MG-100325, MG-100001 and the 13 test customers, validated against the schema.
+
+### Session 2 · 2026-10-26 15:40–16:40 Europe/Berlin · Claude Code (Opus 5.5) + workflow `cards-demo-build` (10 subagents) · branch feat/cards · commits 20f066f..(this commit)
+
+**Goal:** M0 plus a first clickable demo ("simple demo first"): branch, Vite scaffold, TypeScript types from `docs/schema/`, data for about 40 customers, worklist → customer page → bulk approval with holdout → export.
+
+**Done:**
+- `web/` scaffold: Vite 6, React 18, TypeScript (strict), Tailwind v4 via `@tailwindcss/vite` with the CSS-first theme in `src/index.css`, React Router, and `vercel.json` with an SPA rewrite that excludes `/data` and `/assets`.
+  - `npm run types` (`web/scripts/gen-types.mjs`) generates `src/types/contracts.ts` from `docs/schema/*.json` and maps pydantic `Any` to `unknown`.
+  - `npm run check:data` (`web/scripts/check-data.mjs`) validates `public/data` against `docs/schema/` with ajv.
+- Shared UI foundation: `src/lib/data.ts` (cached loaders), `src/lib/format.ts` ("not enough data", € formats), `src/lib/decisions.ts` (localStorage decision log `maingau.decisions.v1`, CSV/JSON export, deterministic holdout by FNV-1a hash), `src/components/{Layout,Source,Chips}.tsx`, `src/pages/Customer.tsx`, and `src/types/trends.ts`.
+  - The source tooltip on every number shows `table.column`, the update time, and refresh/latency taken from `sources`.
+  - A MOCK DATA badge shows while `manifest.json` says `source: mock`.
+- Screens, built by the workflow (4 parallel builders, then integrate, 2 reviewers with adversarial verify, then fix):
+  - Worklist (`pages/Worklist.tsx`, `components/worklist/`): KPI strip, search, 8 filters, 5 saved views, group-by, outlier bar and badge, keyboard ↑/↓/Enter and `/`, URL-kept filters.
+  - Groups (`pages/Groups.tsx`, `components/groups/`): groups by `chosen_tuple`, a preview sheet with Ready / Needs a second look / Do no harm (A4 or service_critical rows cannot be ticked), a 10% holdout, "Approve N for hand-off" (never "send"), a decision log, CSV/JSON export and reset.
+  - Left card (`components/profile/`): header with Du/Sie evidence, triage banner, consent and exclusion traffic lights, value and risk, 6-cell product grid, highlights, signal chips, timeline, recharts trends with the "no CLV trend" note, and fatigue. `data-ui-ref` jump targets are on all of these.
+  - Right card (`components/nba/`): reason line, top action with a ΔCLV waterfall on `clv_now_model`, a p / 1 − p bar with evidence, notes, checklist, a German preview with a "nicht personalisiert" badge, clickable path chips, and Approve / Override… (only `candidates` tuples) / Reject (reason required). Then alternatives, blocked actions, legacy comparison, data quality and the audit log, plus service mode "Resolve first" with the agent script.
+- `nba/profile/` v0, built on the real snapshot: `infer_tone` (§6.8), `build_profile`, `build_timeline` and `profile_population`. Consent, channels and exclusions come from Agent KG's views (`nba.kg.rules`), so no rule is re-implemented. `config/cards.yaml` gained `trend_ranges`.
+- `web/mock/build_mock.py` writes `web/public/data` for 40 customers: 2 representative customers, 13 test customers and 25 picked to cover archetypes, tiers, flags, rules and checklist failures.
+  - Real parts: `nba.profile` plus `nba.kg.bundle.kg_bundle()` + `source_info()` + `COLUMN_SRC`.
+  - Mock parts (labelled in `manifest.json`): p_accept (rate mode), ΔCLV, ranking, chosen, alternatives, German copy and the legacy ΔCLV.
+  - It refuses to overwrite a folder that is not mock data (`--force` overrides; `--out` writes elsewhere).
+- My own fixes after the workflow:
+  - No sideways scroll at 375 px (Layout wraps; the Customer grid uses `minmax(0,1fr)`).
+  - "← Worklist" and Esc go back in history, so worklist filters survive.
+  - Money is formatted in English (`€1,440`, `+€18.93`) to match the reason lines.
+  - The blocked list puts the most telling rules first (exclusions, CONSENT-PROFILING, …, DATA-MISSING).
+- `tests/test_profile_card.py` (29 tests): all 750 profiles validate and the timeline is sorted newest first; facts of MG-100325 and MG-100001; complete left cards for the 13 test customers; tone rules on synthetic states (Kunde-only lines, sentence-start "Ihr", ≥ 2 newsletter clicks, profiling off → default Sie).
+
+**Verified:**
+- `.venv/bin/python -m pytest -q` → 69 passed (KG 40 + profile 29).
+- `npm run check:data` → 40 index rows, 40 cards, 0 failures. `npm run build` → OK. The only warning is the >500 kB chunk, mostly recharts.
+- `build_mock.py` run twice gives identical output; the guard exits 1 on a non-mock folder.
+- Test customer outcomes in the mock:
+  - MG-100009, MG-100659, MG-100096, MG-100186, MG-100004 → P-SV-01 (service mode).
+  - MG-100035, MG-100087 → NO_ACTION.
+  - MG-100023 → P-AS-01.
+  - MG-100112 → generic P-EN-01 by phone, +€14.87 (= K11).
+  - MG-100051, MG-100060 → P-EN-03 (MG-100060 by phone).
+  - MG-100012 → generic P-MO-01.
+  - MG-100068 → P-EN-02, ahead of P-EN-03 / P-SL-01 / P-AS-01.
+- Browser (Vite dev server on :5173), no console errors:
+  - Worklist and MG-100068 at 1280 px with no sideways scroll; the Consent path chip scrolls to and flashes `consent:newsletter_email`; Approve writes `MG-100068 approved P-EN-02|newsletter_email|sie ΔCLV 18.93`.
+  - MG-100009 shows "Resolve first" with the German agent script; MG-100035 shows "No action" with the reason.
+  - MG-100112 shows "nicht personalisiert", default Sie, and "S3 ignored … no profiling consent" at the top of the blocked list.
+  - The P-MO-01 portal group preview shows 5 ready, 2 for a second look, the holdout switch and "Approve 5 for hand-off".
+  - At 375 px the worklist and MG-100325 have no sideways scroll.
+  - Test decisions were removed from localStorage afterwards.
+- Workflow review: 17 findings, 12 confirmed by the verifiers, all 12 fixed. Fixed:
+  - prior reject/override pre-ticked in the group preview;
+  - Esc while typing a reason;
+  - HEMS null shown as 0 kWh;
+  - negative `guarantee_days_left`;
+  - former Autostrom shown as an opportunity;
+  - Marketing toggle stuck in service mode;
+  - missing tooltips on waterfall and audit numbers;
+  - service rows without p;
+  - unclear "No open service issue" for cancellation customers.
+
+**Not done / carried over:**
+- Switching to `python -m nba.build --export web/public/data` once Agent NBA delivers it.
+- Vercel deploy.
+- Hallway test for 30-second readability (Q-CARDS-07).
+- Code-splitting recharts.
+- Virtualised table for 750 rows (a plain table is fine for 40).
+- Real-data worklist for all 750 via `scripts/export_preview.py` (the demo uses the 40 mock customers).
+
+**Contract changes:** none by me. Contracts changed by Agent KG for Q-CARDS-11/12 (30dc4c9).
+
+**Questions to consider:** Q-CARDS-15 (unparsed workbook columns), Q-CARDS-16 (sign of `clv_service_impact_eur`), Q-CARDS-17 (`product:service` jump target).
+
+**Issues / risks:**
+- **Branch incident, my cause.** At session start I ran `git checkout -b feat/cards` in the shared folder `MAINGAU`. Agent KG was still committing there, so `fbf9a54` and `30dc4c9` were created on `feat/cards`; KG moved `main` to 30dc4c9 without force. KG's `git add -A` also swept my Session 1 log entry into `fbf9a54` (content unchanged). README §13 now gives every agent its own folder. I only ran `git merge --ff-only origin/main` here since.
+- A stale `out/.cache` workbook pickle (built by an older `data.py`) gave NaN strings in numeric columns, so 515 of 750 profiles failed. I deleted the git-ignored pickle and it was rebuilt; KG has since keyed the cache on the code too (99242f4).
+- The workflow subagents ran their own Vite servers (:5191, :5197) during checks; none are left running.
+
+**Handoff:**
+- Agent NBA:
+  - `from nba.profile import build_profile, build_timeline, infer_tone, profile_population`; pass `pop = profile_population(states)` (a superset of `nba.state.population` columns) to `build_profile`.
+  - `infer_tone(state)` loads the policy and campaign tonality once.
+  - Trend payload keys are documented in `nba/profile/trends.py` and `web/src/types/trends.ts`.
+  - Export with plain `model_dump(mode="json")` (no `exclude_none`) so the UI keeps explicit nulls.
+- Agent KG: Q-CARDS-15 and Q-CARDS-17.
+- Everyone:
+  - The UI reads `web/public/data/{index,summary}.json`, `customers/<id>.json` and the optional `manifest.json`. A real export must not contain `manifest.json`, so the MOCK DATA badge disappears.
+  - Run `npm run check:data` after any export.
+
+**Next session starts with:** merge `origin/main`; if Agent NBA's export is there, run `python -m nba.build --export web/public/data`, delete `manifest.json`, run `npm run check:data`, and check the 13 test customers in the browser.
