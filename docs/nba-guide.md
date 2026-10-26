@@ -159,10 +159,12 @@ curl -s -X POST 'localhost:8000/api/replay?until=2026-10-01T12:00:00' | jq '.aff
 ### 6.5 Run the UI
 
 ```bash
-cd web && npm run dev            # http://localhost:5173: Worklist, Groups
+.venv/bin/uvicorn api.app:app --port 8000      # terminal 1: the API (§6.4)
+cd web && npm run dev                          # terminal 2: http://localhost:5173: Worklist, Groups
 ```
 
-- The UI reads the static JSON in `web/public/data`. Run §6.3 with `--export web/public/data` to show the engine's real decisions instead of the mock data.
+- **Live API** (badge top right): with the API running, the UI reads `/api/*` through the Vite proxy (`MAINGAU_API` changes the target, `VITE_API_BASE` calls another origin directly). Every approve, override and reject is posted to `POST /api/customers/{id}/decision`; a refusal (409) is shown with its rule IDs and the decision is not kept.
+- **Static** (badge): without the API, or with `VITE_STATIC=1` (Vercel), the UI reads the JSON in `web/public/data` and decisions stay in the browser. Run §6.3 with `--export web/public/data` after any engine change so the static demo shows the engine's current decisions.
 - The **Rule Center card** (`/rules`) is on the temporary branch `feat/rule-card`: `git switch feat/rule-card` in your own folder, or open a separate worktree (README §13).
 - Ticks and added rules are kept in the browser until the page is wired to `/api/rules`.
 

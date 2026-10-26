@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { loadManifest, loadSummary, useLoad } from "../lib/data";
+import { dataMode, loadManifest, loadSummary, useLoad } from "../lib/data";
+import DecisionErrors from "./DecisionErrors";
 
 const navClass = ({ isActive }: { isActive: boolean }) =>
   `rounded-md px-3 py-1.5 text-sm transition-colors duration-150 ${
@@ -9,6 +10,7 @@ const navClass = ({ isActive }: { isActive: boolean }) =>
 export default function Layout() {
   const manifest = useLoad(loadManifest, []);
   const summary = useLoad(loadSummary, []);
+  const mode = useLoad(dataMode, []);
   const isMock = manifest.status === "ready" && manifest.data?.source === "mock";
 
   return (
@@ -32,7 +34,19 @@ export default function Layout() {
               Groups
             </NavLink>
           </nav>
-          <span className="ml-auto text-xs text-neutral-500">
+          <span className="ml-auto flex items-center gap-2 text-xs text-neutral-500">
+            {mode.status === "ready" && (
+              <span
+                className={`rounded-full px-2 py-0.5 font-medium ${mode.data === "api" ? "bg-emerald-50 text-emerald-700" : "bg-neutral-100 text-neutral-600"}`}
+                title={
+                  mode.data === "api"
+                    ? "Live NBA API: decisions are re-checked and stored in out/decision_log.jsonl"
+                    : "Static export: decisions stay in this browser"
+                }
+              >
+                {mode.data === "api" ? "Live API" : "Static"}
+              </span>
+            )}
             {summary.status === "ready" ? `Snapshot ${summary.data.eval_time.replace("T", " ")}` : ""}
           </span>
         </div>
@@ -40,6 +54,7 @@ export default function Layout() {
       <main className="mx-auto max-w-[1400px] px-4 py-6 sm:px-6">
         <Outlet />
       </main>
+      <DecisionErrors />
     </div>
   );
 }
