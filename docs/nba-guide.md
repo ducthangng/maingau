@@ -25,7 +25,7 @@ A marketer approves, changes or rejects the proposal. **Nothing is sent automati
 | 1. Load | Read the workbook and check it against `kg/data_contract.yaml`. Build one state per customer at the evaluation time (the end of the latest `clv_calc_date`) | snapshot 30.09.2026 23:59:59 |
 | 2. Signal → need → offer | 13 signals (S1–S13) read the data. The knowledge graph maps each signal to a need and each need to offers (`kg/policy.yaml`) | **S3**: bought a Wallbox on 14.08.2025 but has no Autostrom → need *EV charging* → **P-AS-01 MAINGAU Autostrom** |
 | 3. Hard rules (tier 1) | Consent per channel, double opt-in, unsubscribe, profiling consent, dunning, cancellation, open ticket, never offer what they own | e-mail consent withdrawn and no app → both channels dropped |
-| 4. Value each offer × channel | p = chance to buy, from past conversions. CLV now, if they buy, and if they do not (10 years, 6% discount, churn model) | portal pop-up: p 1.6%; CLV €577 now, €1,017 if they buy, €577 if not; contact cost €0 |
+| 4. Value each offer × channel | p = chance to buy, from past conversions, then calibrated by k = buys observed / buys expected for that offer × channel × tone. CLV now, if they buy, and if they do not (10 years, 6% discount, churn model) | portal pop-up: p 1.6%; CLV €577 now, €1,017 if they buy, €577 if not; contact cost €0 |
 | 5. Expected gain | **ΔCLV = p·(CLV if bought − CLV now) + (1 − p)·(CLV if not − CLV now) − contact cost** | 0.016 × (1,017 − 577) − 0 ≈ **+€7.12** |
 | 6. Business rules (tier 2) | Frequency limits, cooldowns, minimum value per channel, call capacity. A rule **blocks** a tuple, or **holds it back** until the earliest allowed day | newsletter held back: 6 of max 5 e-mails in 90 days (B-01) |
 | 7. Choose | The best ΔCLV allowed **now**. If none, the best held-back one with its waiting date. If nothing has ΔCLV > 0: no action | **P-AS-01 · portal pop-up · Sie**, at the next login |
@@ -175,6 +175,7 @@ cd web && npm run dev                          # terminal 2: http://localhost:51
 | `.venv/bin/python scripts/replay_demo.py` | Event replay report (`out/replay_report.md`) |
 | `.venv/bin/python -m nba.rules export` → edit `rules.yaml` → `diff` → `apply --by "Name"` | Change rules as plain-language cards; `diff` shows who changes and checks the hard rules |
 | `.venv/bin/python scripts/policy_diff.py` | Which customers change decision after an edit to `kg/policy.yaml` |
+| `.venv/bin/python scripts/export_kg_viz.py` | Graph data for the decision-graph viewer: the ontology, the policy layer and eight demo customers' decision paths (`out/kg_viz.json`) |
 | `.venv/bin/python -m nba.learn run` | Feedback loop: which offers work, compared with the control group |
 | `.venv/bin/python -m pytest -q tests/` | All tests (about 90 s), including the reference customers in both p modes |
 

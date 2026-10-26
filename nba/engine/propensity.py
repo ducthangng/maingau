@@ -16,6 +16,9 @@ class Propensity:
     rate_treated: float
     uplift: float
     baseline_level: str
+    k: float | None = None  # calibration factor applied (None = not calibrated)
+    k_actual: int = 0  # buys observed in the offer × channel × tone group
+    k_expected: float = 0.0  # buys the model expected for the same sends
 
 
 class HistoryIndex:
@@ -45,7 +48,49 @@ def override_for(offer_id, channel, tone, cfg: EngineConfig):
     return None
 
 
+def calibration_factor(actual: float, expected: float, settings: dict) -> float:
+    """k = buys observed / buys the model expected for one offer × channel × tone group (whiteboard 27 Oct:
+    p_new = p × k). Pulled toward 1 by `prior_buys` pseudo-buys, so a group with little evidence keeps k ≈ 1,
+    and kept within [min_k, max_k]. Example: 3 bought where 10 were expected gives 0.3 with no prior, 0.53 with 5."""
+    m = float(settings.get("prior_buys", 5))
+    k = (actual + m) / (expected + m) if expected + m > 0 else 1.0
+    return min(float(settings.get("max_k", 3.0)), max(float(settings.get("min_k", 0.2)), k))
+
+
+def _index(history, cfg: EngineConfig) -> HistoryIndex:
+    if isinstance(history, HistoryIndex):
+        return history
+    if history is cfg.history:
+        if cfg._history_index is None:
+            cfg._history_index = HistoryIndex(history)
+        return cfg._history_index
+    return HistoryIndex(history)
+
+
 def p_accept(offer_id, channel, tone, history, cfg: EngineConfig, *, generic=False) -> Propensity:
+    """The engine's chance to buy, then calibrated by its own track record for this offer × channel × tone
+    (config/nba.yaml `calibration`). Catalog offers keep the catalog average (D1); reviewed overrides and the
+    service assumption are not calibrated."""
+    prop = _estimate(offer_id, channel, tone, history, cfg, generic=generic)
+    cal = cfg.settings.get("calibration") or {}
+    if generic or not cal.get("active") or prop.source.mode == "assumption":
+        return prop
+    index = _index(history, cfg)
+    n, conv = index.treated[(offer_id, channel, tone)]
+    if not n:
+        return prop
+    rate_p = prop.p_accept if cfg.p_mode == "rate" else _estimate(offer_id, channel, tone, index, cfg, mode="rate").p_accept
+    expected = n * rate_p
+    k = calibration_factor(conv, expected, cal)
+    if cfg.p_mode == "rate":
+        p = min(1.0, prop.p_accept * k)
+    else:  # uplift: calibrate the buying rate, then subtract the control baseline again
+        p = max(0.0, prop.rate_treated * k - (prop.source.baseline_control or 0.0))
+    return replace(prop, p_accept=p, k=k, k_actual=conv, k_expected=expected,
+                   source=prop.source.model_copy(update={"k": round(k, 4)}))
+
+
+def _estimate(offer_id, channel, tone, history, cfg: EngineConfig, *, generic=False, mode=None) -> Propensity:
     found = override_for(offer_id, channel, tone, cfg)
     if found:
         key, o = found
@@ -57,19 +102,12 @@ def p_accept(offer_id, channel, tone, history, cfg: EngineConfig, *, generic=Fal
     if offer_id == "P-SV-01":
         p = float(cfg.settings["p_service_success"])
         return Propensity(p, "low", PSource(mode="assumption", level="assumption"), p, 0.0, "assumption")
-    if isinstance(history, HistoryIndex):
-        index = history
-    elif history is cfg.history:
-        if cfg._history_index is None:
-            cfg._history_index = HistoryIndex(history)
-        index = cfg._history_index
-    else:
-        index = HistoryIndex(history)
+    index = _index(history, cfg)
     ng, cg = index.treated[()]
     ncg, ccg = index.control[()]
     if not ng or not ncg:
         raise MissingDataError("Not enough data: nba_action_history treated/control observations")
-    mode, n_min = cfg.p_mode, int(cfg.settings["n_min"])
+    mode, n_min = mode or cfg.p_mode, int(cfg.settings["n_min"])
     key, level = (), "global"
     if not generic:
         for candidate_key, candidate_level in (

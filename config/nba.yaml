@@ -11,6 +11,11 @@ p_service_success: 0.5             # P-SV-01 assumption (K2)
 generic_p_level: global            # generic offers use the catalog-wide average (D1)
 # Q-NBA-10: keep unchecked legacy outcomes as observations; current consent is always gated separately.
 
+# Calibration (whiteboard 27 Oct): per offer × channel × tone, k = buys observed / buys the model expected,
+# pulled toward 1 by prior_buys pseudo-buys and kept within [min_k, max_k]; p_new = p × k.
+# Not applied to catalog offers (D1: catalog average), the service assumption or reviewed overrides.
+calibration: {active: true, prior_buys: 5, min_k: 0.2, max_k: 3.0}
+
 confidence:
   high_min_n: 100
   medium_min_n: 30

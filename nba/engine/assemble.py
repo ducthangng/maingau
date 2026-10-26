@@ -41,6 +41,9 @@ def value_candidate(candidate, state, cfg, *, p_scale=1.0, margin_scale=1.0, pol
         evidence = (f"Observed conversions {src.conv_treated}/{src.n_treated}, level {src.level}, mode {src.mode}; "
                     f"control group {src.conv_control}/{src.n_control}, baseline used {src.baseline_control:.2%} "
                     f"({p.baseline_level.removeprefix('lookalike:')}); descriptive difference {p.uplift:.2%}, not causal uplift")
+    if p.k is not None and abs(p.k - 1) >= 0.01:
+        evidence += (f"; calibrated ×{p.k:.2f}: {p.k_actual} bought where the model expected {p.k_expected:.1f} "
+                     f"for this offer × channel × tone")
     if look is not None:
         evidence += f". {look.evidence()}"
     notes = list(candidate.notes)
