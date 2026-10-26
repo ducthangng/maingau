@@ -201,3 +201,21 @@ export function asOf(summary: Summary | null, src: string): string | null {
   if (!summary) return null;
   return src.startsWith("customer_value") ? (summary.value_date ?? summary.eval_time) : summary.eval_time;
 }
+
+// ---------------------------------------------------------------- action queues
+
+// The worklist is a review queue: what still needs a human decision comes first. A queue only
+// combines the engine's proposal with the local decision log; nothing is re-ranked.
+export type QueueId = "todo" | "done" | "hold" | "all";
+
+export const QUEUES: { id: QueueId; label: string; hint: string }[] = [
+  { id: "todo", label: "To review", hint: "The engine proposed an action and nobody has decided yet" },
+  { id: "done", label: "Decided", hint: "Approved, overridden or rejected in this browser" },
+  { id: "hold", label: "Do not contact", hint: "No action passed the rules; nothing to decide" },
+  { id: "all", label: "All", hint: "Every customer in the snapshot" },
+];
+
+export function queueOf(r: IndexRow, decided: boolean): Exclude<QueueId, "all"> {
+  if (!isActionable(r)) return "hold";
+  return decided ? "done" : "todo";
+}

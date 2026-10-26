@@ -1,137 +1,184 @@
-import { ArrowRight } from "lucide-react";
+import { Fragment, useState } from "react";
+import { ArrowRight, Ban, Check, LifeBuoy, Package, Maximize2, X, Zap } from "lucide-react";
 import { Link } from "react-router-dom";
-import { ConfidenceDot, FlagBadge, TierChip } from "../Chips";
+import { TierChip } from "../Chips";
 import { Sourced } from "../Source";
-import type { Decision } from "../../lib/decisions";
-import { NOT_ENOUGH, eur, isMissing, pct, signedEur, tupleLabel } from "../../lib/format";
+import { ChannelIcon, ConfidenceBars, DECISION_META, FlagIcons, Signed, ValueBar, dirOf } from "../viz";
+import { decideRow, type Decision } from "../../lib/decisions";
+import { CHANNEL_LABEL, eur, isMissing, pct, signedEur, tupleLabel } from "../../lib/format";
 import type { IndexRow, Summary } from "../../types/contracts";
 import { NO_ACTION, OFFER_NAME, asOf, colSrc, isNoAction, type Group } from "./model";
 
-const MAX_FLAGS = 3;
+// Action-first worklist: each row says why now, what to do, what it is worth, and lets the
+// reviewer decide on the spot. Archetype, CLV and churn sit in the row tooltip and the pop-up.
 
-// Fixed column widths keep the table inside 1280 px; "Top reason" takes what is left.
-const COLS: { label: string; width?: number; align?: "right"; title?: string }[] = [
-  { label: "Tier", width: 48 },
-  { label: "Customer", width: 116 },
-  { label: "Archetype", width: 116 },
-  { label: "Top reason" },
-  { label: "Recommended action", width: 172 },
-  { label: "Exp. ΔCLV", width: 92, align: "right", title: "Expected change in customer lifetime value" },
-  { label: "Success", width: 64, align: "right", title: "Success probability (p accept)" },
-  { label: "Confidence", width: 80 },
-  { label: "Flags", width: 128 },
-  { label: "CLV", width: 72, align: "right", title: "Customer lifetime value" },
-  { label: "Churn", width: 58, align: "right", title: "Churn probability, 12 months" },
-  { label: "Status", width: 88 },
-];
-
-const STATUS_STYLE: Record<string, string> = {
-  proposed: "bg-neutral-100 text-neutral-600",
-  approved: "bg-emerald-50 text-emerald-700",
-  overridden: "bg-accent-50 text-accent-700",
-  rejected: "bg-red-50 text-red-700",
+// Row tint by urgency tier: the hotter the row, the warmer the background (the tier chip names it).
+const TIER_ROW: Record<string, string> = {
+  P1: "bg-red-50",
+  P2: "bg-orange-50/80",
+  P3: "bg-amber-50/70",
+  P4: "bg-sky-50/50",
+  P5: "bg-white",
 };
 
-function Missing() {
-  return <span className="text-xs text-neutral-400 italic">{NOT_ENOUGH}</span>;
-}
+const COLS: { label: string; width?: number; align?: "right"; title?: string }[] = [
+  { label: "", width: 60 },
+  { label: "Customer · why now" },
+  { label: "Recommended action", width: 200 },
+  { label: "Expected value", width: 190, title: "Expected ΔCLV (bars share one scale) and the chance of success vs the median proposal" },
+  { label: "", width: 190, align: "right" },
+];
 
-/** A number from index.json with its source tooltip; "—" when the engine proposed no action. */
-function NumCell({
-  row,
-  field,
-  format,
-  summary,
-  valuation = false,
-  className = "",
-}: {
-  row: IndexRow;
-  field: "delta_clv" | "p_accept" | "clv_eur" | "churn";
-  format: (v: number) => string;
-  summary: Summary | null;
-  valuation?: boolean;
-  className?: string;
-}) {
-  const v = row[field];
-  if (valuation && isNoAction(row) && isMissing(v)) {
-    return (
-      <span title="No action proposed, so there is no valuation" className="text-neutral-300">
-        —
-      </span>
-    );
-  }
-  const src = colSrc(summary, field);
+/** "electricity price guarantee ends … [S4]" → without the bracketed ids (they stay in the tooltip). */
+const plain = (s: string) => s.replace(/\s*\[[A-Z0-9-]+\]/g, "").trim();
+
+function WhyCell({ row }: { row: IndexRow }) {
+  const reason = row.top_reason ? plain(row.top_reason) : null;
+  const [Icon, tone, kind] = isNoAction(row)
+    ? [Ban, "bg-neutral-100 text-neutral-500", "Blocked"]
+    : row.service_mode
+      ? [LifeBuoy, "bg-amber-50 text-amber-700", "Service issue"]
+      : (row.triggers?.length ?? 0) > 0 && row.personalised !== false
+        ? [Zap, "bg-accent-50 text-accent-700", "Signal"]
+        : [Package, "bg-neutral-100 text-neutral-500", "Generic catalog offer"];
   return (
-    <Sourced src={src} updatedAt={asOf(summary, src)} sources={summary?.sources}>
-      {isMissing(v) ? <Missing /> : <span className={className}>{format(v)}</span>}
-    </Sourced>
+    <div className="flex min-w-0 items-center gap-2" title={[kind, row.top_reason].filter(Boolean).join(": ")}>
+      <span className={`grid size-5 shrink-0 place-items-center rounded ${tone}`} aria-label={kind} role="img">
+        <Icon size={12} aria-hidden />
+      </span>
+      <span className="truncate text-xs text-neutral-500">{reason ?? (row.personalised === false ? "No trigger: generic offer" : "–")}</span>
+    </div>
   );
 }
 
 function ActionCell({ row }: { row: IndexRow }) {
   if (isNoAction(row)) {
-    const why = row.exclusions?.length ? row.exclusions.join(", ") : row.checklist_failed?.length ? row.checklist_failed.join(", ") : null;
+    const why = row.exclusions?.length ? row.exclusions.join(", ") : row.checklist_failed?.join(", ");
     return (
-      <div className="min-w-0">
-        <div className="text-neutral-500">No action</div>
-        {why && (
-          <div className="truncate text-xs text-neutral-400" title={why}>
-            {why}
-          </div>
-        )}
-      </div>
+      <span className="text-[13px] text-neutral-500" title={why ?? undefined}>
+        Do not contact
+      </span>
     );
   }
   const name = OFFER_NAME[row.chosen_offer] ?? row.chosen_offer;
   return (
-    <div className="min-w-0">
-      <div className="flex min-w-0 items-center gap-1.5">
-        <span className="truncate font-medium text-neutral-900" title={name}>
-          {name}
-        </span>
-        {row.service_mode ? (
-          <span className="shrink-0 rounded bg-neutral-100 px-1 text-[11px] text-neutral-600">service</span>
-        ) : row.personalised === false ? (
-          <span className="shrink-0 rounded bg-neutral-100 px-1 text-[11px] text-neutral-600" title="nicht personalisiert: generic catalog offer">
-            generic
+    <div className="flex min-w-0 items-center gap-1.5" title={`${tupleLabel(row.chosen_tuple)}\n${CHANNEL_LABEL[row.channel ?? ""] ?? row.channel}`}>
+      <span className="grid size-5 shrink-0 place-items-center rounded bg-neutral-900 text-white">
+        <ChannelIcon channel={row.channel} size={12} />
+      </span>
+      <span className="truncate text-[13px] font-medium text-neutral-900">{name}</span>
+      <span className="shrink-0 text-[11px] text-neutral-400">{row.tone === "du" ? "Du" : "Sie"}</span>
+    </div>
+  );
+}
+
+/** Expected ΔCLV and its chance in one cell: value on top, shared-scale bar, chance vs the median below. */
+function ValueCell({ row, max, median, summary }: { row: IndexRow; max: number; median: number | null; summary: Summary | null }) {
+  const v = row.delta_clv;
+  const p = row.p_accept;
+  if (isNoAction(row) || isMissing(v)) return <span className="text-neutral-300">—</span>;
+  const src = colSrc(summary, "delta_clv");
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-baseline justify-between gap-3">
+        <Sourced src={src} updatedAt={asOf(summary, src)} sources={summary?.sources}>
+          <Signed dir={dirOf(v)} className="text-[13px] font-medium text-neutral-900">
+            {signedEur(v)}
+          </Signed>
+        </Sourced>
+        {!isMissing(p) && (
+          <span
+            className="inline-flex items-center gap-1.5 text-[11px] text-neutral-500"
+            title={`Chance ${pct(p)}${median !== null ? ` vs median of proposals ${pct(median)}` : ""} · ${row.confidence ?? "unknown"} confidence`}
+          >
+            {median !== null ? <Signed dir={dirOf(p, median, 0.0005)}>{pct(p)}</Signed> : pct(p)}
+            <ConfidenceBars confidence={row.confidence} />
           </span>
-        ) : null}
+        )}
       </div>
-      <div className="truncate text-xs text-neutral-500" title={tupleLabel(row.chosen_tuple)}>
-        {tupleLabel(row.chosen_tuple ?? row.chosen_offer)}
-      </div>
+      <ValueBar value={v} max={max} />
     </div>
   );
 }
 
-function Flags({ flags }: { flags: string[] }) {
-  if (!flags.length) return <span className="text-neutral-300">—</span>;
-  const shown = flags.slice(0, MAX_FLAGS);
-  const rest = flags.slice(MAX_FLAGS);
+const btn = "inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium transition-colors duration-150";
+
+/** Two buttons only: Approve the engine's proposal, or Expand into the pop-up for everything else. */
+function DecisionCell({ row, decision, onOpen }: { row: IndexRow; decision: Decision | undefined; onOpen: () => void }) {
+  const stop = (fn: () => void) => (e: React.MouseEvent) => {
+    e.stopPropagation();
+    fn();
+  };
+  const expand = (
+    <button
+      type="button"
+      onClick={stop(onOpen)}
+      title="Expand: graph, override or reject (Enter)"
+      className={`${btn} bg-white text-neutral-700 ring-1 ring-inset ring-neutral-200 hover:bg-neutral-50 hover:text-neutral-900`}
+    >
+      <Maximize2 size={12} aria-hidden /> Expand
+    </button>
+  );
+  let main: React.ReactNode = null;
+  if (decision) {
+    const m = DECISION_META[decision.action];
+    const Icon = m.icon ?? Check;
+    main = (
+      <span className={`inline-flex items-center gap-1 text-xs font-medium ${m.text}`} title={`${m.label} by ${decision.reviewer}${decision.reason ? `\n${decision.reason}` : ""}`}>
+        <Icon size={14} aria-hidden /> {m.label}
+      </span>
+    );
+  } else if (!isNoAction(row)) {
+    main = (
+      <button type="button" onClick={stop(() => decideRow(row, "approved"))} className={`${btn} bg-accent-600 text-white hover:bg-accent-700`} title="Approve (A)">
+        <Check size={13} aria-hidden /> Approve
+      </button>
+    );
+  }
   return (
-    <div className="flex flex-wrap gap-1">
-      {shown.map((f) => (
-        <FlagBadge key={f} id={f} title={f.replace(/_/g, " ")} />
-      ))}
-      {rest.length > 0 && (
-        <span className="rounded px-1 py-0.5 text-[11px] text-neutral-500" title={rest.map((f) => f.replace(/_/g, " ")).join(", ")}>
-          +{rest.length}
-        </span>
-      )}
+    <div className="flex items-center justify-end gap-2">
+      {main}
+      {expand}
     </div>
   );
 }
 
-function StatusPill({ decision }: { decision: Decision | undefined }) {
-  const status = decision?.action ?? "proposed";
-  const title = decision
-    ? `${decision.action} by ${decision.reviewer} at ${decision.ts.replace("T", " ").slice(0, 16)}${decision.reason ? `\n${decision.reason}` : ""}`
-    : "Proposed by the engine, not yet reviewed";
+function RejectRow({ row, onDone }: { row: IndexRow; onDone: () => void }) {
+  const [reason, setReason] = useState("");
+  const submit = () => {
+    if (!reason.trim()) return;
+    decideRow(row, "rejected", reason.trim());
+    onDone();
+  };
   return (
-    <div title={title}>
-      <span className={`inline-flex rounded-full px-2 py-0.5 text-xs ${STATUS_STYLE[status] ?? STATUS_STYLE.proposed}`}>{status}</span>
-      {decision?.holdout && <div className="mt-0.5 text-[11px] text-neutral-400">holdout</div>}
-    </div>
+    <tr className="bg-red-50/40">
+      <td colSpan={COLS.length} className="px-4 py-2.5">
+        <form
+          className="flex items-center gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            submit();
+          }}
+        >
+          <X size={14} className="text-red-600" aria-hidden />
+          <input
+            autoFocus
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            onKeyDown={(e) => e.key === "Escape" && onDone()}
+            placeholder={`Why reject ${OFFER_NAME[row.chosen_offer] ?? row.chosen_offer} for ${row.customer_id}? (required)`}
+            aria-label="Reject reason"
+            className="min-w-0 flex-1 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm placeholder:text-neutral-400 focus:border-red-400 focus:ring-2 focus:ring-red-100 focus:outline-none"
+          />
+          <button type="submit" disabled={!reason.trim()} className={`${btn} bg-red-600 py-1.5 text-white hover:bg-red-700 disabled:opacity-40`}>
+            Confirm reject
+          </button>
+          <button type="button" onClick={onDone} className={`${btn} py-1.5 text-neutral-600 hover:bg-neutral-100`}>
+            Cancel
+          </button>
+        </form>
+      </td>
+    </tr>
   );
 }
 
@@ -140,138 +187,112 @@ function Row({
   summary,
   decision,
   highlighted,
+  rejecting,
+  max,
+  median,
   onOpen,
+  onReject,
 }: {
   row: IndexRow;
   summary: Summary | null;
   decision: Decision | undefined;
   highlighted: boolean;
+  rejecting: boolean;
+  max: number;
+  median: number | null;
   onOpen: (id: string) => void;
+  onReject: (id: string | null) => void;
 }) {
   const outlier = row.outlier === true;
+  const tint = decision ? "bg-white opacity-60" : isNoAction(row) ? "bg-neutral-50 text-neutral-500" : TIER_ROW[row.urgency_tier ?? "P5"];
+  const context = [
+    row.archetype_name && `${row.archetype} · ${row.archetype_name}`,
+    !isMissing(row.clv_eur) && `CLV ${eur(row.clv_eur)}`,
+    !isMissing(row.churn) && `churn ${pct(row.churn, 0)}`,
+    row.city,
+  ]
+    .filter(Boolean)
+    .join("\n");
   return (
-    <tr
-      data-row-id={row.customer_id}
-      aria-selected={highlighted}
-      onClick={() => onOpen(row.customer_id)}
-      className={`cursor-pointer border-t border-neutral-100 align-top transition-colors duration-150 ${
-        highlighted ? "bg-accent-50" : "hover:bg-neutral-50"
-      }`}
-    >
-      <td className={`border-l-4 py-2.5 pr-2 pl-3 ${outlier ? "border-l-red-500" : "border-l-transparent"}`}>
-        <TierChip tier={row.urgency_tier} />
-        {!isMissing(row.urgency_score) && (
-          <div className="mt-1 text-[11px] text-neutral-400 tabular-nums">
-            <Sourced src={colSrc(summary, "urgency_score")} updatedAt={summary?.eval_time} sources={summary?.sources}>
-              {row.urgency_score.toFixed(0)}
-            </Sourced>
+    <Fragment>
+      <tr
+        data-row-id={row.customer_id}
+        aria-selected={highlighted}
+        onClick={() => onOpen(row.customer_id)}
+        className={`cursor-pointer border-t border-white/80 transition-[filter] duration-150 hover:brightness-[0.97] ${tint} ${
+          highlighted ? "outline-2 -outline-offset-2 outline-accent-500" : ""
+        }`}
+      >
+        <td className={`border-l-4 py-3 pr-2 pl-4 ${outlier ? "border-l-red-500" : "border-l-transparent"}`}>
+          <TierChip tier={row.urgency_tier} />
+        </td>
+        <td className="px-3 py-3" title={context}>
+          <Link
+            to={`/customer/${row.customer_id}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              // Plain click opens the pop-up; Cmd/Ctrl-click still opens the full page in a new tab.
+              if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+              e.preventDefault();
+              onOpen(row.customer_id);
+            }}
+            className="font-medium text-neutral-900 tabular-nums hover:text-accent-700 hover:underline"
+          >
+            {row.customer_id}
+          </Link>
+          <span className="ml-1.5 inline-flex align-middle">
+            <FlagIcons flags={row.flags ?? []} />
+          </span>
+          <div className="mt-1.5">
+            <WhyCell row={row} />
           </div>
-        )}
-      </td>
-      <td className="px-2 py-2.5">
-        <Link
-          to={`/customer/${row.customer_id}`}
-          onClick={(e) => e.stopPropagation()}
-          className="font-medium text-neutral-900 tabular-nums hover:text-accent-700 hover:underline"
-        >
-          {row.customer_id}
-        </Link>
-        <div className="mt-0.5 flex flex-wrap items-center gap-1 text-xs text-neutral-500">
-          {row.city && (
-            <Sourced src={colSrc(summary, "city")} updatedAt={summary?.eval_time} sources={summary?.sources}>
-              {row.city}
-            </Sourced>
-          )}
-          {outlier && <span className="rounded bg-red-600 px-1.5 py-px text-[11px] font-medium text-white">Outlier</span>}
-        </div>
-      </td>
-      <td className="px-2 py-2.5">
-        {row.archetype ? (
-          <div className="min-w-0" title={row.archetype_name ?? row.archetype}>
-            <span className="text-xs font-semibold text-neutral-500 tabular-nums">{row.archetype}</span>
-            <div className="line-clamp-2 text-[13px] leading-snug text-neutral-700">{row.archetype_name ?? NOT_ENOUGH}</div>
-          </div>
-        ) : (
-          <Missing />
-        )}
-      </td>
-      <td className="px-2 py-2.5">
-        {row.top_reason ? (
-          <p className="line-clamp-2 text-[13px] leading-snug text-neutral-700" title={row.top_reason}>
-            {row.top_reason}
-          </p>
-        ) : (
-          <Missing />
-        )}
-      </td>
-      <td className="px-2 py-2.5 text-[13px]">
-        <ActionCell row={row} />
-      </td>
-      <td className="px-2 py-2.5 text-right tabular-nums">
-        <NumCell
-          row={row}
-          field="delta_clv"
-          format={signedEur}
-          summary={summary}
-          valuation
-          className={`font-medium ${(row.delta_clv ?? 0) < 0 ? "text-red-700" : "text-neutral-900"}`}
-        />
-      </td>
-      <td className="px-2 py-2.5 text-right tabular-nums">
-        <NumCell row={row} field="p_accept" format={(v) => pct(v)} summary={summary} valuation />
-      </td>
-      <td className="px-2 py-2.5">
-        <ConfidenceDot confidence={row.confidence} />
-      </td>
-      <td className="px-2 py-2.5">
-        <Flags flags={row.flags ?? []} />
-      </td>
-      <td className="px-2 py-2.5 text-right text-neutral-700 tabular-nums">
-        <NumCell row={row} field="clv_eur" format={(v) => eur(v)} summary={summary} />
-      </td>
-      <td className="px-2 py-2.5 text-right text-neutral-700 tabular-nums">
-        <NumCell row={row} field="churn" format={(v) => pct(v, 0)} summary={summary} />
-      </td>
-      <td className="py-2.5 pr-3 pl-2">
-        <StatusPill decision={decision} />
-      </td>
-    </tr>
+        </td>
+        <td className="px-3 py-3">
+          <ActionCell row={row} />
+        </td>
+        <td className="px-3 py-3">
+          <ValueCell row={row} max={max} median={median} summary={summary} />
+        </td>
+        <td className="py-3 pr-4 pl-3">
+          <DecisionCell row={row} decision={decision} onOpen={() => onOpen(row.customer_id)} />
+        </td>
+      </tr>
+      {rejecting && !decision && <RejectRow row={row} onDone={() => onReject(null)} />}
+    </Fragment>
   );
 }
 
 function GroupHeader({ group, summary }: { group: Group; summary: Summary | null }) {
   const noAction = group.tuple === NO_ACTION;
   const offer = noAction ? null : group.tuple.split("|")[0];
+  const channel = noAction ? null : group.tuple.split("|")[1];
   const src = colSrc(summary, "delta_clv");
   const service = !noAction && group.rows.some((r) => r.service_mode);
   return (
     <tr className="border-t border-neutral-200 bg-neutral-50">
       <td colSpan={COLS.length} className="px-3 py-2">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-          <span className="font-semibold text-neutral-900">{noAction ? "No action" : (OFFER_NAME[offer ?? ""] ?? offer)}</span>
-          {!noAction && <span className="text-neutral-500">{tupleLabel(group.tuple)}</span>}
+          {channel && <ChannelIcon channel={channel} size={15} className="text-neutral-500" />}
+          <span className="font-semibold text-neutral-900">{noAction ? "Do not contact" : (OFFER_NAME[offer ?? ""] ?? offer)}</span>
           <span className="rounded-full bg-white px-2 py-0.5 text-xs text-neutral-600 ring-1 ring-neutral-200 ring-inset tabular-nums">
-            {group.rows.length} customer{group.rows.length === 1 ? "" : "s"}
+            {group.rows.length}
           </span>
-          {!noAction && (
-            <span className="text-neutral-600 tabular-nums">
-              Σ ΔCLV{" "}
-              <Sourced src={src} updatedAt={asOf(summary, src)} sources={summary?.sources}>
-                <span className="font-medium text-neutral-900">{group.sum === null ? NOT_ENOUGH : signedEur(group.sum)}</span>
-              </Sourced>
-            </span>
+          {!noAction && group.sum !== null && (
+            <Sourced src={src} updatedAt={asOf(summary, src)} sources={summary?.sources}>
+              <Signed dir={dirOf(group.sum)} className="font-medium text-neutral-900">
+                {signedEur(group.sum)}
+              </Signed>
+            </Sourced>
           )}
           {group.reviewable ? (
             <Link
               to={`/groups?tuple=${encodeURIComponent(group.tuple)}`}
               className="ml-auto inline-flex items-center gap-1 rounded-md px-2 py-0.5 font-medium text-accent-600 transition-colors duration-150 hover:bg-accent-50 hover:text-accent-700"
             >
-              Review group <ArrowRight className="size-3.5" aria-hidden />
+              Approve as group <ArrowRight className="size-3.5" aria-hidden />
             </Link>
           ) : (
-            <span className="ml-auto text-xs text-neutral-400">
-              {noAction ? "nothing to send" : service ? "service mode: handled one by one" : ""}
-            </span>
+            <span className="ml-auto text-xs text-neutral-400">{service ? "service: one by one" : ""}</span>
           )}
         </div>
       </td>
@@ -285,16 +306,23 @@ export default function WorklistTable({
   summary,
   decisions,
   highlightedId,
+  rejectingId,
+  scale,
   onOpen,
-  emptyAction,
+  onReject,
+  empty,
 }: {
   rows: IndexRow[];
   groups: Group[] | null;
   summary: Summary | null;
   decisions: Map<string, Decision>;
   highlightedId: string | null;
+  rejectingId: string | null;
+  /** Shared bar scale and reference over the whole snapshot, so bars do not jump when filtering. */
+  scale: { max: number; median: number | null };
   onOpen: (id: string) => void;
-  emptyAction: React.ReactNode;
+  onReject: (id: string | null) => void;
+  empty: React.ReactNode;
 }) {
   const renderRow = (r: IndexRow) => (
     <Row
@@ -303,28 +331,30 @@ export default function WorklistTable({
       summary={summary}
       decision={decisions.get(r.customer_id)}
       highlighted={r.customer_id === highlightedId}
+      rejecting={r.customer_id === rejectingId}
+      max={scale.max}
+      median={scale.median}
       onOpen={onOpen}
+      onReject={onReject}
     />
   );
 
   return (
     <div className="overflow-x-auto rounded-xl border border-neutral-200 bg-white">
-      <table className="w-full min-w-[1100px] table-fixed border-collapse text-sm">
+      <table className="w-full min-w-[820px] table-fixed border-collapse text-sm">
         <colgroup>
-          {COLS.map((c) => (
-            <col key={c.label} style={c.width ? { width: c.width } : undefined} />
+          {COLS.map((c, i) => (
+            <col key={i} style={c.width ? { width: c.width } : undefined} />
           ))}
         </colgroup>
         <thead>
           <tr className="text-left text-xs font-medium text-neutral-500">
             {COLS.map((c, i) => (
               <th
-                key={c.label}
+                key={i}
                 scope="col"
                 title={c.title}
-                className={`py-2.5 font-medium ${i === 0 ? "pr-2 pl-4" : i === COLS.length - 1 ? "pr-3 pl-2" : "px-2"} ${
-                  c.align === "right" ? "text-right" : ""
-                }`}
+                className={`py-3 font-medium ${i === 0 ? "pr-2 pl-5" : i === COLS.length - 1 ? "pr-4 pl-3" : "px-3"} ${c.align === "right" ? "text-right" : ""}`}
               >
                 {c.label}
               </th>
@@ -335,8 +365,7 @@ export default function WorklistTable({
           <tbody>
             <tr className="border-t border-neutral-100">
               <td colSpan={COLS.length} className="px-4 py-12 text-center text-neutral-500">
-                <p>No customers match this view.</p>
-                <div className="mt-3">{emptyAction}</div>
+                {empty}
               </td>
             </tr>
           </tbody>
