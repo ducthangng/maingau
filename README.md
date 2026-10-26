@@ -4,7 +4,7 @@ Futury Build Days, 26–27 Oct 2026. This file is the single source of truth for
 
 - **Requirements:** §4 is the spec agreed with MAINGAU, adopted in full. The original Vietnamese text is in [docs/company-spec-vi.md](docs/company-spec-vi.md).
 - **Gaps and conflicts:** where the spec is silent, or conflicts with the data, this file sets the default (§6, §10). Do not invent other behaviour.
-- **Older docs:** the Vietnamese files in this folder (`MAINGAU-*.md`, `diagrams/`, `archive/`, `fixtures/`, `references/`, `review-artifacts/`) are background only. If they disagree with this README, this README wins.
+- **Other files:** `Hackathon_slides_for_MAINGAU.pdf` is the original challenge brief; `references/` holds German background slides on grid fees. Both are read-only context. If anything else disagrees with this README, this README wins.
 - **Repo visibility:** this repo is public (team decision, 26 Oct 2026). The workbook, event stream and challenge slides are MAINGAU mock/challenge material. Never commit real customer data, credentials or API keys.
 
 ## 0. Read this first (all agents)
@@ -65,7 +65,9 @@ Every number on a card has a tooltip showing:
 ```text
 .
 ├── README.md                    # this file; editing it = changing a contract
+├── Hackathon_slides_for_MAINGAU.pdf   # challenge brief, read-only
 ├── docs/company-spec-vi.md      # original spec, read-only
+├── references/                  # background material, read-only
 ├── data/                        # read-only inputs
 │   ├── maingau_nba_mockdata.xlsx
 │   └── event_stream_2026-10-01.jsonl
