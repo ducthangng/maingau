@@ -14,6 +14,8 @@ from threading import RLock
 
 from fastapi import FastAPI, HTTPException
 
+from api.replay import replay_preview
+
 from nba.contracts import DecisionLogEntry, DecisionRequest, NO_ACTION, TupleRef, tuple_id
 from nba.data import DEFAULT_WORKBOOK, REPO
 from nba.engine.assemble import build_chosen, checklist_for, evaluate_candidates, valuation_scores, value_candidate
@@ -63,22 +65,22 @@ def checked_tuple(runtime, cid, ref):
     if blockers:
         refused([b.rule_id for b in blockers], [b.reason for b in blockers])
     if not is_profiled(state, policy) and ref.tone != "sie":
-        refused(["CONSENT-PROFILING"], ["Ohne Profiling-Einwilligung ist nur die Standardanrede Sie zulässig"])
+        refused(["CONSENT-PROFILING"], ["Without profiling consent only the default Sie tone is allowed"])
     signals = extract_signals(state, policy)
     allowed, _ = generate_candidates(state, signals, policy, ref.tone)
     target = next((c for c in allowed if c.tuple_id == tuple_id(ref.offer_id, ref.channel, ref.tone)), None)
     if target is None:
-        refused(["DATA-MISSING"], ["Dieses Tupel wurde vom KG nicht ausgewertet; kein zulässiger Bedarfspfad oder generischer Kanal"])
+        refused(["DATA-MISSING"], ["The KG did not evaluate this tuple: no eligible need path or generic channel"])
     try:
         target = value_candidate(target, state, runtime.cfg)
     except MissingDataError as exc:
         refused(["DATA-MISSING"], [str(exc)])
     if target.valuation.delta_clv <= 0:
-        refused(["ECON-NONPOSITIVE"], [f"Erwartete ΔCLV {target.valuation.delta_clv:.2f} € ≤ 0"])
+        refused(["ECON-NONPOSITIVE"], [f"Expected ΔCLV €{target.valuation.delta_clv:.2f} ≤ 0"])
     if target.origin == "generic" and is_profiled(state, policy):
         _, evaluated, _ = evaluate_candidates(allowed, state, policy, runtime.cfg)
         if not any(c.tuple_id == target.tuple_id for c in evaluated):
-            refused(["HOLDING-PRECONDITION"], ["Ein generisches Angebot ist nur zulässig, wenn keine positive signalbasierte Aktion vorliegt"])
+            refused(["HOLDING-PRECONDITION"], ["Generic fallback is allowed only when no signal or service action has positive expected ΔCLV"])
     return target
 
 
@@ -147,6 +149,15 @@ def create_app(*, workbook=DEFAULT_WORKBOOK, out_dir=REPO / "out", p_mode=None, 
         rt = context()
         return summary(rt.cards(), rt.cfg, next(iter(rt.states.values())).eval_time)
 
+    @app.post("/api/replay")
+    def preview_replay(until: datetime | None = None):
+        """Replay preview only: returns re-decisions and revocations without changing API state or approvals."""
+        with lock:
+            try:
+                return replay_preview(context(), until, card_provider=card_with_decisions)
+            except ValueError as exc:
+                raise HTTPException(422, str(exc)) from exc
+
     @app.post("/api/customers/{customer_id}/decision")
     def decision(customer_id: str, request: DecisionRequest):
         if not request.user.strip():
@@ -167,7 +178,7 @@ def create_app(*, workbook=DEFAULT_WORKBOOK, out_dir=REPO / "out", p_mode=None, 
                     refused(["ECON-NONPOSITIVE"], [card.chosen.reason_line])
                 if request.tuple and tuple_id(request.tuple.offer_id, request.tuple.channel, request.tuple.tone) != previous:
                     checked_tuple(rt, customer_id, request.tuple)
-                    refused(["HOLDING-PRECONDITION"], ["Der Vorschlag hat sich geändert; bitte neu laden oder explizit überschreiben"])
+                    refused(["HOLDING-PRECONDITION"], ["The proposal has changed; reload it or submit an explicit override"])
                 oid, channel, tone = previous.split("|")
                 target = checked_tuple(rt, customer_id, TupleRef(offer_id=oid, channel=channel, tone=tone))
             entry = DecisionLogEntry(

@@ -10,7 +10,7 @@ from nba.kg.signals import extract_signals
 EXPECTED = {
     "MG-100051": "P-EN-03 (report)", "MG-100060": "P-EN-03 (report)",
     "MG-100096": "P-SV-01", "MG-100186": "P-SV-01", "MG-100068": "competing S1/S3/S4 (report)",
-    "MG-100023": "P-AS-01 (strict in rate mode)", "MG-100112": "generic only; economics decide (K11)",
+    "MG-100023": "P-AS-01 (strict in rate mode)", "MG-100112": "P-EN-01/outbound_call/sie; generic, strict in both modes (K11)",
     "MG-100009": "P-SV-01", "MG-100659": "P-SV-01", "MG-100035": "NO_ACTION; no sales",
     "MG-100087": "NO_ACTION; no sales", "MG-100004": "P-SV-01; generic content/Sie",
     "MG-100012": "generic only/Sie",

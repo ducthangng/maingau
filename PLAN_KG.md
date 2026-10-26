@@ -156,7 +156,7 @@ Rules, counts and the score formula are in README §6.13. Implementation:
 | 6 | `paths.py`, `graph.py`, `quality.py` | Done: paths valid; graph export 10,781 nodes / 17,185 edges |
 | 7 | `scripts/export_schema.py`, `scripts/kg_report.py` | Done: `docs/schema/`, `out/kg_report.md` |
 | 8 | Push, then log in `log/agent-kg.md` | Agent NBA swaps its stub for the real KG |
-| 9 (stretch) | `events.py` replay | Demo customers MG-100003, MG-100465, MG-100125, MG-100009 |
+| 9 | `events.py` replay + `scripts/replay_demo.py` | Done 26 Oct: 635 events, 29 pending cards revoked; demo MG-100003, MG-100465, MG-100125, MG-100009, MG-100004 |
 
 ## 10. Review duties (Agent KG checks the other two)
 

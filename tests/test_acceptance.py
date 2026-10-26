@@ -33,7 +33,13 @@ def test_strict_reference_customers(cards):
         assert card.profile.header.tone.value == 'sie' and card.profile.header.tone.method == 'default'
         assert all(not c.personalised and c.origin != 'signal' for c in card.candidates)
         assert card.chosen.content and not card.chosen.content.personalised
-    assert any(b.rule_id == 'CONSENT-PROFILING' and b.offer_id == 'P-AS-01' for b in all_cards['MG-100112'].blocked)
+    generic_call = all_cards['MG-100112']
+    assert generic_call.chosen.tuple_id == 'P-EN-01|outbound_call|sie', mode
+    selected = next(c for c in generic_call.candidates if c.tuple_id == generic_call.chosen.tuple_id)
+    assert selected.origin == 'generic' and not selected.personalised
+    assert not generic_call.chosen.content.personalised
+    assert any(b.rule_id == 'CONSENT-PROFILING' and b.offer_id == 'P-AS-01' and 'S3' in b.reason
+               for b in generic_call.blocked)
 
 
 @pytest.mark.acceptance
@@ -86,3 +92,27 @@ def test_determinism_for_real_competing_signals(states, tables, policy, pop):
     a = assemble(states['MG-100068'], pop, policy, cfg).model_dump_json()
     b = assemble(states['MG-100068'], pop, policy, cfg).model_dump_json()
     assert a == b
+
+
+@pytest.mark.parametrize('cid,energy_count,tone', [('MG-100325', 2, 'du'), ('MG-100001', 1, 'sie')])
+def test_representatives_use_real_cards_profiles(cid, energy_count, tone):
+    from nba.engine.runtime import Runtime
+
+    card = Runtime.load().card(cid)
+    assert not any(q.code == 'PROFILE-PENDING' for q in card.data_quality)
+    assert card.timeline and card.profile.header.city.v
+    assert card.profile.products.energy.held
+    assert len(card.profile.products.energy.items) == energy_count
+    assert card.profile.header.tone.value == tone
+    assert card.profile.header.tone.method == 'text' and card.profile.header.tone.refs
+    assert card.profile.value_risk.clv_eur.v is not None
+
+
+def test_internal_decision_reasons_are_english(cards):
+    _, all_cards = cards
+    for card in all_cards.values():
+        if card.chosen.tuple_id == NO_ACTION:
+            assert card.chosen.reason_line.startswith('No eligible action')
+        for blocked in card.blocked:
+            if blocked.rule_id == 'ECON-NONPOSITIVE':
+                assert 'expected ΔCLV' in blocked.reason

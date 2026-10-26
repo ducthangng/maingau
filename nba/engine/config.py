@@ -21,13 +21,13 @@ class MissingDataError(ValueError):
 
 def number(value: Any, source: str) -> float:
     if value is None or isinstance(value, bool):
-        raise MissingDataError(f"Nicht genug Daten: {source}")
+        raise MissingDataError(f"Not enough data: {source}")
     try:
         result = float(value)
     except (ValueError, TypeError) as exc:
-        raise MissingDataError(f"Nicht genug Daten: {source}") from exc
+        raise MissingDataError(f"Not enough data: {source}") from exc
     if not math.isfinite(result):
-        raise MissingDataError(f"Nicht genug Daten: {source}")
+        raise MissingDataError(f"Not enough data: {source}")
     return result
 
 

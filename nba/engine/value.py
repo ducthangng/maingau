@@ -25,7 +25,7 @@ def value(candidate, state, propensity, cfg: EngineConfig, *, margin_scale=1.0) 
     row = state.one("customer_value") or {}
     offer = cfg.offers.get(candidate.offer_id)
     if offer is None:
-        raise MissingDataError(f"Nicht genug Daten: product_catalog.{candidate.offer_id}")
+        raise MissingDataError(f"Not enough data: product_catalog.{candidate.offer_id}")
     margin = number(row.get("annual_margin_eur"), "customer_value.annual_margin_eur")
     cost = number(row.get("cost_to_serve_12m_eur"), "customer_value.cost_to_serve_12m_eur")
     churn = number(row.get("churn_prob_12m"), "customer_value.churn_prob_12m")

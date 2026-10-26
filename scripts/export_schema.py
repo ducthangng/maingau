@@ -1,4 +1,4 @@
-"""Write JSON Schemas for the shared contracts to docs/schema/ (Agent KG).
+"""Write JSON Schemas for the shared contracts to docs/schema/ and the API spec to docs/openapi.json (Agent KG).
 
 Agent CARDS generates TypeScript types from these files, e.g. with json-schema-to-typescript.
 Run: .venv/bin/python scripts/export_schema.py
@@ -30,6 +30,12 @@ def main() -> None:
         path = OUT / f"{name}.schema.json"
         path.write_text(json.dumps(model.model_json_schema(), indent=2, sort_keys=True, ensure_ascii=False) + "\n", encoding="utf-8")
         print(f"wrote {path.relative_to(REPO)}")
+    # OpenAPI of Agent NBA's API (docs/api.md); create_app() does not load data until the first request.
+    from api.app import create_app
+
+    spec = REPO / "docs" / "openapi.json"
+    spec.write_text(json.dumps(create_app().openapi(), indent=2, sort_keys=True, ensure_ascii=False) + "\n", encoding="utf-8")
+    print(f"wrote {spec.relative_to(REPO)}")
 
 
 if __name__ == "__main__":

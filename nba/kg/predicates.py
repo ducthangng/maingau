@@ -86,8 +86,12 @@ def gas_meter_deregistered(s: CustomerState) -> Hit | None:
         return None
     r = max(rows, key=lambda x: x["meter_deregistered_at"])
     days = (s.eval_time - r["meter_deregistered_at"]).days
-    return Hit(f"gas meter deregistered on {_d(r['meter_deregistered_at'])} ({days} days ago)",
-               "energy_contracts.meter_deregistered_at", r["meter_deregistered_at"], [f"contract:{r['contract_id']}"])
+    eff = r.get("meter_deregistration_effective")  # set by event replay (README §7.1 step 5)
+    if eff is not None and eff > s.eval_time:
+        detail = f"gas meter deregistration received on {_d(r['meter_deregistered_at'])}, effective {_d(eff)}"
+    else:
+        detail = f"gas meter deregistered on {_d(r['meter_deregistered_at'])} ({days} days ago)"
+    return Hit(detail, "energy_contracts.meter_deregistered_at", r["meter_deregistered_at"], [f"contract:{r['contract_id']}"])
 
 
 @_signal
