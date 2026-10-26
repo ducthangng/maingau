@@ -2,7 +2,7 @@
 
 Futury Build Days, 26–27 Oct 2026. This file is the single source of truth for the build.
 
-- **Requirements:** §4 is the spec agreed with MAINGAU, adopted in full. The original Vietnamese text is in [docs/company-spec-vi.md](docs/company-spec-vi.md).
+- **Requirements:** §4 is the spec agreed with MAINGAU, adopted in full (English translation of the consulted spec).
 - **Gaps and conflicts:** where the spec is silent, or conflicts with the data, this file sets the default (§6, §10). Do not invent other behaviour.
 - **Other files:** `Hackathon_slides_for_MAINGAU.pdf` is the original challenge brief; `references/` holds German background slides on grid fees. Both are read-only context. If anything else disagrees with this README, this README wins.
 - **Repo visibility:** this repo is public (team decision, 26 Oct 2026). The workbook, event stream and challenge slides are MAINGAU mock/challenge material. Never commit real customer data, credentials or API keys.
@@ -70,7 +70,6 @@ The entry point is a **worklist ranked by urgency** (§6.13). A marketer opens o
 .
 ├── README.md                    # this file; editing it = changing a contract
 ├── Hackathon_slides_for_MAINGAU.pdf   # challenge brief, read-only
-├── docs/company-spec-vi.md      # original spec, read-only
 ├── docs/schema/                 # JSON Schemas generated from nba/contracts.py (scripts/export_schema.py)
 ├── prompts/                     # kickoff prompts for the AI agents (agent-cards.md, agent-nba.md)
 ├── PLAN_KG.md                   # Agent KG's detailed build plan
