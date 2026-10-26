@@ -100,7 +100,7 @@ Exact definitions are in README §6.3 (S1–S13). Implementation notes:
 - **Dates:** `eval_time.date()` is the reference. Windows are (eval − N days, eval].
 - **Evidence refs:** `contract:<id>`, `order:<order_id>#<n>`, `ticket:<id>`, `session:<id>`, `device:<id>`, `click:<campaign_id>`.
 - **S10 reinforces only:** it attaches to an existing N-HEAT-PUMP / N-ENERGY-MANAGEMENT signal and never creates a tuple.
-- **Sanity counts** (README §6.3): S1 12, S2 2 (MG-100009, MG-100659), S3 16, S4 116 on active electricity (reconcile with the 145 driver count), S5 11, S6 80, S7 66, S8 33, S9 40, S11 161.
+- **Counts** (README §6.3, `tests/test_kg_signals.py`): S1 12, S2 2 (MG-100009, MG-100659), S3 16, S4 143, S5 11, S6 80, S7 66, S8 33, S9 48, S10 33, S11 161, S12 29, S13 39.
 
 ## 6. Gates (applied before any ranking)
 
@@ -149,12 +149,12 @@ Rules, counts and the score formula are in README §6.13. Implementation:
 | Step | Output | Checkpoint |
 |---|---|---|
 | 1 | `data.py`, `state.py`, `contracts.py` v1, configs | Done, 26 Oct |
-| 2 | `ontology.yaml`, `policy.yaml`, `policy.py` (+ integrity tests) | `pytest tests/test_kg_policy.py` |
-| 3 | `predicates.py`, `signals.py` | Signal counts reproduce |
-| 4 | `rules.py` (gates + generic) | Invariants green on 750 customers |
-| 5 | `segments.py` | Triage counts reproduce |
-| 6 | `paths.py`, `graph.py`, `quality.py` | Paths valid; graph export |
-| 7 | `scripts/export_schema.py`, `scripts/kg_report.py` | `docs/schema/`, `out/kg_report.md` |
+| 2 | `ontology.yaml`, `policy.yaml`, `policy.py` (+ integrity tests) | Done 26 Oct: `pytest tests/test_kg_policy.py` |
+| 3 | `predicates.py`, `signals.py` | Done: signal counts reproduce |
+| 4 | `rules.py` (gates + generic) | Done: invariants green on 750 customers |
+| 5 | `segments.py` | Done: triage counts reproduce |
+| 6 | `paths.py`, `graph.py`, `quality.py` | Done: paths valid; graph export 10,781 nodes / 17,185 edges |
+| 7 | `scripts/export_schema.py`, `scripts/kg_report.py` | Done: `docs/schema/`, `out/kg_report.md` |
 | 8 | Push, then log in `log/agent-kg.md` | Agent NBA swaps its stub for the real KG |
 | 9 (stretch) | `events.py` replay | Demo customers MG-100003, MG-100465, MG-100125, MG-100009 |
 

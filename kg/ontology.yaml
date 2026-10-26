@@ -1,0 +1,47 @@
+# Ontology of the MAINGAU NBA knowledge graph (README §4.3, §6.11). Owner: Agent KG.
+# Two layers: a static policy layer (kg/policy.yaml) and a customer instance layer built per
+# customer from the workbook tables. Customer data stays in tables; the graph is built on demand.
+version: onto-0.1
+
+node_types:
+  # ---- policy layer
+  SignalType:   {layer: policy, id: "S<n>",            props: [label, strength, purpose]}
+  Need:         {layer: policy, id: "N-<NAME>",        props: [label_en, label_de]}
+  Offer:        {layer: policy, id: "<product_id>",    props: [product_name, business_line, action_type, generic]}
+  Channel:      {layer: policy, id: "<channel>",       props: [consent, requires_field]}
+  ConsentType:  {layer: policy, id: "<consent_type>",  props: []}
+  ExclusionRule: {layer: policy, id: "EXCL-<NAME>",    props: [label, blocks_action_types]}
+  Archetype:    {layer: policy, id: "A<n>",            props: [name]}
+  # ---- customer layer
+  Customer:     {layer: customer, id: "<customer_id>",                 source: customer_master}
+  Contract:     {layer: customer, id: "<contract_id>", subtypes: [Energy, Mobile, Autostrom],
+                 source: [energy_contracts, mobile_contracts, autostrom_contracts]}
+  Device:       {layer: customer, id: "<device_id>",                   source: hems_devices}
+  Order:        {layer: customer, id: "<order_id>#<line>",             source: shop_orders}
+  Ticket:       {layer: customer, id: "<ticket_id>",                   source: service_interactions}
+  Session:      {layer: customer, id: "<session_id>",                  source: charge_sessions,
+                 note: "only sessions cited as signal evidence become nodes"}
+  Consent:      {layer: customer, id: "<customer_id>:<consent_type>",  source: consent_status}
+  Exclusion:    {layer: customer, id: "<customer_id>:<rule_id>",       source: "rule instance"}
+  Action:       {layer: customer, id: "<action_id>",                   source: nba_action_history}
+  Signal:       {layer: customer, id: "<customer_id>:<signal_id>",     source: "signal instance"}
+
+edge_types:
+  # spec edges
+  HOLDS:         {from: Customer, to: [Contract, Consent]}
+  OWNS_DEVICE:   {from: Customer, to: Device}
+  PLACED:        {from: Customer, to: Order}
+  RAISED:        {from: Customer, to: Ticket}
+  EMITTED:       {from: Customer, to: Signal}
+  INDICATES:     {from: [Signal, SignalType], to: Need}
+  ADDRESSED_BY:  {from: Need, to: Offer}
+  DELIVERED_VIA: {from: Offer, to: Channel}
+  REQUIRES:      {from: [Channel, Offer], to: [ConsentType, Consent]}
+  BLOCKS:        {from: [ExclusionRule, Exclusion], to: Offer}
+  RECEIVED:      {from: Customer, to: Action}
+  RESPONDED:     {from: Customer, to: Action, props: [response]}
+  # extensions (README §6.11)
+  INSTANCE_OF:   {from: [Signal, Exclusion, Consent], to: [SignalType, ExclusionRule, ConsentType]}
+  EVIDENCED_BY:  {from: Signal, to: [Contract, Order, Ticket, Session, Device]}
+  HAS_SESSION:   {from: Contract, to: Session}
+  IN_ARCHETYPE:  {from: Customer, to: Archetype}

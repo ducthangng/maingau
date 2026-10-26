@@ -494,6 +494,8 @@ The values below are illustrative, **not expected results**. `nba/contracts.py` 
 
 **`chosen` when nothing qualifies.** `chosen.tuple_id = "NO_ACTION"`, and `reason_line` explains why: everything blocked, or no candidate with ΔCLV > 0.
 
+**`blocked` rows with `offer_id = "*"`** apply to every non-service offer of the customer: an active exclusion, the contact cap, or no consented marketing channel.
+
 **`out/index.json`** has one row per customer for the overview page:
 
 ```json
@@ -543,6 +545,10 @@ def generate_candidates(state, signals, policy, tone: str) -> tuple[list[Candida
 def explain(state, candidate, policy) -> list[PathStep]
 def customer_graph(state, policy) -> networkx.MultiDiGraph
 def triage(state, signals, policy, pop) -> Triage                  # archetype, urgency, flags (§6.13)
+def consent_view(state, policy) -> list[ConsentItem]               # profile.consent (CARDS reuses it)
+def channel_view(state, policy) -> list[ChannelItem]               # profile.channels (CARDS reuses it)
+def exclusion_view(state, policy) -> list[ExclusionItem]           # profile.exclusions (CARDS reuses it)
+def data_quality(state) -> list[DataQuality]                       # §6.9; NBA adds it to the checklist
 
 # Agent CARDS — nba/profile/*.py
 def infer_tone(state) -> Tone             # value + method + evidence; NBA imports this
@@ -622,14 +628,14 @@ List both once per customer in `blocked` with `DATA-MISSING`, reason "not enough
 - Content is generic (`personalised = false`, labelled "nicht personalisiert"); tone is the default Sie.
 - **Service** actions (S2, S12, S13 → P-SV-01) are unaffected.
 
-**Sanity counts** at eval 2026-09-30 from our check script. Report your counts and explain any difference.
+**Signal counts** at eval 2026-09-30, produced by `nba/kg` and checked by `tests/test_kg_signals.py`:
 
-| Signal | S1 | S2 | S3 | S4 (active electricity only) | S5 | S6 | S7 | S8 | S9 | S11 |
-|---|---|---|---|---|---|---|---|---|---|---|
-| Count | 12 | 2 | 16 | 116 | 11 | 80 | 66 | 33 | 40 | 161 |
+| Signal | S1 | S2 | S3 | S4 | S5 | S6 | S7 | S8 | S9 | S10 | S11 | S12 | S13 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Customers | 12 | 2 | 16 | 143 | 11 | 80 | 66 | 33 | 48 | 33 | 161 | 29 | 39 |
 
 - S2 fires for exactly MG-100009 and MG-100659.
-- S4 counts only active electricity. The churn driver "price guarantee ends <90d" appears for 145 customers; reconcile the two (gas contracts, evaluation date).
+- S4 counts any active energy contract. The churn driver "price guarantee ends <90d" appears for 145 customers; the 2-customer gap is open question Q-KG-06.
 
 ### 6.4 Needs and offer preconditions (owner: Agent KG)
 
@@ -655,7 +661,7 @@ List both once per customer in `blocked` with `DATA-MISSING`, reason "not enough
 |---|---|---|
 | P-EN-01 StromAktiv | — | Active electricity |
 | P-EN-02 StromGarant | Active electricity; the churn driver "price guarantee ends <90d" is present | — |
-| P-EN-03 StromWärme | Active electricity | Tariff StromWärme |
+| P-EN-03 StromWärme | — | Tariff StromWärme |
 | P-EN-05 Dynamischer Stromtarif | Active electricity with `smart_meter_imsys` | — |
 | P-MO-01 Mobil S/M/L | Active energy contract | Active mobile |
 | P-MO-02 Mobil Upgrade | Active mobile | — |
@@ -672,7 +678,7 @@ List both once per customer in `blocked` with `DATA-MISSING`, reason "not enough
 
 **Default channels** for marketing offers: every channel in §6.1 except `service_agent`. P-SV-01 uses only `service_agent`.
 
-**Generic offers** (`config/kg.yaml: generic.offers`): P-EN-01, P-MO-01, P-SL-01, P-SH-01, P-SH-03, P-SH-04. These are offers whose eligibility can be checked from contract data alone. Need-specific offers (P-EN-03 heat pump, P-EN-05 smart meter + device, P-AS-01 and P-SH-02 EV, P-SL-02/03 HEMS upsells, P-MO-02 usage, P-MO-03 household, P-EN-02 retention timing) are never offered generically. P-EN-04 and P-IN-01 stay `DATA-MISSING`.
+**Generic offers** (`config/kg.yaml: generic.offers`): P-EN-01, P-MO-01, P-SL-01, P-SH-01, P-SH-03, P-SH-04. These are offers whose eligibility can be checked from contract data alone. Need-specific offers (P-EN-03 heat pump, P-EN-05 smart meter + device, P-AS-01 and P-SH-02 EV, P-SL-02/03 HEMS upsells, P-MO-02 usage, P-MO-03 household, P-EN-02 retention timing) are never offered generically. P-EN-04 and P-IN-01 stay `DATA-MISSING`. A generic tuple only drops products the customer already owns (the "must not hold" column); no other precondition applies (D1).
 
 ### 6.5 CLV and churn model (owner: Agent NBA)
 
@@ -932,8 +938,8 @@ Representative customers: MG-100325 (A1) and MG-100001 (A2).
 | P1 | Act now (service) | `cancellation_pending`, open complaint, `dunning_level ≥ 2`, or S2 | 53 |
 | P2 | High | Any other open ticket, `dunning_level = 1`, price guarantee ends in ≤ 30 days, or churn ≥ 0.35 | 62 |
 | P3 | Time-bound opportunity | Price guarantee ends in 31–89 days, gas meter deregistered within 90 days, or S5 | 95 |
-| P4 | Opportunity | Any other signal | 234 |
-| P5 | No trigger | — | 306 |
+| P4 | Opportunity | Any other signal (except S10) | 261 |
+| P5 | No trigger | — | 279 |
 
 `urgency_score = 100 × (5 − tier number) + min(99, max(0, clv_eur) × churn_prob_12m / 10)`. In words: the tier first, then the CLV at risk. `urgency_reasons` lists the facts in plain language, each with its signal or rule ID. `deadline` is set when a date drives the tier.
 
@@ -951,7 +957,7 @@ Representative customers: MG-100325 (A1) and MG-100001 (A2).
 | `prefers_en` | `preferred_contact_language = en` | 7 |
 | `data_inconsistent` | Late CDRs after the cutoff, or TK-200565 / TK-200640 | 71 |
 
-**Outlier** ("special need") = any of `service_critical`, `no_marketing_channel`, `negative_clv`, `annoyed_before`, `prefers_en`. These customers need individual handling and are never bulk-approved without a second look. `top_clv` is a VIP badge, not an outlier.
+**Outlier** ("special need") = any of `service_critical`, `no_marketing_channel`, `negative_clv`, `annoyed_before`, `prefers_en` (154 customers). These customers need individual handling and are never bulk-approved without a second look. `top_clv` is a VIP badge, not an outlier.
 
 Counts are from Agent KG's check script; `scripts/kg_report.py` reproduces them.
 

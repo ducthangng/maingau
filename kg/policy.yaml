@@ -1,0 +1,82 @@
+# Policy layer of the KG (README §6.1–§6.4, §6.12, §6.13). Owner: Agent KG.
+# Predicates are named Python functions in nba/kg/predicates.py; nba/kg/policy.py checks
+# that every name resolves and that every ID exists in the workbook's product_catalog.
+version: kg-0.1
+
+needs:
+  N-HEAT-PUMP:             {label_en: "Heat pump / electric heating",   label_de: "Wärmepumpe / elektrisch heizen"}
+  N-SERVICE-FIX:           {label_en: "Problem to resolve",             label_de: "Problem lösen"}
+  N-EV-CHARGING:           {label_en: "Charging contract for an EV",    label_de: "Ladevertrag fürs E-Auto"}
+  N-PRICE-SECURITY:        {label_en: "Price certainty",                label_de: "Preissicherheit"}
+  N-MORE-DATA:             {label_en: "More mobile data",               label_de: "Mehr mobile Daten"}
+  N-EXTRA-SIM:             {label_en: "Extra SIM for the household",    label_de: "Zusatz-SIM für den Haushalt"}
+  N-ENERGY-MANAGEMENT:     {label_en: "Use own PV energy",              label_de: "Eigenen Solarstrom nutzen"}
+  N-STORAGE-OPT:           {label_en: "Optimise the home battery",      label_de: "Heimspeicher optimieren"}
+  N-WALLBOX-INTEGRATION:   {label_en: "Smart charging at home",         label_de: "Intelligent zu Hause laden"}
+  N-DYNAMIC-TARIFF:        {label_en: "Benefit from flexible prices",   label_de: "Von flexiblen Preisen profitieren"}
+  N-HOME-ELECTRICITY:      {label_en: "Home electricity for an EV driver", label_de: "Haushaltsstrom für E-Auto-Fahrer"}
+
+# Spec signals S1–S11 plus service triggers S12–S13 (README §6.3). `indicates` lists needs;
+# `reinforces` (S10 only) attaches evidence to existing needs without creating tuples.
+signals:
+  S1:  {label: "Gas meter deregistered",                 predicate: gas_meter_deregistered,     strength: strong, purpose: contract,    indicates: [N-HEAT-PUMP]}
+  S2:  {label: "≥ 3 failed charging sessions in 30 days", predicate: failed_charges_30d,         strength: strong, purpose: service,     indicates: [N-SERVICE-FIX]}
+  S3:  {label: "Wallbox bought, no Autostrom",           predicate: wallbox_without_autostrom,  strength: strong, purpose: behavioural, indicates: [N-EV-CHARGING]}
+  S4:  {label: "Price guarantee ends within 90 days",    predicate: price_guarantee_ending,     strength: strong, purpose: contract,    indicates: [N-PRICE-SECURITY]}
+  S5:  {label: "Data limit reached ≥ 2 of 3 months",     predicate: data_limit_repeated,        strength: medium, purpose: behavioural, indicates: [N-MORE-DATA]}
+  S6:  {label: "More household members than SIMs",       predicate: household_exceeds_sims,     strength: weak,   purpose: contract,    indicates: [N-EXTRA-SIM]}
+  S7:  {label: "PV without HEMS",                        predicate: pv_without_hems,            strength: medium, purpose: device,      indicates: [N-ENERGY-MANAGEMENT]}
+  S8:  {label: "HEMS with home battery or wallbox",      predicate: hems_battery_or_wallbox,    strength: medium, purpose: device,      indicates: [N-STORAGE-OPT, N-WALLBOX-INTEGRATION]}
+  S9:  {label: "Smart meter with HEMS, EV or heat pump", predicate: smart_meter_flexible_load,  strength: medium, purpose: device,      indicates: [N-DYNAMIC-TARIFF]}
+  S10: {label: "Clicked heat pump / smart living content", predicate: clicked_energy_content,   strength: weak,   purpose: behavioural, reinforces: [N-HEAT-PUMP, N-ENERGY-MANAGEMENT]}
+  S11: {label: "Autostrom without home electricity",     predicate: autostrom_without_electricity, strength: medium, purpose: contract, indicates: [N-HOME-ELECTRICITY]}
+  S12: {label: "Open service ticket",                    predicate: open_ticket,                strength: strong, purpose: service,     indicates: [N-SERVICE-FIX]}
+  S13: {label: "Dunning or cancellation pending",        predicate: dunning_or_cancellation,    strength: strong, purpose: service,     indicates: [N-SERVICE-FIX]}
+
+# Offers: which needs they address, holding preconditions (REQUIRES / NOT-HELD, predicate names),
+# and whether they may be offered generically (README §6.4, §6.12). Names and action types come
+# from product_catalog at load time.
+offers:
+  P-EN-01: {addresses: [N-HOME-ELECTRICITY],          requires: [],                        not_held: [has_active_electricity],  generic: true}
+  P-EN-02: {addresses: [N-PRICE-SECURITY],            requires: [has_active_electricity, has_price_guarantee_driver], not_held: [], generic: false}
+  P-EN-03: {addresses: [N-HEAT-PUMP],                 requires: [],                        not_held: [has_tariff_stromwaerme],  generic: false}
+  P-EN-04: {addresses: [],                            requires: [],                        not_held: [],                        generic: false, data_missing: "Gas heating is not in the data"}
+  P-EN-05: {addresses: [N-DYNAMIC-TARIFF],            requires: [has_smart_meter],         not_held: [],                        generic: false}
+  P-MO-01: {addresses: [],                            requires: [],                        not_held: [has_active_mobile],       generic: true}
+  P-MO-02: {addresses: [N-MORE-DATA],                 requires: [has_active_mobile],       not_held: [],                        generic: false}
+  P-MO-03: {addresses: [N-EXTRA-SIM],                 requires: [has_active_mobile],       not_held: [],                        generic: false}
+  P-IN-01: {addresses: [],                            requires: [],                        not_held: [],                        generic: false, data_missing: "No internet availability or ownership data"}
+  P-SL-01: {addresses: [N-HEAT-PUMP, N-ENERGY-MANAGEMENT], requires: [],                   not_held: [has_hems_gateway],        generic: true}
+  P-SL-02: {addresses: [N-STORAGE-OPT],               requires: [has_hems_gateway, has_home_battery], not_held: [],             generic: false}
+  P-SL-03: {addresses: [N-EV-CHARGING, N-WALLBOX-INTEGRATION], requires: [has_hems_gateway, has_wallbox_or_ev], not_held: [], generic: false}
+  P-SH-01: {addresses: [],                            requires: [],                        not_held: [owns_pv_or_balkonkraftwerk], generic: true}
+  P-SH-02: {addresses: [],                            requires: [],                        not_held: [owns_wallbox],            generic: false}
+  P-SH-03: {addresses: [],                            requires: [],                        not_held: [owns_thermostats],        generic: true}
+  P-SH-04: {addresses: [],                            requires: [],                        not_held: [owns_smart_plug],         generic: true}
+  P-AS-01: {addresses: [N-EV-CHARGING],               requires: [],                        not_held: [has_active_autostrom],    generic: false}
+  P-SV-01: {addresses: [N-SERVICE-FIX],               requires: [],                        not_held: [],                        generic: false}
+
+# Channel -> consent map (README §6.1). `requires_field` is a customer_master flag that must be true.
+channels:
+  newsletter_email: {consent: newsletter_email,           needs_doi: true}
+  email:            {consent: marketing_email}
+  outbound_call:    {consent: marketing_phone}
+  sms:              {consent: marketing_sms}
+  portal_popup:     {consent: portal_app_personalisation, requires_field: portal_account}
+  app_push:         {consent: portal_app_personalisation, requires_field: app_installed}
+service_channel: service_agent   # P-SV-01 only; never carries sales content
+
+# Exclusions (README §6.2). They block every non-service action type.
+exclusions:
+  EXCL-DUNNING:             {label: "Dunning",               predicate: excl_dunning,             blocks: [sales, upsell, retention, one_off]}
+  EXCL-CANCELLATION:        {label: "Cancellation pending",  predicate: excl_cancellation,        blocks: [sales, upsell, retention, one_off]}
+  EXCL-OPEN-TICKET:         {label: "Open service ticket",   predicate: excl_open_ticket,         blocks: [sales, upsell, retention, one_off]}
+  EXCL-AUTOSTROM-CANCELLED: {label: "Autostrom cancelled",   predicate: excl_autostrom_cancelled, blocks: [sales, upsell, retention, one_off]}
+
+archetypes:
+  A4: {name: "Retention risk (do no harm)"}
+  A1: {name: "Smart eco-system adopter"}
+  A3: {name: "EV driver"}
+  A5: {name: "Growing connected household"}
+  A2: {name: "Traditional energy loyalist"}
+  A0: {name: "Other"}
