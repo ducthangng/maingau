@@ -616,5 +616,7 @@ Claude Code (Opus) on Windows, in the user's checkout `E:\Projects\maingau`. On 
   - the audit C-07 ignores the tightening.
 - **For Agent CARDS (`web/`, not touched):** regenerate `web/src/types/contracts.ts` (`npm run types`, add `RulesFile`); show "waits until" and disable one-click Approve when `deferred_until` is set (the API already refuses with 409).
 
-**Next session starts with:** fixing the confirmed review findings, then fast-forward `main`; afterwards wire the Rule CARD page (`feat/rule-card`) to `/api/rules`.
+**Delivered to `main` early at the user's request** ("đưa lên main sớm", 26 Oct), with the review findings above still open. All 412 tests pass on the merged tree.
+
+**Next session starts with:** fixing the confirmed review findings (highest first) and delivering them to `main`; afterwards wire the Rule CARD page (`feat/rule-card`) to `/api/rules`.
 
