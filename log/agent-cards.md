@@ -45,14 +45,16 @@ These are kept up to date and edited in place. Status values: `open`, `answered`
 
 | ID | Question / issue | Why it matters | Ask whom | Status | Answer / decision (date) |
 |---|---|---|---|---|---|
-| Q-CARDS-01 | Who is the primary user: marketing, service agent or both? Default: both, with a mode switch; service mode is the default when a ticket is open | Layout and the default view of the right card | Caro (Marketing), Felix (Digital Channels) | decided-default | — |
-| Q-CARDS-02 | Without profiling consent, may tone still be inferred from the customer's own messages? Default: no; always "Sie", labelled default (K3) | Tone shown for 289 customers | MAINGAU mentor | decided-default | — |
+| Q-CARDS-01 | Who is the primary user: marketing, service agent or both? | Layout and the default view of the right card | Caro (Marketing), Felix (Digital Channels) | answered | Marketing orchestration dashboard (worklist + bulk execution) with a Service mode switch; service mode is automatic when a ticket is open (26 Oct, prompts/agent-cards.md) |
+| Q-CARDS-02 | Without profiling consent, may tone still be inferred from the customer's own messages? | Tone shown for 289 customers | Team | answered | No: D1 (26 Oct) → Sie by default, labelled "default" |
 | Q-CARDS-03 | Newsletter tonality is weak evidence: all 13 campaigns went to all subscribers (du 7, sie 6). Keep it as tone priority 2 only with at least 2 human clicks and a clear majority? | Wrong Du/Sie is visible to the customer | Team | decided-default | — |
 | Q-CARDS-04 | The spec says portal pages "offers / tariff / consumption". The data names are `offers`, `tariff_overview`, `consumption_chart`. Use the data names | Correct counts in the portal trend | — | closed | Use the data names (README §3) |
 | Q-CARDS-05 | 7 customers prefer English (`preferred_contact_language = en`). Content stays German per the challenge. Show the note "prefers EN" on the card? | Transparency for the agent | MAINGAU mentor | decided-default | — |
 | Q-CARDS-06 | Highlight thresholds: rarity ≤ 10% or percentile ≥ 90 / ≤ 10. Is "same product combination" the right peer group for percentiles? | Highlights must be genuinely unusual | Team | open | — |
 | Q-CARDS-07 | 30-second readability: at most 12 numbers visible before any drill-down. Validate with someone who did not build it | Main UX acceptance criterion | Team (hallway test) | open | — |
-| Q-CARDS-08 | Overview page = marketing dashboard deliverable: which 3–4 KPIs go at the top (ΣΔCLV by offer, blocked by rule, NO_ACTION count, service-mode count)? | Jury deliverable | Caro (Marketing) | open | — |
+| Q-CARDS-08 | Which KPIs go at the top of the worklist? | Jury deliverable | Caro (Marketing) | decided-default | Customers to act on, Σ expected ΔCLV of the view, outliers, blocked by rules (prompts/agent-cards.md §1.1) |
+| Q-CARDS-09 | The archetype draft's numbers do not match the data (README K13) | Wrong facts on screen | — | closed | Show only engine values; archetype rules and counts in README §6.13 |
+| Q-CARDS-10 | Deployment: static Vercel site reading `web/public/data/`; decisions in localStorage + export | Demo without a backend | — | closed | Decided 26 Oct |
 
 ## Session entries
 

@@ -13,9 +13,9 @@ Three agents build in parallel:
 
 | Agent | Builds | Task section |
 |---|---|---|
-| **Agent KG** | Ontology, knowledge graph, data loading, signals, rules, explanation paths | §7.1 |
-| **Agent CARDS** | Left card (Customer Profile), the UI for both cards, overview page | §7.2 |
-| **Agent NBA** | CLV/ΔCLV valuation, p_accept, ranking, German content, decision log, API, build CLI | §7.3 |
+| **Agent KG** (Claude, main session; also reviews the other two) | Ontology, knowledge graph, data loading, signals, rules, generic candidates, triage (archetypes, urgency, flags), explanation paths | §7.1, [PLAN_KG.md](PLAN_KG.md) |
+| **Agent CARDS** | Marketing orchestration dashboard: urgency worklist, customer profile, ranked NBAs, bulk execution (React + TypeScript + Tailwind, static on Vercel); Python profile builder | §7.2, [prompts/agent-cards.md](prompts/agent-cards.md) |
+| **Agent NBA** | CLV/ΔCLV valuation, p_accept, ranking, why/notes, German content, decision log, build and export CLI, local API | §7.3, [prompts/agent-nba.md](prompts/agent-nba.md) |
 
 Every agent reads §0–§6, its own task in §7, then §8–§10.
 
@@ -59,6 +59,8 @@ Every number on a card has a tooltip showing:
 3. Rank the remaining actions by expected **ΔCLV** following the workbook's `clv_method`.
 4. A human approves. Nothing is sent automatically.
 
+The entry point is a **worklist ranked by urgency** (§6.13). A marketer opens one customer, or selects a group of customers that share the same recommended action and approves them together; every customer in the group still passes every hard rule individually.
+
 **Why need-first.** In the mock history, offers sent to customers who had the catalog's own target signal converted at **38/558 = 6.8%**. Offers sent to customers without it converted at **27/1,280 = 2.1%**. Compared within each offer, that is about 2.3 times higher. 70% of the legacy engine's sends had no such signal. This is a descriptive statistic from mock data, not causal uplift; always label it that way.
 
 ## 2. Repository layout and ownership
@@ -68,6 +70,9 @@ Every number on a card has a tooltip showing:
 ├── README.md                    # this file; editing it = changing a contract
 ├── Hackathon_slides_for_MAINGAU.pdf   # challenge brief, read-only
 ├── docs/company-spec-vi.md      # original spec, read-only
+├── docs/schema/                 # JSON Schemas generated from nba/contracts.py (scripts/export_schema.py)
+├── prompts/                     # kickoff prompts for the AI agents (agent-cards.md, agent-nba.md)
+├── PLAN_KG.md                   # Agent KG's detailed build plan
 ├── references/                  # background material, read-only
 ├── log/                         # one session log per agent (§12)
 │   ├── agent-kg.md              # Agent KG
@@ -87,7 +92,7 @@ Every number on a card has a tooltip showing:
 │   ├── contracts.py             # Agent NBA writes it from §5; others import, never edit
 │   ├── data.py                  # Agent KG: workbook + event loading (§5.1)
 │   ├── state.py                 # Agent KG: CustomerState, contact counting (§5.2)
-│   ├── kg/                      # Agent KG: graph.py, signals.py, rules.py, paths.py, events.py
+│   ├── kg/                      # Agent KG: policy, predicates, signals, rules, segments, graph, paths, events
 │   ├── profile/                 # Agent CARDS: header, tone, value, products, consent,
 │   │                            #   highlights, timeline, trends, fatigue
 │   ├── engine/                  # Agent NBA: clv.py, churn.py, propensity.py, value.py,
@@ -95,7 +100,9 @@ Every number on a card has a tooltip showing:
 │   └── build.py                 # Agent NBA: CLI
 ├── templates/de/                # Agent NBA: German content templates (YAML)
 ├── api/app.py                   # Agent NBA: FastAPI
-├── web/                         # Agent CARDS: React + Vite + TypeScript
+├── web/                         # Agent CARDS: React + TypeScript + Tailwind (Vite), static, deployable on Vercel
+│   └── public/data/             # exported JSON the UI reads: index.json, summary.json, customers/<id>.json
+├── scripts/                     # Agent KG: export_schema.py, kg_report.py
 ├── tests/
 │   ├── test_kg_*.py             # Agent KG
 │   ├── test_profile_*.py        # Agent CARDS
@@ -110,11 +117,11 @@ Every number on a card has a tooltip showing:
 | Layer | Choice |
 |---|---|
 | Data, KG, engine | Python with pandas, openpyxl, networkx, PyYAML, pydantic v2 |
-| API | FastAPI + uvicorn |
+| API | FastAPI + uvicorn, local and pilot use only |
 | Tests | pytest |
-| UI | React + Vite + TypeScript, Recharts for mini charts |
+| UI | React + TypeScript + Tailwind CSS (Vite), static build deployed on Vercel; Recharts for mini charts |
 
-The spec left the UI stack open. If the team switches the UI to Streamlit, only Agent CARDS changes; the JSON contract stays the same.
+The UI is a static site. `python -m nba.build --export web/public/data` writes the JSON it reads. In the deployed demo, approvals are kept in the browser (localStorage) and can be exported as CSV/JSON; the FastAPI decision endpoint is the local and pilot path. The JSON contract is the same in both.
 
 ## 3. Data facts (verified 26 Oct 2026 against the files)
 
@@ -392,6 +399,14 @@ The values below are illustrative, **not expected results**. `nba/contracts.py` 
     "state_revision": "sha256:…"
   },
   "sources": {"customer_value": {"refresh": "monthly + on major events", "latency": "~1 month"}},
+  "triage": {
+    "archetype": {"id": "A2", "name": "Traditional energy loyalist", "reason": "only energy contracts (electricity)"},
+    "urgency_tier": "P3", "urgency_score": 212.3,
+    "urgency_reasons": ["price guarantee ends in 8 days (2026-10-08) [S4]", "gas meter deregistered 20 days ago [S1]"],
+    "deadline": "2026-10-08",
+    "flags": [{"id": "top_clv", "label": "Top 10% CLV", "detail": "clv_eur 1,120 ≥ p90 1,023", "src": "customer_value.clv_eur"}],
+    "outlier": false
+  },
   "profile": {
     "header": {
       "age_band": {"v": "50–59", "src": "customer_master.birth_year", "updated_at": "…"},
@@ -430,12 +445,15 @@ The values below are illustrative, **not expected results**. `nba/contracts.py` 
   ],
   "candidates": [
     {"tuple_id": "P-EN-03|newsletter_email|sie", "offer_id": "P-EN-03", "offer_name": "StromWärme", "action_type": "sales",
-     "channel": "newsletter_email", "tone": "sie", "need": "N-HEAT-PUMP", "signals": ["S1"],
+     "channel": "newsletter_email", "tone": "sie", "origin": "signal", "personalised": true, "need": "N-HEAT-PUMP", "signals": ["S1"],
      "checks": [{"rule_id": "CONSENT-CHANNEL", "passed": true, "detail": "newsletter_email granted, DOI 2021-…", "src": "consent_status"}],
      "valuation": {"clv_now_shown": 605.12, "clv_now_model": 605.40, "clv_after_accept": 0.0, "clv_after_reject": 605.40,
                    "p_accept": 0.014, "p_source": {"mode": "uplift", "level": "global", "n_treated": 2022, "conv_treated": 69, "n_control": 248, "conv_control": 5},
                    "contact_cost": 0.01, "delta_clv": 0.0, "confidence": "low"},
-     "rank": 1, "path": []}
+     "rank": 1,
+     "why": ["Gas meter deregistered on 2026-09-10 [S1] → heat pump likely", "Newsletter consent granted with double opt-in"],
+     "notes": ["No sales history for P-EN-03: p is the catalog average (low confidence)"],
+     "path": []}
   ],
   "blocked": [{"offer_id": "P-MO-01", "channel": "outbound_call", "rule_id": "CONSENT-CHANNEL", "reason": "marketing_phone withdrawn 2025-03-02", "src": "consent_status"}],
   "chosen": {
@@ -480,15 +498,20 @@ The values below are illustrative, **not expected results**. `nba/contracts.py` 
 
 ```json
 {"customer_id": "…", "age_band": "…", "city": "…", "lines": 1, "clv_eur": 0, "churn": 0,
- "chosen_offer": "P-EN-03", "channel": "…", "delta_clv": 0, "confidence": "low",
- "service_mode": false, "n_signals": 2, "n_blocked": 4, "exclusions": []}
+ "archetype": "A2", "archetype_name": "Traditional energy loyalist",
+ "urgency_tier": "P3", "urgency_score": 212.3, "top_reason": "price guarantee ends in 8 days [S4]",
+ "flags": ["top_clv"], "outlier": false, "triggers": ["S1", "S4"],
+ "chosen_offer": "P-EN-03", "chosen_tuple": "P-EN-03|newsletter_email|sie", "channel": "newsletter_email", "tone": "sie",
+ "delta_clv": 0, "p_accept": 0.034, "confidence": "low", "service_mode": false, "personalised": true,
+ "n_signals": 2, "n_candidates": 5, "n_blocked": 4, "exclusions": []}
 ```
 
 **`out/summary.json`** holds the aggregates:
 - chosen offers: count and ΣΔCLV;
 - blocked tuples by `rule_id`;
 - customers with NO_ACTION, by reason;
-- signal counts.
+- signal counts;
+- archetype, urgency-tier and flag counts.
 
 ### 5.5 IDs and enums
 
@@ -502,6 +525,10 @@ The values below are illustrative, **not expected results**. `nba/contracts.py` 
 | Signal purpose | `contract`, `device`, `behavioural`, `service` (§6.3; drives the profiling rule) |
 | Decision status | `proposed`, `approved`, `overridden`, `rejected` (+ `revoked` for event replay, stretch goal) |
 | Confidence | `high`, `medium`, `low` (§6.6) |
+| Candidate origin | `signal` (personalised, from S1–S11), `service` (P-SV-01 from S2/S12/S13), `generic` (non-personalised catalog offer, §6.12) |
+| Archetypes | `A1` Smart eco-system adopter, `A2` Traditional energy loyalist, `A3` EV driver, `A4` Retention risk (do no harm), `A5` Growing connected household, `A0` Other (§6.13) |
+| Urgency tiers | `P1` act now (service), `P2` high, `P3` time-bound opportunity, `P4` opportunity, `P5` no trigger (§6.13) |
+| Flags | `service_critical`, `no_marketing_channel`, `no_profiling`, `negative_clv`, `top_clv`, `contact_fatigue`, `annoyed_before`, `prefers_en`, `data_inconsistent` (§6.13) |
 | Rule IDs | `CONSENT-CHANNEL`, `CONSENT-PROFILING`, `CHANNEL-AVAILABLE`, `EXCL-DUNNING`, `EXCL-CANCELLATION`, `EXCL-OPEN-TICKET`, `EXCL-AUTOSTROM-CANCELLED`, `HOLDING-PRECONDITION`, `CONTACT-CAP`, `ECON-NONPOSITIVE`, `DATA-MISSING` |
 
 ### 5.6 Module interfaces (stubs must exist by M0, §8)
@@ -515,6 +542,7 @@ def generate_candidates(state, signals, policy, tone: str) -> tuple[list[Candida
     # returns candidates WITHOUT valuation and blocked items with rule_id
 def explain(state, candidate, policy) -> list[PathStep]
 def customer_graph(state, policy) -> networkx.MultiDiGraph
+def triage(state, signals, policy, pop) -> Triage                  # archetype, urgency, flags (§6.13)
 
 # Agent CARDS — nba/profile/*.py
 def infer_tone(state) -> Tone             # value + method + evidence; NBA imports this
@@ -562,7 +590,7 @@ Exclusions never block `service` (P-SV-01). Dunning data is payment data: use it
 
 ### 6.3 Signals (owner: Agent KG)
 
-S1–S11 come from the spec. S12–S18 extend coverage to the rest of the catalog's `typical_target_signal`, so the engine can rank across all 18 offers. They are enabled by default and can be switched off with `config/kg.yaml: signals.extended`.
+S1–S11 come from the spec. S12 and S13 are the service triggers that spec C8 and the test customers require. Offers that no signal points to are reached only through the **generic path** (§6.12), never through invented signals.
 
 The evaluation date is `eval_time.date()`. "Active" means `status = active`. "Owned" uses `owns()` (§5.2).
 
@@ -581,11 +609,6 @@ The evaluation date is `eval_time.date()`. "Active" means `status = active`. "Ow
 | S11 | Active Autostrom and no active electricity contract | medium | contract | N-HOME-ELECTRICITY | P-EN-01 |
 | S12 | Any ticket with `status = open` (strongest for `category = complaint`) | strong | service | N-SERVICE-FIX | P-SV-01 |
 | S13 | Active `EXCL-DUNNING` or `EXCL-CANCELLATION` | strong | service | N-SERVICE-FIX | P-SV-01 |
-| S14 | Active energy contract and no active mobile | weak | contract | N-BUNDLE-MOBILE | P-MO-01 |
-| S15 | EV driver (active Autostrom or delivered "Ladekabel Typ 2") with no wallbox (device or delivered order) | medium | contract | N-HOME-CHARGING | P-SH-02 |
-| S16 | Active gas contract and no delivered "Smarte Thermostate 3er" | weak | contract | N-HEATING-COMFORT | P-SH-03 |
-| S17 | Active electricity and no PV (no `feed_in_meter`, no `pv_inverter`, no delivered "Balkonkraftwerk 800 W") | weak | contract | N-SELF-GENERATION | P-SH-01 |
-| S18 | `portal_account` or `app_installed`, and no smart plug (device or delivered order) | weak | contract | N-SMART-HOME-START | P-SH-04 |
 
 **Not generated:**
 - P-EN-04 GasAktiv: gas heating is unknown in the data.
@@ -593,13 +616,11 @@ The evaluation date is `eval_time.date()`. "Active" means `status = active`. "Ow
 
 List both once per customer in `blocked` with `DATA-MISSING`, reason "not enough data".
 
-**Profiling rule.** If `profiling_analytics ≠ granted`:
-- **Marketing** candidates may only come from signals whose purpose is `contract`, `device` or `service`. Behavioural signals (S3, S5, S10) are dropped for marketing, with a `CONSENT-PROFILING` entry in `blocked`.
-- Content is generic (`personalised = false`, labelled "nicht personalisiert").
-- Tone is the default Sie.
-- **Service** actions are unaffected.
-
-Open question K3.
+**Profiling rule (decision D1, team, 26 Oct 2026).** If `profiling_analytics ≠ granted`, only non-personalised logic is allowed:
+- **No signal is used for marketing.** Every marketing signal (S1, S3–S11) is listed in `blocked` with `CONSENT-PROFILING`, e.g. "S3 wallbox purchase ignored: no profiling consent".
+- **Marketing candidates come only from the generic path** (§6.12): catalog offers valued with the catalog-wide average p. Products the customer already owns are removed, because that check uses contract data only.
+- Content is generic (`personalised = false`, labelled "nicht personalisiert"); tone is the default Sie.
+- **Service** actions (S2, S12, S13 → P-SV-01) are unaffected.
 
 **Sanity counts** at eval 2026-09-30 from our check script. Report your counts and explain any difference.
 
@@ -627,11 +648,6 @@ Open question K3.
 | N-WALLBOX-INTEGRATION | Smart charging at home |
 | N-DYNAMIC-TARIFF | Benefit from flexible prices |
 | N-HOME-ELECTRICITY | Home electricity for an EV driver |
-| N-BUNDLE-MOBILE | One provider for energy and mobile |
-| N-HOME-CHARGING | Charge at home |
-| N-HEATING-COMFORT | Heating comfort and savings |
-| N-SELF-GENERATION | Own solar generation |
-| N-SMART-HOME-START | Start with smart home |
 
 **Preconditions.** These are REQUIRES / NOT-HELD edges, checked by `HOLDING-PRECONDITION`.
 
@@ -655,6 +671,8 @@ Open question K3.
 | P-SV-01 Service | S2, S12 or S13 present | — |
 
 **Default channels** for marketing offers: every channel in §6.1 except `service_agent`. P-SV-01 uses only `service_agent`.
+
+**Generic offers** (`config/kg.yaml: generic.offers`): P-EN-01, P-MO-01, P-SL-01, P-SH-01, P-SH-03, P-SH-04. These are offers whose eligibility can be checked from contract data alone. Need-specific offers (P-EN-03 heat pump, P-EN-05 smart meter + device, P-AS-01 and P-SH-02 EV, P-SL-02/03 HEMS upsells, P-MO-02 usage, P-MO-03 household, P-EN-02 retention timing) are never offered generically. P-EN-04 and P-IN-01 stay `DATA-MISSING`.
 
 ### 6.5 CLV and churn model (owner: Agent NBA)
 
@@ -722,14 +740,17 @@ Log every component of a valuation, not only the final number.
 
 Use the first level where `n_treated ≥ 30`. L1 and L0 are an extension, because the spec stops at L2 and 8 offers have no history at all.
 
-**Mode `uplift`** (spec default):
+**Mode `rate`** (default since 26 Oct, K1):
+- `p = (conv + 0.034·30) / (n + 30)`, i.e. the treated conversion rate shrunk toward the global 3.4% with pseudo-count 30.
+- Why it is the default: the team confirmed MG-100023 as the P-AS-01 test case. Under `uplift`, P-AS-01 (0/203 treated, 0/21 control) always gets p = 0 and could never be recommended.
+- The uplift against control is still computed and shown next to p as evidence ("vs control: 0/21, not significant").
+
+**Mode `uplift`** (spec wording, kept for comparison and reported in `out/test_report.md`):
 - `p = max(0, rate_treated − baseline_control)`.
 - `baseline_control` is the offer's own control rate if that offer has `n_control ≥ 30`, otherwise the global control rate 5/248 = 2.0%.
 - The L0 prior is 69/2,022 − 5/248 = 1.4%.
 
-**Mode `rate`** (fallback, K1):
-- `p = (conv + 0.034·30) / (n + 30)`, i.e. the treated conversion rate shrunk toward the global 3.4% with pseudo-count 30.
-- No control subtraction.
+**Generic offers** (§6.12) always use L0, the catalog-wide average: 69/2,022 = 3.4% in `rate` mode, 1.4% in `uplift` mode. That is what "non-personalised, based on the catalog average" means (D1).
 
 **P-SV-01** has no history. It uses `p_service_success = 0.5`, an editable assumption labelled low confidence (K2).
 
@@ -877,35 +898,93 @@ These are flags shown as ⚠ in the checklist. **They never block.**
   - `HAS_SESSION`: Contract → Session.
 - **Division of labour:** rules are declared in YAML and evaluated by named Python predicates. Scoring lives in code. Customer data stays in tables; the graph is built per customer on demand, so there is no graph database.
 
+### 6.12 Candidate tiers and arbitration (owner: Agent KG builds tiers, Agent NBA ranks)
+
+Rules are applied before any ranking. Then:
+
+1. **Signal and service tuples.** For customers with profiling consent: tuples from S1–S13. For customers without it: only service tuples (S2, S12, S13 → P-SV-01).
+2. **Generic tuples** (non-personalised, `origin = generic`):
+   - without profiling consent: always evaluated, next to the service tuples;
+   - with profiling consent: evaluated only when no signal or service tuple has ΔCLV > 0 (`generic.fallback_for_profiled`, K12). This keeps need-first ranking: a real need signal is never outbid by a generic push.
+3. Rank by ΔCLV inside the evaluated set; drop ΔCLV ≤ 0 (`ECON-NONPOSITIVE`). If nothing remains, the decision is `NO_ACTION` with the reason.
+
+**Generic channels:** every consented and available channel (`generic.allowed_channels: all`). With the only channel being a 6 € call, a generic offer can still be positive. For MG-100112, StromAktiv by phone breaks even at p ≈ 0.98%, so at the catalog average it is +€14.8 (`rate`) or +€2.6 (`uplift`). See K11 before changing this.
+
+### 6.13 Triage: archetypes, urgency and flags (owner: Agent KG, `nba/kg/segments.py`)
+
+**Archetypes** are rule-based, first match wins. They never use age or payment data except the exclusion flags themselves. Counts at eval 2026-09-30:
+
+| ID | Name | Rule | Count | CLV median | Churn median |
+|---|---|---|---|---|---|
+| A4 | Retention risk (do no harm) | Any active exclusion (§6.2) or `churn_prob_12m ≥ 0.35` | 75 | 322 | 0.28 |
+| A1 | Smart eco-system adopter | `hems_gateway` device | 33 | 932 | 0.07 |
+| A3 | EV driver | Active Autostrom | 201 | 517 | 0.20 |
+| A5 | Growing connected household | Active mobile and (`household_size > sim_count` or `data_limit_reached_3m ≥ 1`) | 50 | 660 | 0.14 |
+| A2 | Traditional energy loyalist | Only energy contracts (electricity and/or gas) | 342 | 498 | 0.17 |
+| A0 | Other | Everything else | 49 | 256 | 0.22 |
+
+Representative customers: MG-100325 (A1) and MG-100001 (A2).
+
+**Urgency tiers**, first match wins. The urgency score orders the worklist inside a tier:
+
+| Tier | Meaning | Rule | Count |
+|---|---|---|---|
+| P1 | Act now (service) | `cancellation_pending`, open complaint, `dunning_level ≥ 2`, or S2 | 53 |
+| P2 | High | Any other open ticket, `dunning_level = 1`, price guarantee ends in ≤ 30 days, or churn ≥ 0.35 | 62 |
+| P3 | Time-bound opportunity | Price guarantee ends in 31–89 days, gas meter deregistered within 90 days, or S5 | 95 |
+| P4 | Opportunity | Any other signal | 234 |
+| P5 | No trigger | — | 306 |
+
+`urgency_score = 100 × (5 − tier number) + min(99, max(0, clv_eur) × churn_prob_12m / 10)`. In words: the tier first, then the CLV at risk. `urgency_reasons` lists the facts in plain language, each with its signal or rule ID. `deadline` is set when a date drives the tier.
+
+**Flags** (shown as badges):
+
+| Flag | Rule | Count |
+|---|---|---|
+| `service_critical` | Tier P1 | 53 |
+| `no_marketing_channel` | No consented and available marketing channel | 51 |
+| `no_profiling` | `profiling_analytics ≠ granted` | 289 |
+| `negative_clv` | `clv_eur < 0` | 31 |
+| `top_clv` | `clv_eur ≥ p90` (1,023 €) | 75 |
+| `contact_fatigue` | ≥ 2 contacts in 30 days or ≥ 3 ignored/dismissed in 90 days | 188 |
+| `annoyed_before` | `service_nba_feedback` with `customer_reaction = annoyed` or `dismiss_reason = customer_upset` | 32 |
+| `prefers_en` | `preferred_contact_language = en` | 7 |
+| `data_inconsistent` | Late CDRs after the cutoff, or TK-200565 / TK-200640 | 71 |
+
+**Outlier** ("special need") = any of `service_critical`, `no_marketing_channel`, `negative_clv`, `annoyed_before`, `prefers_en`. These customers need individual handling and are never bulk-approved without a second look. `top_clv` is a VIP badge, not an outlier.
+
+Counts are from Agent KG's check script; `scripts/kg_report.py` reproduces them.
+
 ## 7. Tasks: three agents in parallel
 
-### 7.1 Agent KG: ontology, knowledge graph, signals and rules
+### 7.1 Agent KG: ontology, knowledge graph, signals, rules and triage
 
-**Goal:** for any customer, return the signals, the allowed (offer, channel, tone) tuples, the blocked items with reasons, and an explanation path. All of it is driven by `kg/policy.yaml`.
+**Owner:** Claude (main session), who also reviews the work of Agent CARDS and Agent NBA against this README. Detailed plan: [PLAN_KG.md](PLAN_KG.md).
+
+**Goal:** for any customer, return:
+- the signals;
+- the allowed (offer, channel, tone) tuples: signal, service and generic (§6.12);
+- the blocked items with reasons;
+- the triage: archetype, urgency and flags (§6.13);
+- an explanation path for each tuple.
+
+All of it is driven by `kg/policy.yaml`.
 
 **Owns:**
 - `kg/`, `config/kg.yaml`
 - `nba/data.py`, `nba/state.py`, `nba/kg/`
+- `scripts/`, `docs/schema/`
 - `tests/test_kg_*.py`
 
-**Steps:**
-
-- **M0:**
-  - Write `nba/data.py` (§5.1), `nba/state.py` with `CustomerState`, `contacts`, `active_lines` and `owns`.
-  - Write `nba/kg/` stubs that return fixtures for MG-100068 and MG-100009.
-  - Push early; the other agents depend on these.
-- **M1:**
-  - Write `kg/ontology.yaml` and `kg/policy.yaml` covering everything in §6.1–§6.4 and §6.11.
-  - Implement `extract_signals` for S1–S18.
-  - Implement the gates in this order: exclusions → holding preconditions → profiling purpose → channel consent and availability → contact cap.
-  - Return blocked items with `rule_id`, a reason, the source and the date (e.g. "marketing_phone withdrawn 2025-03-02").
-- **M2:**
-  - Implement `explain` (path steps with `ui_ref`), `customer_graph`, and the freshness/data-quality flags (§6.9).
-  - Run all 750 customers; write the signal counts to `out/kg_report.md`.
-- **M3 (stretch, deep dive B):**
-  - `nba/kg/events.py`: dedup, then apply events in `ingested_at` order, updating facts per key (dunning, consent, cancellation, ticket, gas deregistration with effective date, failed charge, data threshold, order, click); log unsupported event types.
-  - Return the affected `customer_id`s so that Agent NBA can rebuild them.
-  - Demo customers: MG-100003 (profiling withdrawn, ingested 10:14:05; newsletter withdrawn, ingested 10:14:11), MG-100465 (cancellation arriving about 17 h late), MG-100125 (gas deregistration effective 2026-10-31), MG-100009 (fourth failed charge at 17:22).
+**Delivers, in order:**
+1. *(done 26 Oct)* `nba/data.py`, `nba/state.py`, and the first version of `nba/contracts.py`, now handed to Agent NBA.
+2. `kg/ontology.yaml` and `kg/policy.yaml` covering §6.1–§6.4, §6.11 and §6.12.
+3. `extract_signals` (S1–S13); the gates (exclusions → holding preconditions → profiling purpose → channel consent and availability → contact cap); generic tuples; `triage`; `explain` with `ui_ref`; `customer_graph`; data-quality flags (§6.9).
+4. `scripts/export_schema.py` → `docs/schema/*.json`, which Agent CARDS turns into TypeScript types. `scripts/kg_report.py` → `out/kg_report.md` with signal, archetype, tier and flag counts.
+5. *(stretch, deep dive B)* `nba/kg/events.py`:
+   - dedup, then apply events in `ingested_at` order with per-key updates;
+   - return the affected customers;
+   - demo customers: MG-100003, MG-100465, MG-100125 and MG-100009.
 
 **Done when:**
 - Policy integrity tests pass:
@@ -914,7 +993,8 @@ These are flags shown as ⚠ in the checklist. **They never block.**
   - every channel maps to exactly one consent type;
   - every predicate name resolves to a Python function;
   - there are no orphan nodes.
-- No candidate ever violates §6.1 or §6.2 across all 750 customers (an invariant test).
+- No tuple ever violates §6.1, §6.2 or the profiling rule across all 750 customers (an invariant test).
+- The signal counts (§6.3) and triage counts (§6.13) are reproduced, or the differences are explained in `log/agent-kg.md`.
 - The spec's signal examples reproduce for the test customers in §9.
 
 **Don't:**
@@ -923,58 +1003,37 @@ These are flags shown as ⚠ in the checklist. **They never block.**
 - write UI code;
 - treat a missing internet holding as evidence.
 
-### 7.2 Agent CARDS: Customer Profile and the UI for both cards
+### 7.2 Agent CARDS: marketing orchestration dashboard and customer profile
 
-**Goal:** a user understands the customer in about 30 seconds. Every number has a source tooltip. The right card renders the NBA JSON and sends human decisions back.
+**The full brief is in [prompts/agent-cards.md](prompts/agent-cards.md).** In short:
+
+- **Worklist:** a Notion-like table of all customers, ranked by urgency tier and score (§6.13), with archetype, top reason, recommended action, ΔCLV, confidence and flags. Outliers are visually distinct.
+- **Execution:** act on one customer, or select a group that shares the same recommended tuple and approve it in one go. Outliers and customers with warnings need an explicit second look.
+- **Customer page:** the left card is the profile (§4.1 A1–A5, B1–B4). The right card holds the ranked NBAs (§4.2 C1–C8). Each NBA shows:
+  - why it fits;
+  - the CLV gain if it succeeds;
+  - the success and failure probability, and why;
+  - the notes.
+  Every number has a source tooltip.
+- **Stack:** React + TypeScript + Tailwind (Vite). It is a static site deployable on Vercel and reads `web/public/data/` (mock data first, then the export from `nba.build`). Decisions are kept in localStorage and can be exported.
+- **Backend part:** `nba/profile/` builds the left-card JSON (A1–A5, B1–B3, tone §6.8) from `CustomerState`.
 
 **Owns:**
 - `nba/profile/`, `config/cards.yaml`
 - `web/`
 - `tests/test_profile_*.py`
 
-**Steps:**
-
-- **M0:**
-  - Scaffold `web/` (Vite + React + TS).
-  - Create `web/fixtures/MG-100068.json` by hand from §5.4.
-  - Write `infer_tone` and `build_profile` stubs.
-- **M1, backend profile:**
-  - Implement A1–A5 and B1–B3 in `nba/profile/` using `CustomerState` and `population`: percentiles against all 750 and against the same line combination; highlights only when rarity ≤ 10% or percentile ≥ 90 / ≤ 10, each citing its columns.
-  - Tone per §6.8.
-  - Trends with their real date ranges (§3).
-  - Fatigue per B3.
-- **M1, UI:**
-  - Layout: left card and right card side by side; on narrow screens, stacked.
-  - Consent and exclusion traffic lights at the top of the left card.
-  - A five-line product grid with tinted opportunity cells; Internet labelled "no data".
-  - Timeline, newest first, future milestones marked.
-  - Mini charts.
-  - Signal chips S1… that highlight the matching path in the right card.
-- **M2, right card:**
-  - C1–C8: action, ΔCLV, confidence, status; reason line; a KG path whose clickable nodes scroll to and highlight the `ui_ref` in the left card.
-  - Valuation table; checklist; alternatives; blocked list; legacy comparison; German preview with a "nicht personalisiert" badge.
-  - Approve / change channel / change tone / change offer / Reject (reason required) via `POST /api/customers/{id}/decision`.
-  - A mode switch: Marketing vs Service agent. With an open ticket the card defaults to service mode and shows the agent script.
-- **M3:** overview page from `out/index.json` and `out/summary.json` (the marketing dashboard deliverable):
-  - a customer table with search and filters (chosen offer, service mode, blocked rule, confidence);
-  - totals of ΔCLV by offer;
-  - blocked tuples by rule;
-  - a link to each customer screen.
-
-**Data access:**
-- Use the API when it is running (`/api/customers`, `/api/customers/{id}`).
-- Otherwise read `out/customers/*.json` and the fixtures. The UI must work in static mode.
-
 **Done when:**
-- All 13 test customers render without errors.
+- All 13 test customers and both representative customers (MG-100325, MG-100001) render without errors.
 - Every number has a tooltip showing `src`, `updated_at`, refresh and latency.
-- Missing data shows "not enough data", never 0 or an empty chart without explanation.
-- No horizontal scroll at 1280 px.
-- Both cards are readable in about 30 seconds: fewer than 12 numbers visible before any drill-down.
+- Missing data shows "not enough data".
+- Bulk approval refuses customers whose own checklist fails.
+- `npm run build` succeeds and the site works when deployed as static files.
 
 **Don't:**
-- re-implement valuation, ranking or rules in the frontend; render what the JSON says;
-- draw a CLV trend.
+- re-implement valuation, ranking, rules or triage in the frontend; render what the JSON says;
+- draw a CLV trend;
+- show the archetype draft's ranges as facts (K13).
 
 ### 7.3 Agent NBA: valuation, ranking, content, decisions, API and build
 
@@ -989,19 +1048,23 @@ These are flags shown as ⚠ in the checklist. **They never block.**
 **Steps:**
 
 - **M0:**
-  - Write `nba/contracts.py` from §5.4 and §5.5; this is the first commit.
-  - Write `requirements.txt`.
-  - Stub `assemble` so it returns the §5.4 example.
-  - Create `api/app.py` serving fixtures.
+  - `nba/contracts.py` and `requirements.txt` exist. Agent KG wrote the first versions on 26 Oct; you own them from now on.
+  - Stub `assemble` so it returns a valid `CustomerCard` for MG-100068.
 - **M1:**
   - Implement `clv` and `churn_breakdown`. Tests: CLV matches `clv_eur` within 3.05 € for every customer (median ≈ 0.27 €); churn matches `churn_prob_12m` exactly for the 718 customers.
-  - Implement `p_accept` in both modes, with reports.
+  - Implement `p_accept` in both modes (default `rate`, §6.6), with reports; generic tuples use the catalog-wide average.
   - Implement `value` per §6.5 and `rank`: drop ΔCLV ≤ 0 into `blocked` as `ECON-NONPOSITIVE`; ties broken by higher p, then lower contact cost, then `offer_id`.
 - **M2:**
-  - Write `assemble`, combining KG + profile + valuation; generate the reason line from the actual components and signal IDs; alternatives with `why_lower`; legacy comparison (latest `nba_action_history` row, valued with our model, plus the rules that would block it now); checklist.
+  - Write `assemble`, combining KG (signals, tuples, blocked, triage, paths) + profile + valuation.
+    - Apply the tier logic of §6.12.
+    - Fill each candidate's `why` (KG facts + evidence for p) and `notes` (assumptions, low confidence, data quality).
+    - Generate the reason line from the actual components and signal IDs.
+    - Alternatives with `why_lower`.
+    - Legacy comparison: the latest `nba_action_history` row, valued with our model, plus the rules that would block it now.
+    - Checklist.
   - Write `templates/de/<offer>.yaml` with du/sie × personalised/generic variants and P-SV-01 apology variants with no sales content.
-  - Write `build.py`, producing `out/customers/*.json`, `out/index.json` and `out/summary.json`.
-  - API endpoints:
+  - Write `build.py`, producing `out/customers/*.json`, `out/index.json` and `out/summary.json`; `--export web/public/data` copies them for the static UI.
+  - Local API endpoints:
     - `GET /api/customers` (filters)
     - `GET /api/customers/{id}`
     - `POST /api/customers/{id}/decision`
@@ -1025,7 +1088,7 @@ These are flags shown as ⚠ in the checklist. **They never block.**
 - `python -m nba.build` runs for all 750 customers in under 60 s and is deterministic.
 - All invariants in §9 hold.
 - The test report exists.
-- The API serves the UI.
+- `--export web/public/data` produces files that validate against `docs/schema/`.
 
 **Don't:**
 - re-implement signals or rules (call Agent KG's functions);
@@ -1036,7 +1099,7 @@ These are flags shown as ⚠ in the checklist. **They never block.**
 
 | Milestone | Target | Integration check |
 |---|---|---|
-| M0 | First ~45 min | `contracts.py`, `data.py`, `state.py` and every stub merged; `pytest -q` green; UI renders the fixture |
+| M0 | First ~45 min | `contracts.py`, `data.py`, `state.py` merged (done); every stub merged; `pytest -q` green; UI renders mock data that validates against `docs/schema/` |
 | M1 | ~+3 h | Vertical slice: MG-100068 end to end with real signals, tuples, valuation and both cards |
 | M2 | ~+6 h | All 750 customers; the 13 test customers in the report; decisions logged through the API |
 | M3 | Remaining time | Overview page, test report, polish, demo script; stretch: event replay and revocation |
@@ -1050,12 +1113,13 @@ python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 python -m nba.build --asof 2026-09-30T23:59:59 --out out/          # all customers
 python -m nba.build --customers MG-100068,MG-100009 --out out/    # subset
+python -m nba.build --out out/ --export web/public/data            # refresh the UI data
 pytest -q
 uvicorn api.app:app --reload --port 8000
 cd web && npm install && npm run dev
 ```
 
-**Config files:** p mode, contact cap, `p_service_success`, extended signals, the Autostrom-cancelled scope and the unsubscribe scope all live in `config/*.yaml` and are written into `meta.versions`.
+**Config files:** p mode, contact cap, `p_service_success`, generic offers and channels, the Autostrom-cancelled scope and the unsubscribe scope all live in `config/*.yaml` and are written into `meta.versions`.
 
 ## 9. Acceptance tests
 
@@ -1068,23 +1132,26 @@ Customer facts below were verified in the workbook on 26 Oct. "Spec expects" is 
 | MG-100096 | P-SV-01, sales blocked | `dunning_level = 3`; gas deregistered 2026-07-24; churn 0.36 | `EXCL-DUNNING` blocks every sales tuple, including P-EN-03 |
 | MG-100186 | Service first | Open complaint TK-200745 (2026-09-20); gas deregistered 2026-09-12 | Service mode, P-SV-01 |
 | MG-100068 | Two signals compete; check the ranking | Gas deregistered 2026-09-10; Wallbox delivered 2025-12-28; no Autostrom; **price guarantee ends 2026-10-08** (S4 too); profiling, newsletter, email and portal granted | P-EN-03, P-AS-01, P-EN-02 and P-SL-01 compete. Report the ranking with components |
-| MG-100023 | P-AS-01 | Wallbox delivered 2025-08-14; StromAktiv; profiling, newsletter and portal granted; `marketing_email` withdrawn | K1: in `uplift` mode P-AS-01 gets p = 0 and is dropped |
-| MG-100112 | P-AS-01 | Wallbox delivered 2024-10-25; gas only; **profiling not granted**; only `marketing_phone` granted | K1 + K3: S3 is behavioural, so it is unusable without profiling; only a 6 € call is possible |
+| MG-100023 | P-AS-01 (team-confirmed test case) | Wallbox delivered 2025-08-14; StromAktiv; profiling, newsletter and portal granted; `marketing_email` withdrawn; no exclusion | Needs `p_mode: rate` (K1). S3 is the only signal tuple, so generic offers are not evaluated |
+| MG-100112 | **Changed (D1):** "wallbox signal ignored because there is no profiling consent → non-personalised logic → ΔCLV ≤ 0 → no action" | Wallbox delivered 2024-10-25; gas only; **profiling not granted**; only `marketing_phone` granted | Strict: S3 is listed as blocked by `CONSENT-PROFILING` and no personalised tuple exists. Open (K11): the generic StromAktiv call is +€14.8 / +€2.6, so the outcome is NO_ACTION only if K11 is decided that way |
 | MG-100009 | P-SV-01 | Autostrom only; 3 failed sessions in Sep 2026; only `portal_app_personalisation` and profiling granted | S2 strong; service mode |
 | MG-100659 | P-SV-01 | Autostrom; 3 failed sessions in Sep 2026; low CSAT | S2 strong |
 | MG-100035 | No sales offer | Electricity `cancellation_pending` (received 2026-09-04); churn 0.95 | P-SV-01 cannot lower 0.95, so NO_ACTION is acceptable; no sales tuple allowed |
 | MG-100087 | No sales offer | `cancellation_pending` (received 2026-09-22); Autostrom active | Same |
 | MG-100004 | Non-personalised fallback; open complaint | Profiling not granted; open complaint TK-200772; `dunning_level = 2` | Service first; generic content; tone Sie by default |
-| MG-100012 | Non-personalised fallback | Profiling not granted; StromGarant + gas; newsletter, phone and portal granted | Only contract/device signals; content "nicht personalisiert" |
+| MG-100012 | Non-personalised fallback | Profiling not granted; StromGarant + gas; newsletter, phone and portal granted | Generic path only (e.g. P-MO-01 at the catalog average); content "nicht personalisiert"; tone Sie |
 
-**Strict tests** (must pass under both p modes): MG-100096, MG-100186, MG-100009, MG-100659, MG-100035, MG-100087, MG-100004, MG-100012.
+**Strict tests** (must pass under both p modes): MG-100096, MG-100186, MG-100009, MG-100659, MG-100035, MG-100087, MG-100004, MG-100012, and the consent part of MG-100112.
 
-**Report tests** (assert the signal fires and the expected offer appears in `candidates` or `blocked` with a reason; write chosen vs expected to `out/test_report.md`): MG-100051, MG-100060, MG-100068, MG-100023, MG-100112.
+**Strict under the default `rate` mode:** MG-100023 → P-AS-01.
+
+**Report tests** (assert the signal fires and the expected offer appears in `candidates` or `blocked` with a reason; write chosen vs expected to `out/test_report.md`): MG-100051, MG-100060, MG-100068, and the final action of MG-100112.
 
 **Invariants for all 750 customers:**
 - No candidate or chosen tuple without the channel consent and channel availability.
 - No sales, upsell, retention or one-off tuple while an exclusion is active.
-- No personalised content, behavioural signal or inferred tone when profiling is not granted.
+- No personalised content, no signal-based marketing tuple and no inferred tone when profiling is not granted.
+- Every customer has a triage (archetype, urgency tier, flags).
 - No chosen tuple with ΔCLV ≤ 0. NO_ACTION always has a reason.
 - No offer chosen that the customer already owns.
 - The contact cap is respected.
@@ -1096,9 +1163,9 @@ Customer facts below were verified in the workbook on 26 Oct. "Spec expects" is 
 
 | ID | Conflict | Default in code | Ask |
 |---|---|---|---|
-| K1 | Uplift p for P-AS-01 is 0 (0/203 treated, 0/21 control), so it is always dropped. MG-100023 and MG-100112 cannot reach P-AS-01 as the spec expects | `p_mode: uplift` (spec); `rate` mode is also implemented and reported | Jan / Caro: which p definition? |
-| K2 | 8 offers have no history (P-EN-01, P-EN-03, P-EN-04, P-MO-03, P-SL-02, P-SL-03, P-SH-04, P-SV-01); the spec's backoff stops at offer × channel | Back off to offer, then global (1.4% uplift); P-SV-01 uses `p_service_success = 0.5` | Which priors and service success rate? |
-| K3 | "Every personalisation needs profiling" vs test MG-100112 (no profiling, P-AS-01 from a purchase signal) | Without profiling, only contract/device/service signals; generic content; Sie | What is the approved non-personalised fallback? |
+| K1 | Uplift p for P-AS-01 is 0 (0/203 treated, 0/21 control), so it is always dropped. The team confirmed MG-100023 → P-AS-01 | **`p_mode: rate`** (shrunk treated rate); uplift is shown as evidence and reported | Jan / Caro: confirm rate-based ranking |
+| K2 | 8 offers have no history (P-EN-01, P-EN-03, P-EN-04, P-MO-03, P-SL-02, P-SL-03, P-SH-04, P-SV-01); the spec's backoff stops at offer × channel | Back off to offer, then global (3.4% rate / 1.4% uplift); P-SV-01 uses `p_service_success = 0.5` | Which priors and service success rate? |
+| K3 | Personalisation without profiling consent | **Decided (D1, 26 Oct):** no signal for marketing; generic catalog offers at the catalog average; owned products removed with contract data; Sie; "nicht personalisiert" | — |
 | K4 | The spec says 150 Autostrom-only customers and 15 tables | Computed: 159 / 161 / 127 depending on the definition; 18 sources | Which definition? |
 | K5 | Contact cap N is not given | N = 2 per 30 days, marketing only | Confirm N |
 | K6 | Scope of the `autostrom_contracts.status = cancelled` exclusion | Blocks all sales (spec wording) | All sales, or only e-mobility offers? |
@@ -1106,6 +1173,9 @@ Customer facts below were verified in the workbook on 26 Oct. "Spec expects" is 
 | K8 | Snapshot has future facts (79 late CDRs; 2 tickets closed with later `resolved_at`) | `snapshot_mode: provided`; flag `SNAPSHOT-INCONSISTENT` | Authoritative snapshot, or strict as-of? |
 | K9 | Scope of an unsubscribe found in `newsletter_performance` | Withdraws `newsletter_email` only | Also `marketing_email`? |
 | K10 | Retention content during `cancellation_pending` | Blocked, because retention counts as sales content | Confirm |
+| K11 | D1 expects MG-100112 → no action because "a 6 € call at p 1–3% is negative". With the catalog values, generic StromAktiv by phone breaks even at p ≈ 0.98% and is +€14.8 (rate) / +€2.6 (uplift) | Economics decide (`generic.allowed_channels: all`) → MG-100112 gets a generic StromAktiv call | Team: allow generic offers by phone/SMS, or restrict generic offers to newsletter/email/portal/app (then MG-100112 → NO_ACTION)? |
+| K12 | Should customers with profiling consent fall back to generic offers when no signal tuple is positive? | Yes, only as fallback (`generic.fallback_for_profiled: true`) | Team |
+| K13 | The marketing archetype draft (five profiles) has numbers that do not match the data: MG-100325 cost to serve is 55 € (not 7 €) and it has the driver "price guarantee ends <90d"; P-SL-02 needs a home battery, which MG-100325 lacks; profile 4 churn median is 0.30 (not 40–95%) and CLV median 320 € (not < 100 €); there is no "cancellation page" in `portal_sessions`; profile 5 has 6 customers with data-limit hits and Mobil S/M plans | §6.13 uses rule-based archetypes with verified counts; the UI shows engine values, never the draft's ranges | — |
 
 ## 11. Out of scope
 

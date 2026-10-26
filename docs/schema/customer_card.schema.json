@@ -1,0 +1,2154 @@
+{
+  "$defs": {
+    "Alternative": {
+      "additionalProperties": false,
+      "properties": {
+        "delta_clv": {
+          "title": "Delta Clv",
+          "type": "number"
+        },
+        "tuple_id": {
+          "title": "Tuple Id",
+          "type": "string"
+        },
+        "why_lower": {
+          "title": "Why Lower",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tuple_id",
+        "delta_clv",
+        "why_lower"
+      ],
+      "title": "Alternative",
+      "type": "object"
+    },
+    "Archetype": {
+      "additionalProperties": false,
+      "description": "Rule-based segment (README §6.13); never ML clustering, never payment data or age.",
+      "properties": {
+        "id": {
+          "enum": [
+            "A1",
+            "A2",
+            "A3",
+            "A4",
+            "A5",
+            "A0"
+          ],
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "reason"
+      ],
+      "title": "Archetype",
+      "type": "object"
+    },
+    "Blocked": {
+      "additionalProperties": false,
+      "properties": {
+        "channel": {
+          "anyOf": [
+            {
+              "enum": [
+                "newsletter_email",
+                "email",
+                "portal_popup",
+                "app_push",
+                "sms",
+                "outbound_call",
+                "service_agent"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Channel"
+        },
+        "counterfactual_delta_clv": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Counterfactual Delta Clv"
+        },
+        "offer_id": {
+          "title": "Offer Id",
+          "type": "string"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "rule_id": {
+          "enum": [
+            "CONSENT-CHANNEL",
+            "CONSENT-PROFILING",
+            "CHANNEL-AVAILABLE",
+            "EXCL-DUNNING",
+            "EXCL-CANCELLATION",
+            "EXCL-OPEN-TICKET",
+            "EXCL-AUTOSTROM-CANCELLED",
+            "HOLDING-PRECONDITION",
+            "CONTACT-CAP",
+            "ECON-NONPOSITIVE",
+            "DATA-MISSING"
+          ],
+          "title": "Rule Id",
+          "type": "string"
+        },
+        "src": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Src"
+        }
+      },
+      "required": [
+        "offer_id",
+        "rule_id",
+        "reason"
+      ],
+      "title": "Blocked",
+      "type": "object"
+    },
+    "Candidate": {
+      "additionalProperties": false,
+      "properties": {
+        "action_type": {
+          "enum": [
+            "sales",
+            "upsell",
+            "retention",
+            "one_off",
+            "service"
+          ],
+          "title": "Action Type",
+          "type": "string"
+        },
+        "channel": {
+          "enum": [
+            "newsletter_email",
+            "email",
+            "portal_popup",
+            "app_push",
+            "sms",
+            "outbound_call",
+            "service_agent"
+          ],
+          "title": "Channel",
+          "type": "string"
+        },
+        "checks": {
+          "items": {
+            "$ref": "#/$defs/Check"
+          },
+          "title": "Checks",
+          "type": "array"
+        },
+        "need": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Need"
+        },
+        "notes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Notes",
+          "type": "array"
+        },
+        "offer_id": {
+          "title": "Offer Id",
+          "type": "string"
+        },
+        "offer_name": {
+          "title": "Offer Name",
+          "type": "string"
+        },
+        "origin": {
+          "default": "signal",
+          "enum": [
+            "signal",
+            "service",
+            "generic"
+          ],
+          "title": "Origin",
+          "type": "string"
+        },
+        "path": {
+          "items": {
+            "$ref": "#/$defs/PathStep"
+          },
+          "title": "Path",
+          "type": "array"
+        },
+        "personalised": {
+          "default": true,
+          "title": "Personalised",
+          "type": "boolean"
+        },
+        "rank": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rank"
+        },
+        "signals": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Signals",
+          "type": "array"
+        },
+        "tone": {
+          "enum": [
+            "du",
+            "sie"
+          ],
+          "title": "Tone",
+          "type": "string"
+        },
+        "tuple_id": {
+          "title": "Tuple Id",
+          "type": "string"
+        },
+        "valuation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Valuation"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "why": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Why",
+          "type": "array"
+        }
+      },
+      "required": [
+        "tuple_id",
+        "offer_id",
+        "offer_name",
+        "action_type",
+        "channel",
+        "tone"
+      ],
+      "title": "Candidate",
+      "type": "object"
+    },
+    "ChannelItem": {
+      "additionalProperties": false,
+      "properties": {
+        "allowed": {
+          "title": "Allowed",
+          "type": "boolean"
+        },
+        "channel": {
+          "enum": [
+            "newsletter_email",
+            "email",
+            "portal_popup",
+            "app_push",
+            "sms",
+            "outbound_call",
+            "service_agent"
+          ],
+          "title": "Channel",
+          "type": "string"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "requires": {
+          "items": {
+            "enum": [
+              "newsletter_email",
+              "marketing_email",
+              "marketing_phone",
+              "marketing_sms",
+              "portal_app_personalisation",
+              "profiling_analytics"
+            ],
+            "type": "string"
+          },
+          "title": "Requires",
+          "type": "array"
+        }
+      },
+      "required": [
+        "channel",
+        "allowed",
+        "reason"
+      ],
+      "title": "ChannelItem",
+      "type": "object"
+    },
+    "Check": {
+      "additionalProperties": false,
+      "properties": {
+        "detail": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Detail"
+        },
+        "passed": {
+          "title": "Passed",
+          "type": "boolean"
+        },
+        "rule_id": {
+          "enum": [
+            "CONSENT-CHANNEL",
+            "CONSENT-PROFILING",
+            "CHANNEL-AVAILABLE",
+            "EXCL-DUNNING",
+            "EXCL-CANCELLATION",
+            "EXCL-OPEN-TICKET",
+            "EXCL-AUTOSTROM-CANCELLED",
+            "HOLDING-PRECONDITION",
+            "CONTACT-CAP",
+            "ECON-NONPOSITIVE",
+            "DATA-MISSING"
+          ],
+          "title": "Rule Id",
+          "type": "string"
+        },
+        "src": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Src"
+        }
+      },
+      "required": [
+        "rule_id",
+        "passed"
+      ],
+      "title": "Check",
+      "type": "object"
+    },
+    "ChecklistItem": {
+      "additionalProperties": false,
+      "properties": {
+        "detail": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Detail"
+        },
+        "item": {
+          "enum": [
+            "consent_for_channel",
+            "profiling_consent",
+            "no_exclusion",
+            "not_owned",
+            "contact_cap",
+            "data_fresh"
+          ],
+          "title": "Item",
+          "type": "string"
+        },
+        "passed": {
+          "title": "Passed",
+          "type": "boolean"
+        },
+        "src": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Src"
+        }
+      },
+      "required": [
+        "item",
+        "passed"
+      ],
+      "title": "ChecklistItem",
+      "type": "object"
+    },
+    "Chosen": {
+      "additionalProperties": false,
+      "properties": {
+        "agent_script": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Agent Script"
+        },
+        "content": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Content"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "reason_line": {
+          "title": "Reason Line",
+          "type": "string"
+        },
+        "send_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Send At"
+        },
+        "service_mode": {
+          "default": false,
+          "title": "Service Mode",
+          "type": "boolean"
+        },
+        "status": {
+          "default": "proposed",
+          "enum": [
+            "proposed",
+            "approved",
+            "overridden",
+            "rejected",
+            "revoked"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "tuple_id": {
+          "title": "Tuple Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tuple_id",
+        "reason_line"
+      ],
+      "title": "Chosen",
+      "type": "object"
+    },
+    "ChurnDriver": {
+      "additionalProperties": false,
+      "properties": {
+        "delta": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Delta"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        }
+      },
+      "required": [
+        "label"
+      ],
+      "title": "ChurnDriver",
+      "type": "object"
+    },
+    "ConsentItem": {
+      "additionalProperties": false,
+      "properties": {
+        "doi": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Doi"
+        },
+        "effective_status": {
+          "enum": [
+            "granted",
+            "not_given",
+            "withdrawn"
+          ],
+          "title": "Effective Status",
+          "type": "string"
+        },
+        "override_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Override Reason"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source"
+        },
+        "status": {
+          "enum": [
+            "granted",
+            "not_given",
+            "withdrawn"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "newsletter_email",
+            "marketing_email",
+            "marketing_phone",
+            "marketing_sms",
+            "portal_app_personalisation",
+            "profiling_analytics"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "updated_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Updated At"
+        }
+      },
+      "required": [
+        "type",
+        "status",
+        "effective_status"
+      ],
+      "title": "ConsentItem",
+      "type": "object"
+    },
+    "Content": {
+      "additionalProperties": false,
+      "properties": {
+        "body": {
+          "title": "Body",
+          "type": "string"
+        },
+        "language": {
+          "const": "de",
+          "default": "de",
+          "title": "Language",
+          "type": "string"
+        },
+        "personalised": {
+          "title": "Personalised",
+          "type": "boolean"
+        },
+        "subject": {
+          "title": "Subject",
+          "type": "string"
+        },
+        "template_id": {
+          "title": "Template Id",
+          "type": "string"
+        },
+        "tone": {
+          "enum": [
+            "du",
+            "sie"
+          ],
+          "title": "Tone",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tone",
+        "personalised",
+        "template_id",
+        "subject",
+        "body"
+      ],
+      "title": "Content",
+      "type": "object"
+    },
+    "DataQuality": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "detail": {
+          "title": "Detail",
+          "type": "string"
+        },
+        "level": {
+          "enum": [
+            "info",
+            "warn"
+          ],
+          "title": "Level",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "level",
+        "detail"
+      ],
+      "title": "DataQuality",
+      "type": "object"
+    },
+    "DecisionLogEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "enum": [
+            "proposed",
+            "approved",
+            "overridden",
+            "rejected",
+            "revoked"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "actor": {
+          "title": "Actor",
+          "type": "string"
+        },
+        "from_tuple": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "From Tuple"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "rules_applied": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Rules Applied",
+          "type": "array"
+        },
+        "scores": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "title": "Scores",
+          "type": "object"
+        },
+        "state_revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "State Revision"
+        },
+        "to_tuple": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "To Tuple"
+        },
+        "ts": {
+          "title": "Ts",
+          "type": "string"
+        },
+        "tuple_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tuple Id"
+        },
+        "versions": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Versions",
+          "type": "object"
+        }
+      },
+      "required": [
+        "ts",
+        "actor",
+        "action"
+      ],
+      "title": "DecisionLogEntry",
+      "type": "object"
+    },
+    "ExclusionItem": {
+      "additionalProperties": false,
+      "properties": {
+        "active": {
+          "title": "Active",
+          "type": "boolean"
+        },
+        "detail": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Detail"
+        },
+        "rule_id": {
+          "enum": [
+            "CONSENT-CHANNEL",
+            "CONSENT-PROFILING",
+            "CHANNEL-AVAILABLE",
+            "EXCL-DUNNING",
+            "EXCL-CANCELLATION",
+            "EXCL-OPEN-TICKET",
+            "EXCL-AUTOSTROM-CANCELLED",
+            "HOLDING-PRECONDITION",
+            "CONTACT-CAP",
+            "ECON-NONPOSITIVE",
+            "DATA-MISSING"
+          ],
+          "title": "Rule Id",
+          "type": "string"
+        },
+        "src": {
+          "title": "Src",
+          "type": "string"
+        }
+      },
+      "required": [
+        "rule_id",
+        "active",
+        "src"
+      ],
+      "title": "ExclusionItem",
+      "type": "object"
+    },
+    "Fact": {
+      "additionalProperties": false,
+      "description": "One displayed value plus where it came from; the UI builds the tooltip from it.",
+      "properties": {
+        "row_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Row Key"
+        },
+        "src": {
+          "title": "Src",
+          "type": "string"
+        },
+        "updated_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Updated At"
+        },
+        "v": {
+          "default": null,
+          "title": "V"
+        }
+      },
+      "required": [
+        "src"
+      ],
+      "title": "Fact",
+      "type": "object"
+    },
+    "Fatigue": {
+      "additionalProperties": false,
+      "properties": {
+        "agent_feedback": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Agent Feedback",
+          "type": "array"
+        },
+        "contacts_30d": {
+          "default": 0,
+          "title": "Contacts 30D",
+          "type": "integer"
+        },
+        "contacts_90d": {
+          "default": 0,
+          "title": "Contacts 90D",
+          "type": "integer"
+        },
+        "legacy_no_consent_check": {
+          "default": 0,
+          "title": "Legacy No Consent Check",
+          "type": "integer"
+        },
+        "repeatedly_ignored": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Repeatedly Ignored",
+          "type": "array"
+        },
+        "response_rate": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Response Rate"
+        }
+      },
+      "title": "Fatigue",
+      "type": "object"
+    },
+    "Flag": {
+      "additionalProperties": false,
+      "properties": {
+        "detail": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Detail"
+        },
+        "id": {
+          "enum": [
+            "service_critical",
+            "no_marketing_channel",
+            "no_profiling",
+            "negative_clv",
+            "top_clv",
+            "contact_fatigue",
+            "annoyed_before",
+            "prefers_en",
+            "data_inconsistent"
+          ],
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "src": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Src"
+        }
+      },
+      "required": [
+        "id",
+        "label"
+      ],
+      "title": "Flag",
+      "type": "object"
+    },
+    "Header": {
+      "additionalProperties": false,
+      "properties": {
+        "age_band": {
+          "$ref": "#/$defs/Fact"
+        },
+        "city": {
+          "$ref": "#/$defs/Fact"
+        },
+        "digital": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Fact"
+          },
+          "title": "Digital",
+          "type": "object"
+        },
+        "household_size": {
+          "$ref": "#/$defs/Fact"
+        },
+        "tenure_years": {
+          "$ref": "#/$defs/Fact"
+        },
+        "tone": {
+          "$ref": "#/$defs/Tone"
+        }
+      },
+      "required": [
+        "age_band",
+        "city",
+        "household_size",
+        "tenure_years",
+        "digital",
+        "tone"
+      ],
+      "title": "Header",
+      "type": "object"
+    },
+    "Highlight": {
+      "additionalProperties": false,
+      "properties": {
+        "basis": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Basis",
+          "type": "array"
+        },
+        "rarity": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rarity"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text",
+        "basis"
+      ],
+      "title": "Highlight",
+      "type": "object"
+    },
+    "LegacyComparison": {
+      "additionalProperties": false,
+      "properties": {
+        "blocked_now_by": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Blocked Now By",
+          "type": "array"
+        },
+        "channel": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Channel"
+        },
+        "decided_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Decided At"
+        },
+        "delta_clv_our_model": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Delta Clv Our Model"
+        },
+        "offer_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Offer Id"
+        },
+        "rule_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rule Id"
+        }
+      },
+      "title": "LegacyComparison",
+      "type": "object"
+    },
+    "Meta": {
+      "additionalProperties": false,
+      "properties": {
+        "eval_time": {
+          "title": "Eval Time",
+          "type": "string"
+        },
+        "events_applied_until": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Events Applied Until"
+        },
+        "mode_default": {
+          "default": "marketing",
+          "enum": [
+            "marketing",
+            "service"
+          ],
+          "title": "Mode Default",
+          "type": "string"
+        },
+        "snapshot_mode": {
+          "default": "provided",
+          "enum": [
+            "provided",
+            "strict_asof"
+          ],
+          "title": "Snapshot Mode",
+          "type": "string"
+        },
+        "state_revision": {
+          "title": "State Revision",
+          "type": "string"
+        },
+        "versions": {
+          "$ref": "#/$defs/Versions"
+        }
+      },
+      "required": [
+        "eval_time",
+        "versions",
+        "state_revision"
+      ],
+      "title": "Meta",
+      "type": "object"
+    },
+    "PSource": {
+      "additionalProperties": false,
+      "properties": {
+        "baseline_control": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Baseline Control"
+        },
+        "conv_control": {
+          "default": 0,
+          "title": "Conv Control",
+          "type": "integer"
+        },
+        "conv_treated": {
+          "default": 0,
+          "title": "Conv Treated",
+          "type": "integer"
+        },
+        "level": {
+          "enum": [
+            "offer_channel_tone",
+            "offer_channel",
+            "offer",
+            "global",
+            "assumption"
+          ],
+          "title": "Level",
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "uplift",
+            "rate",
+            "assumption"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "n_control": {
+          "default": 0,
+          "title": "N Control",
+          "type": "integer"
+        },
+        "n_treated": {
+          "default": 0,
+          "title": "N Treated",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "mode",
+        "level"
+      ],
+      "title": "PSource",
+      "type": "object"
+    },
+    "PathStep": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Id"
+        },
+        "kind": {
+          "enum": [
+            "node",
+            "edge"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "type": {
+          "title": "Type",
+          "type": "string"
+        },
+        "ui_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ui Ref"
+        }
+      },
+      "required": [
+        "kind",
+        "type"
+      ],
+      "title": "PathStep",
+      "type": "object"
+    },
+    "Percentiles": {
+      "additionalProperties": false,
+      "properties": {
+        "clv_all": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Clv All"
+        },
+        "clv_same_combo": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Clv Same Combo"
+        },
+        "combo": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Combo"
+        }
+      },
+      "title": "Percentiles",
+      "type": "object"
+    },
+    "ProductLine": {
+      "additionalProperties": false,
+      "properties": {
+        "held": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Held"
+        },
+        "items": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Items",
+          "type": "array"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Note"
+        },
+        "opportunity": {
+          "default": false,
+          "title": "Opportunity",
+          "type": "boolean"
+        }
+      },
+      "title": "ProductLine",
+      "type": "object"
+    },
+    "Products": {
+      "additionalProperties": false,
+      "properties": {
+        "autostrom": {
+          "$ref": "#/$defs/ProductLine"
+        },
+        "energy": {
+          "$ref": "#/$defs/ProductLine"
+        },
+        "internet": {
+          "$ref": "#/$defs/ProductLine"
+        },
+        "mobile": {
+          "$ref": "#/$defs/ProductLine"
+        },
+        "shop": {
+          "$ref": "#/$defs/ProductLine"
+        },
+        "smart_living": {
+          "$ref": "#/$defs/ProductLine"
+        }
+      },
+      "required": [
+        "energy",
+        "autostrom",
+        "mobile",
+        "shop",
+        "smart_living",
+        "internet"
+      ],
+      "title": "Products",
+      "type": "object"
+    },
+    "Profile": {
+      "additionalProperties": false,
+      "properties": {
+        "channels": {
+          "items": {
+            "$ref": "#/$defs/ChannelItem"
+          },
+          "title": "Channels",
+          "type": "array"
+        },
+        "consent": {
+          "items": {
+            "$ref": "#/$defs/ConsentItem"
+          },
+          "title": "Consent",
+          "type": "array"
+        },
+        "exclusions": {
+          "items": {
+            "$ref": "#/$defs/ExclusionItem"
+          },
+          "title": "Exclusions",
+          "type": "array"
+        },
+        "fatigue": {
+          "$ref": "#/$defs/Fatigue"
+        },
+        "header": {
+          "$ref": "#/$defs/Header"
+        },
+        "highlights": {
+          "items": {
+            "$ref": "#/$defs/Highlight"
+          },
+          "title": "Highlights",
+          "type": "array"
+        },
+        "products": {
+          "$ref": "#/$defs/Products"
+        },
+        "trends": {
+          "$ref": "#/$defs/Trends"
+        },
+        "value_risk": {
+          "$ref": "#/$defs/ValueRisk"
+        }
+      },
+      "required": [
+        "header",
+        "value_risk",
+        "products",
+        "consent",
+        "channels",
+        "exclusions"
+      ],
+      "title": "Profile",
+      "type": "object"
+    },
+    "Signal": {
+      "additionalProperties": false,
+      "properties": {
+        "date": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Date"
+        },
+        "detail": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Detail"
+        },
+        "evidence": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence",
+          "type": "array"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "needs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Needs",
+          "type": "array"
+        },
+        "offers": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Offers",
+          "type": "array"
+        },
+        "purpose": {
+          "enum": [
+            "contract",
+            "device",
+            "behavioural",
+            "service"
+          ],
+          "title": "Purpose",
+          "type": "string"
+        },
+        "src": {
+          "title": "Src",
+          "type": "string"
+        },
+        "strength": {
+          "enum": [
+            "strong",
+            "medium",
+            "weak"
+          ],
+          "title": "Strength",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "strength",
+        "purpose",
+        "src"
+      ],
+      "title": "Signal",
+      "type": "object"
+    },
+    "SourceInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "latency": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Latency"
+        },
+        "refresh": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Refresh"
+        }
+      },
+      "title": "SourceInfo",
+      "type": "object"
+    },
+    "TimelineItem": {
+      "additionalProperties": false,
+      "properties": {
+        "date": {
+          "title": "Date",
+          "type": "string"
+        },
+        "detail": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Detail"
+        },
+        "flags": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Flags",
+          "type": "array"
+        },
+        "future": {
+          "default": false,
+          "title": "Future",
+          "type": "boolean"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "contract",
+            "milestone",
+            "service",
+            "order",
+            "consent",
+            "marketing",
+            "event"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "line": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Line"
+        },
+        "ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ref"
+        },
+        "src": {
+          "title": "Src",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "date",
+        "kind",
+        "title",
+        "src"
+      ],
+      "title": "TimelineItem",
+      "type": "object"
+    },
+    "Tone": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence": {
+          "title": "Evidence",
+          "type": "string"
+        },
+        "method": {
+          "enum": [
+            "text",
+            "newsletter",
+            "default"
+          ],
+          "title": "Method",
+          "type": "string"
+        },
+        "refs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Refs",
+          "type": "array"
+        },
+        "value": {
+          "enum": [
+            "du",
+            "sie"
+          ],
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "value",
+        "method",
+        "evidence"
+      ],
+      "title": "Tone",
+      "type": "object"
+    },
+    "Trends": {
+      "additionalProperties": false,
+      "properties": {
+        "charging": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Charging"
+        },
+        "clv_note": {
+          "default": "customer_value is a single snapshot; no CLV trend",
+          "title": "Clv Note",
+          "type": "string"
+        },
+        "hems": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Hems"
+        },
+        "mobile_usage": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mobile Usage"
+        },
+        "newsletter": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Newsletter"
+        },
+        "portal": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Portal"
+        },
+        "service": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Service"
+        }
+      },
+      "title": "Trends",
+      "type": "object"
+    },
+    "Triage": {
+      "additionalProperties": false,
+      "description": "Why this customer is near the top of the worklist (README §6.13). Computed by Agent KG.",
+      "properties": {
+        "archetype": {
+          "$ref": "#/$defs/Archetype"
+        },
+        "deadline": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Deadline"
+        },
+        "flags": {
+          "items": {
+            "$ref": "#/$defs/Flag"
+          },
+          "title": "Flags",
+          "type": "array"
+        },
+        "outlier": {
+          "default": false,
+          "title": "Outlier",
+          "type": "boolean"
+        },
+        "urgency_reasons": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Urgency Reasons",
+          "type": "array"
+        },
+        "urgency_score": {
+          "title": "Urgency Score",
+          "type": "number"
+        },
+        "urgency_tier": {
+          "enum": [
+            "P1",
+            "P2",
+            "P3",
+            "P4",
+            "P5"
+          ],
+          "title": "Urgency Tier",
+          "type": "string"
+        }
+      },
+      "required": [
+        "archetype",
+        "urgency_tier",
+        "urgency_score"
+      ],
+      "title": "Triage",
+      "type": "object"
+    },
+    "Valuation": {
+      "additionalProperties": false,
+      "properties": {
+        "clv_after_accept": {
+          "title": "Clv After Accept",
+          "type": "number"
+        },
+        "clv_after_reject": {
+          "title": "Clv After Reject",
+          "type": "number"
+        },
+        "clv_now_model": {
+          "title": "Clv Now Model",
+          "type": "number"
+        },
+        "clv_now_shown": {
+          "title": "Clv Now Shown",
+          "type": "number"
+        },
+        "confidence": {
+          "enum": [
+            "high",
+            "medium",
+            "low"
+          ],
+          "title": "Confidence",
+          "type": "string"
+        },
+        "contact_cost": {
+          "title": "Contact Cost",
+          "type": "number"
+        },
+        "delta_clv": {
+          "title": "Delta Clv",
+          "type": "number"
+        },
+        "p_accept": {
+          "title": "P Accept",
+          "type": "number"
+        },
+        "p_source": {
+          "$ref": "#/$defs/PSource"
+        }
+      },
+      "required": [
+        "clv_now_shown",
+        "clv_now_model",
+        "clv_after_accept",
+        "clv_after_reject",
+        "p_accept",
+        "p_source",
+        "contact_cost",
+        "delta_clv",
+        "confidence"
+      ],
+      "title": "Valuation",
+      "type": "object"
+    },
+    "ValueRisk": {
+      "additionalProperties": false,
+      "properties": {
+        "active_business_lines": {
+          "$ref": "#/$defs/Fact"
+        },
+        "annual_margin_eur": {
+          "$ref": "#/$defs/Fact"
+        },
+        "churn_drivers": {
+          "items": {
+            "$ref": "#/$defs/ChurnDriver"
+          },
+          "title": "Churn Drivers",
+          "type": "array"
+        },
+        "churn_prob_12m": {
+          "$ref": "#/$defs/Fact"
+        },
+        "clv_eur": {
+          "$ref": "#/$defs/Fact"
+        },
+        "clv_service_impact_eur": {
+          "$ref": "#/$defs/Fact"
+        },
+        "cost_to_serve_12m_eur": {
+          "$ref": "#/$defs/Fact"
+        },
+        "percentiles": {
+          "$ref": "#/$defs/Percentiles"
+        }
+      },
+      "required": [
+        "clv_eur",
+        "annual_margin_eur",
+        "cost_to_serve_12m_eur",
+        "active_business_lines",
+        "churn_prob_12m",
+        "clv_service_impact_eur"
+      ],
+      "title": "ValueRisk",
+      "type": "object"
+    },
+    "Versions": {
+      "additionalProperties": false,
+      "properties": {
+        "policy": {
+          "title": "Policy",
+          "type": "string"
+        },
+        "propensity": {
+          "title": "Propensity",
+          "type": "string"
+        },
+        "templates": {
+          "title": "Templates",
+          "type": "string"
+        },
+        "value_model": {
+          "title": "Value Model",
+          "type": "string"
+        }
+      },
+      "required": [
+        "policy",
+        "value_model",
+        "propensity",
+        "templates"
+      ],
+      "title": "Versions",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "alternatives": {
+      "items": {
+        "$ref": "#/$defs/Alternative"
+      },
+      "title": "Alternatives",
+      "type": "array"
+    },
+    "blocked": {
+      "items": {
+        "$ref": "#/$defs/Blocked"
+      },
+      "title": "Blocked",
+      "type": "array"
+    },
+    "candidates": {
+      "items": {
+        "$ref": "#/$defs/Candidate"
+      },
+      "title": "Candidates",
+      "type": "array"
+    },
+    "checklist": {
+      "items": {
+        "$ref": "#/$defs/ChecklistItem"
+      },
+      "title": "Checklist",
+      "type": "array"
+    },
+    "chosen": {
+      "$ref": "#/$defs/Chosen"
+    },
+    "customer_id": {
+      "title": "Customer Id",
+      "type": "string"
+    },
+    "data_quality": {
+      "items": {
+        "$ref": "#/$defs/DataQuality"
+      },
+      "title": "Data Quality",
+      "type": "array"
+    },
+    "decision_log": {
+      "items": {
+        "$ref": "#/$defs/DecisionLogEntry"
+      },
+      "title": "Decision Log",
+      "type": "array"
+    },
+    "explanation_path": {
+      "items": {
+        "$ref": "#/$defs/PathStep"
+      },
+      "title": "Explanation Path",
+      "type": "array"
+    },
+    "legacy_comparison": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/LegacyComparison"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "meta": {
+      "$ref": "#/$defs/Meta"
+    },
+    "profile": {
+      "$ref": "#/$defs/Profile"
+    },
+    "schema_version": {
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "signals": {
+      "items": {
+        "$ref": "#/$defs/Signal"
+      },
+      "title": "Signals",
+      "type": "array"
+    },
+    "sources": {
+      "additionalProperties": {
+        "$ref": "#/$defs/SourceInfo"
+      },
+      "title": "Sources",
+      "type": "object"
+    },
+    "timeline": {
+      "items": {
+        "$ref": "#/$defs/TimelineItem"
+      },
+      "title": "Timeline",
+      "type": "array"
+    },
+    "triage": {
+      "$ref": "#/$defs/Triage"
+    }
+  },
+  "required": [
+    "customer_id",
+    "meta",
+    "triage",
+    "profile",
+    "chosen"
+  ],
+  "title": "CustomerCard",
+  "type": "object"
+}

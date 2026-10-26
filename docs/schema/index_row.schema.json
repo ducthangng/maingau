@@ -1,0 +1,283 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "age_band": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Age Band"
+    },
+    "archetype": {
+      "default": "A0",
+      "enum": [
+        "A1",
+        "A2",
+        "A3",
+        "A4",
+        "A5",
+        "A0"
+      ],
+      "title": "Archetype",
+      "type": "string"
+    },
+    "archetype_name": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Archetype Name"
+    },
+    "channel": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Channel"
+    },
+    "chosen_offer": {
+      "title": "Chosen Offer",
+      "type": "string"
+    },
+    "chosen_tuple": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Chosen Tuple"
+    },
+    "churn": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Churn"
+    },
+    "city": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "City"
+    },
+    "clv_eur": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Clv Eur"
+    },
+    "confidence": {
+      "anyOf": [
+        {
+          "enum": [
+            "high",
+            "medium",
+            "low"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Confidence"
+    },
+    "customer_id": {
+      "title": "Customer Id",
+      "type": "string"
+    },
+    "delta_clv": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Delta Clv"
+    },
+    "exclusions": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Exclusions",
+      "type": "array"
+    },
+    "flags": {
+      "items": {
+        "enum": [
+          "service_critical",
+          "no_marketing_channel",
+          "no_profiling",
+          "negative_clv",
+          "top_clv",
+          "contact_fatigue",
+          "annoyed_before",
+          "prefers_en",
+          "data_inconsistent"
+        ],
+        "type": "string"
+      },
+      "title": "Flags",
+      "type": "array"
+    },
+    "lines": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Lines"
+    },
+    "n_blocked": {
+      "default": 0,
+      "title": "N Blocked",
+      "type": "integer"
+    },
+    "n_candidates": {
+      "default": 0,
+      "title": "N Candidates",
+      "type": "integer"
+    },
+    "n_signals": {
+      "default": 0,
+      "title": "N Signals",
+      "type": "integer"
+    },
+    "outlier": {
+      "default": false,
+      "title": "Outlier",
+      "type": "boolean"
+    },
+    "p_accept": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "P Accept"
+    },
+    "personalised": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Personalised"
+    },
+    "service_mode": {
+      "default": false,
+      "title": "Service Mode",
+      "type": "boolean"
+    },
+    "tone": {
+      "anyOf": [
+        {
+          "enum": [
+            "du",
+            "sie"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Tone"
+    },
+    "top_reason": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Top Reason"
+    },
+    "triggers": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Triggers",
+      "type": "array"
+    },
+    "urgency_score": {
+      "default": 0.0,
+      "title": "Urgency Score",
+      "type": "number"
+    },
+    "urgency_tier": {
+      "default": "P5",
+      "enum": [
+        "P1",
+        "P2",
+        "P3",
+        "P4",
+        "P5"
+      ],
+      "title": "Urgency Tier",
+      "type": "string"
+    }
+  },
+  "required": [
+    "customer_id",
+    "chosen_offer"
+  ],
+  "title": "IndexRow",
+  "type": "object"
+}

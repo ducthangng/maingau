@@ -1,0 +1,86 @@
+{
+  "$defs": {
+    "TupleRef": {
+      "additionalProperties": false,
+      "properties": {
+        "channel": {
+          "enum": [
+            "newsletter_email",
+            "email",
+            "portal_popup",
+            "app_push",
+            "sms",
+            "outbound_call",
+            "service_agent"
+          ],
+          "title": "Channel",
+          "type": "string"
+        },
+        "offer_id": {
+          "title": "Offer Id",
+          "type": "string"
+        },
+        "tone": {
+          "enum": [
+            "du",
+            "sie"
+          ],
+          "title": "Tone",
+          "type": "string"
+        }
+      },
+      "required": [
+        "offer_id",
+        "channel",
+        "tone"
+      ],
+      "title": "TupleRef",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "action": {
+      "enum": [
+        "approve",
+        "override",
+        "reject"
+      ],
+      "title": "Action",
+      "type": "string"
+    },
+    "reason": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Reason"
+    },
+    "tuple": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TupleRef"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "user": {
+      "title": "User",
+      "type": "string"
+    }
+  },
+  "required": [
+    "action",
+    "user"
+  ],
+  "title": "DecisionRequest",
+  "type": "object"
+}

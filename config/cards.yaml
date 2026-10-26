@@ -1,0 +1,11 @@
+# Agent CARDS settings (README §4.1, §7.2).
+mode_default: marketing            # the card switches to service mode when a ticket is open
+timeline_months: 12
+max_numbers_before_drilldown: 12
+highlights:
+  max: 3
+  rarity_max_share: 0.10
+  percentile_high: 90
+  percentile_low: 10
+tone:
+  min_newsletter_clicks: 2

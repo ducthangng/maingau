@@ -1,0 +1,27 @@
+# Agent KG settings (README §6.1–§6.4, §6.12, §10). Written into meta.versions.policy.
+policy_version: kg-0.1
+eval_time: "2026-09-30T23:59:59"
+snapshot_mode: provided            # provided | strict_asof (K8)
+
+signals:
+  enabled: [S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13]
+
+# Customers without profiling_analytics consent (decision D1, 26 Oct 2026).
+profiling_off:
+  marketing_path: generic          # only generic catalog offers; no signal is used for marketing
+  tone: sie                        # default tone, no inference
+
+generic:
+  offers: [P-EN-01, P-MO-01, P-SL-01, P-SH-01, P-SH-03, P-SH-04]
+  fallback_for_profiled: true      # profiled customers get generic offers only if no signal tuple has ΔCLV > 0 (K12)
+  allowed_channels: all            # "all" = every consented channel; a list restricts generic offers (K11)
+
+exclusions:
+  autostrom_cancelled_scope: all_sales   # all_sales | e_mobility (K6)
+
+consent:
+  unsubscribe_withdraws: [newsletter_email]   # K9
+
+contact_cap:
+  max_contacts: 2                  # K5
+  window_days: 30

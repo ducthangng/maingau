@@ -1,0 +1,71 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "archetype_counts": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Archetype Counts",
+      "type": "object"
+    },
+    "blocked_by_rule": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Blocked By Rule",
+      "type": "object"
+    },
+    "chosen_by_offer": {
+      "additionalProperties": {
+        "additionalProperties": {
+          "type": "number"
+        },
+        "type": "object"
+      },
+      "title": "Chosen By Offer",
+      "type": "object"
+    },
+    "eval_time": {
+      "title": "Eval Time",
+      "type": "string"
+    },
+    "flag_counts": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Flag Counts",
+      "type": "object"
+    },
+    "n_customers": {
+      "title": "N Customers",
+      "type": "integer"
+    },
+    "no_action_by_reason": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "No Action By Reason",
+      "type": "object"
+    },
+    "signal_counts": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Signal Counts",
+      "type": "object"
+    },
+    "urgency_counts": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Urgency Counts",
+      "type": "object"
+    }
+  },
+  "required": [
+    "eval_time",
+    "n_customers"
+  ],
+  "title": "Summary",
+  "type": "object"
+}

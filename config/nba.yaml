@@ -1,0 +1,21 @@
+# Agent NBA settings (README §6.5–§6.7, §10). Written into meta.versions.
+value_model: clv_simple_v1
+propensity_version: p-0.1
+templates_version: t-0.1
+
+p_mode: rate                       # rate | uplift (K1). rate is the default so MG-100023 can reach P-AS-01; uplift is reported too
+n_min: 30                          # backoff threshold per level (spec C4)
+rate_prior_strength: 30            # pseudo-count toward the global treated rate 69/2022
+p_service_success: 0.5             # P-SV-01 assumption (K2)
+generic_p_level: global            # generic offers use the catalog-wide average (D1)
+
+confidence:
+  high_min_n: 100
+  medium_min_n: 30
+
+send_time:
+  email_hour: 10
+  sms_hour: 18
+  call_window: "10:00-16:00"
+
+sensitivity_pct: 20

@@ -1,0 +1,12 @@
+[project]
+name = "maingau-nba"
+version = "0.1.0"
+description = "MAINGAU Next Best Action prototype (Futury Build Days 2026)"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+markers = [
+    "acceptance: spec test customers (README §9)",
+]
