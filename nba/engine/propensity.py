@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from nba.contracts import PSource
 from nba.engine.config import EngineConfig, MissingDataError
@@ -36,7 +36,24 @@ class HistoryIndex:
                     self.treated[key][1] += converted
 
 
+def override_for(offer_id, channel, tone, cfg: EngineConfig):
+    """A reviewer-approved p from a feedback-loop fix case (config/nba.yaml p_overrides), most specific first."""
+    overrides = cfg.settings.get("p_overrides") or {}
+    for key in (f"{offer_id}|{channel}|{tone}", f"{offer_id}|*|{tone}", f"{offer_id}|{channel}", offer_id):
+        if key in overrides:
+            return key, overrides[key]
+    return None
+
+
 def p_accept(offer_id, channel, tone, history, cfg: EngineConfig, *, generic=False) -> Propensity:
+    found = override_for(offer_id, channel, tone, cfg)
+    if found:
+        key, o = found
+        p = float(o["p"])
+        return Propensity(p, "low", PSource(mode="assumption", level="assumption", n_treated=int(o.get("n_treated", 0)),
+                                           conv_treated=int(o.get("conv_treated", 0)), n_control=int(o.get("n_control", 0)),
+                                           conv_control=int(o.get("conv_control", 0))),
+                          p, float(o.get("uplift", 0.0)), f"override:{key}:{o.get('case', '')}")
     if offer_id == "P-SV-01":
         p = float(cfg.settings["p_service_success"])
         return Propensity(p, "low", PSource(mode="assumption", level="assumption"), p, 0.0, "assumption")
@@ -78,3 +95,18 @@ def p_accept(offer_id, channel, tone, history, cfg: EngineConfig, *, generic=Fal
     return Propensity(p, confidence, PSource(mode=mode, level=level, n_treated=n, conv_treated=conv,
                                            n_control=nc, conv_control=cc, baseline_control=baseline),
                       rate, uplift, "offer" if own_baseline else "global")
+
+
+def personalise(p: Propensity, offer_id, customer_id, cfg: EngineConfig):
+    """Look-alike chance for an offer that works (cfg.lookalike): the engine's chance at whatever level it
+    chose (catalog-wide for a generic candidate) times the lift from similar customers. Reviewed overrides
+    and assumptions win. -> (propensity, match or None)."""
+    model = cfg.lookalike
+    if model is None or p.source.mode == "assumption" or p.baseline_level.startswith("override:"):
+        return p, None
+    base = p.p_accept if cfg.p_mode == "rate" else p.rate_treated
+    match = model.score(customer_id, offer_id, base)
+    if match is None:
+        return p, None
+    value = match.p if cfg.p_mode == "rate" else max(0.0, match.p - (p.source.baseline_control or 0.0))
+    return replace(p, p_accept=value, baseline_level=f"lookalike:{p.baseline_level}"), match

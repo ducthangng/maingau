@@ -48,3 +48,4 @@ edge_types:
   EVIDENCED_BY:  {from: Signal, to: [Contract, Order, Ticket, Session, Device, Campaign]}
   HAS_SESSION:   {from: Contract, to: Session}
   IN_ARCHETYPE:  {from: Customer, to: Archetype}
+  GENERIC_OFFER: {from: Customer, to: Offer, note: "non-personalised catalog offer (D1); used in explanation paths"}

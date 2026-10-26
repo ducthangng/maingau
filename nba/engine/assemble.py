@@ -11,7 +11,7 @@ from nba.contracts import (
 from nba.engine.config import MissingDataError
 from nba.engine.content import agent_script, render_content
 from nba.engine.profile_adapter import build_sections, infer_tone
-from nba.engine.propensity import p_accept
+from nba.engine.propensity import p_accept, personalise
 from nba.engine.rank import rank
 from nba.engine.value import value
 from nba.kg.paths import explain
@@ -22,20 +22,28 @@ from nba.kg.rules import check_tuple, is_profiled
 def value_candidate(candidate, state, cfg, *, p_scale=1.0, margin_scale=1.0):
     p = p_accept(candidate.offer_id, candidate.channel, candidate.tone, cfg.history, cfg,
                  generic=candidate.origin == "generic")
+    p, look = personalise(p, candidate.offer_id, state.customer_id, cfg)
     p = replace(p, p_accept=min(1.0, max(0.0, p.p_accept * p_scale)))
     valuation = value(candidate, state, p, cfg, margin_scale=margin_scale)
     src = p.source
-    if src.mode == "assumption":
+    if p.baseline_level.startswith("override:"):
+        _, key, case = p.baseline_level.split(":", 2)
+        evidence = (f"Reviewed assumption {p.p_accept:.1%} for {key} from fix case {case} (feedback loop); "
+                    f"evidence {src.conv_treated}/{src.n_treated} vs control {src.conv_control}/{src.n_control}")
+    elif src.mode == "assumption":
         evidence = f"Service success: assumed probability {p.p_accept:.1%}; no historical observations"
     else:
         evidence = (f"Observed conversions {src.conv_treated}/{src.n_treated}, level {src.level}, mode {src.mode}; "
                     f"control group {src.conv_control}/{src.n_control}, baseline used {src.baseline_control:.2%} "
-                    f"({p.baseline_level}); descriptive difference {p.uplift:.2%}, not causal uplift")
+                    f"({p.baseline_level.removeprefix('lookalike:')}); descriptive difference {p.uplift:.2%}, not causal uplift")
+    if look is not None:
+        evidence += f". {look.evidence()}"
     notes = list(candidate.notes)
     if p.confidence == "low":
         notes.append("Low confidence: parent-level rate or assumed success probability")
     if candidate.origin == "generic":
-        notes.append("Not personalised; catalog-wide acceptance rate")
+        notes.append("No signal; catalog-wide acceptance rate adjusted by similar customers" if look
+                     else "Not personalised; catalog-wide acceptance rate")
     if candidate.offer_id == "P-EN-02":
         dates = sorted(r["price_guarantee_until"] for r in state.rows.get("energy_contracts", [])
                        if r.get("status") == "active" and r.get("price_guarantee_until")

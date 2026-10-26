@@ -10,14 +10,17 @@ from nba.state import CustomerState
 INCONSISTENT_TICKETS = {"TK-200565", "TK-200640"}
 
 
-def data_quality(state: CustomerState) -> list[DataQuality]:
+def data_quality(state: CustomerState, params: dict | None = None) -> list[DataQuality]:
+    """Flags per README §6.9; thresholds from kg/policy.yaml `parameters` (defaults 72 h / 31 days)."""
+    prm = params or {}
+    hours, stale_days = prm.get("roaming_late_hours", 72), prm.get("value_stale_days", 31)
     out: list[DataQuality] = []
     t = state.eval_time
     roaming_recent = [r for r in state.rows["charge_sessions"]
-                      if r.get("cdr_source") == "roaming_hub" and r.get("started_at") and t - timedelta(hours=72) < r["started_at"] <= t]
+                      if r.get("cdr_source") == "roaming_hub" and r.get("started_at") and t - timedelta(hours=hours) < r["started_at"] <= t]
     if roaming_recent:
         out.append(DataQuality(code="FRESH-CDR", level="warn",
-                               detail=f"{len(roaming_recent)} roaming session(s) in the last 72 h; roaming CDRs can arrive up to 72 h late"))
+                               detail=f"{len(roaming_recent)} roaming session(s) in the last {hours} h; roaming CDRs can arrive up to {hours} h late"))
     gateways = [d for d in state.rows["hems_devices"] if d.get("device_type") == "hems_gateway"]
     if gateways:
         offline = [d for d in gateways if d.get("connection_status") != "online"]
@@ -32,7 +35,7 @@ def data_quality(state: CustomerState) -> list[DataQuality]:
             out.append(DataQuality(code="FRESH-HEMS", level="warn", detail="; ".join(parts)))
     value = state.one("customer_value") or {}
     calc = value.get("clv_calc_date")
-    if calc and (t - calc).days > 31:
+    if calc and (t - calc).days > stale_days:
         out.append(DataQuality(code="FRESH-VALUE", level="warn", detail=f"customer_value calculated on {calc.date()}"))
     late = [r for r in state.rows["charge_sessions"] if r.get("cdr_received_at") and r["cdr_received_at"] > t]
     if late:

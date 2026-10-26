@@ -120,13 +120,16 @@ def test_workbook_contact_costs_match_readme():
     assert va["service_resolution_cost_eur"] == 15
 
 
-def test_policy_channels_carry_contact_cost():
-    """README §6.1 puts the contact cost column in kg/policy.yaml (owner Agent KG)."""
+def test_contact_cost_has_a_single_source():
+    """README §6.1 (Q-KG-20, decided 26 Oct): contact costs live only in value_assumptions, not in kg/policy.yaml.
+
+    The values themselves are checked against README §6.7 by test_workbook_contact_costs_match_readme.
+    """
     chans = POLICY_RAW["channels"]
-    missing = sorted(ch for ch in CHANNELS if "contact_cost_eur" not in (chans.get(ch) or {}))
-    assert not missing, f"kg/policy.yaml channels without contact_cost_eur: {missing}"
-    for ch in CHANNELS:
-        assert chans[ch]["contact_cost_eur"] == pytest.approx(CONTACT_COST[ch]), ch
+    duplicated = sorted(ch for ch in CHANNELS if "contact_cost_eur" in (chans.get(ch) or {}))
+    assert not duplicated, f"contact cost duplicated in kg/policy.yaml: {duplicated}"
+    readme = (REPO / "README.md").read_text(encoding="utf-8")
+    assert "Contact cost € (from `value_assumptions`)" in readme
 
 
 def test_exclusions_match_readme(policy):

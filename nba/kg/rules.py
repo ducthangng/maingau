@@ -40,6 +40,9 @@ def consents(state: CustomerState, policy: Policy) -> dict[str, ConsentItem]:
         r = rows.get(ctype) or {}
         status = r.get("status") or "not_given"
         effective, override = status, None
+        if status not in ("granted", "not_given", "withdrawn"):  # README §6.1: unknown counts as not allowed
+            override = f"unknown status '{status}' treated as not allowed"
+            status = effective = "not_given"
         if ctype in withdraws and unsub and status == "granted":
             effective = "withdrawn"
             override = f"unsubscribed via newsletter {unsub[0]['campaign_id']} (newsletter_performance.unsubscribed)"
@@ -244,6 +247,7 @@ def generate_candidates(
     reinforcing = [s for s in signals if policy.signals[s.id].reinforces]
     marketing_sigs = [s for s in signals if policy.signals[s.id].purpose != "service" and not policy.signals[s.id].reinforces]
     signal_offers: set[str] = set()
+    signal_blocked: set[str] = set()
     if not profiled:
         for s in marketing_sigs + reinforcing:
             offers = s.offers or sorted({o for n in s.needs for o in policy.offers_for_need(n)})
@@ -262,10 +266,12 @@ def generate_candidates(
             if hit:
                 r, h = hit
                 blocked.append(Blocked(offer_id=oid, rule_id=r, src=h.src, reason=f"{o.name} (from {sig_ids}) blocked: {h.detail}"))
+                signal_blocked.add(oid)
                 continue
             ok, holding = _holding_check(state, policy, oid, generic=False)
             if not ok:
                 blocked.append(Blocked(offer_id=oid, rule_id="HOLDING-PRECONDITION", reason=f"{o.name} (from {sig_ids}): {holding}"))
+                signal_blocked.add(oid)
                 continue
             if cap_hit or not allowed_channels:
                 continue  # the customer-wide rows explain it
@@ -292,7 +298,7 @@ def generate_candidates(
     gen_allowed = policy.config.get("generic", {}).get("allowed_channels", "all")
     gen_channels = [ch for ch in allowed_channels if gen_allowed == "all" or ch in gen_allowed]
     for o in policy.generic_offers:
-        if o.id in signal_offers or blocking_rule(o) or cap_hit:
+        if o.id in signal_offers or o.id in signal_blocked or blocking_rule(o) or cap_hit:
             continue  # exclusion / cap rows above explain it
         ok, holding = _holding_check(state, policy, o.id, generic=True)
         if not ok:

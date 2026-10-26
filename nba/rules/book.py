@@ -1,0 +1,248 @@
+"""rules.yaml: export the four rule files into one, list what was edited, and write edits back.
+
+Writing back keeps every untouched line of a source file byte for byte (column alignment and
+comments included); only the lines whose content changed are replaced.
+"""
+from __future__ import annotations
+
+import difflib
+import hashlib
+import io
+import re
+from dataclasses import dataclass
+from pathlib import Path
+
+from ruamel.yaml import YAML
+from ruamel.yaml.comments import CommentedMap, CommentedSeq
+
+from nba.data import REPO
+
+SOURCES = {
+    "policy": Path("kg/policy.yaml"),
+    "kg": Path("config/kg.yaml"),
+    "nba": Path("config/nba.yaml"),
+    "learn": Path("config/learn.yaml"),
+}
+TITLES = {
+    "policy": "signals → needs → offers, channels and consent, exclusions, archetypes (Agent KG)",
+    "kg": "enabled signals, profiling-off path, generic offers, exclusion and unsubscribe scope, contact cap (Agent KG)",
+    "nba": "p mode and priors, confidence, send times, reviewer-approved p overrides (Agent NBA)",
+    "learn": "feedback-loop thresholds: green / red, diagnosis, harm watch, reference customers",
+}
+BOOK = Path("rules.technical.yaml")  # the marketer rulebook is rules.yaml (nba/rules/cards.py)
+
+# Hard rules from the challenge brief. An edit under one of these paths is allowed but flagged, and
+# the hard-rule check keeps holding the engine to the committed version. "*" matches any key.
+HARD = [
+    ("policy", "channels"), ("policy", "service_channel"), ("policy", "exclusions"),
+    ("policy", "offers", "*", "not_held"),
+    ("kg", "profiling_off"), ("kg", "consent"), ("kg", "exclusions"), ("kg", "contact_cap"),
+]
+
+HEADER = """\
+# MAINGAU technical rulebook: the four rule files in one (python -m nba.rules export --technical).
+# Marketers use rules.yaml instead (plain language). This file is for the team.
+#
+#   1. Edit any value below.
+#   2. python -m nba.rules diff --technical    -> what changed, its effect on all 750 customers, hard-rule check
+#   3. python -m nba.rules apply --technical --by NAME   -> writes the edits back to the source files
+#
+# Sections: policy = kg/policy.yaml · kg = config/kg.yaml · nba = config/nba.yaml · learn = config/learn.yaml
+# Do not edit `_base`: it fingerprints the source files this copy was exported from.
+"""
+
+
+def yaml_rt() -> YAML:
+    y = YAML()
+    y.width = 4096
+    y.preserve_quotes = True
+    y.indent(mapping=2, sequence=4, offset=2)
+    return y
+
+
+def fingerprint(root: Path = REPO) -> str:
+    h = hashlib.sha256()
+    for name, rel in SOURCES.items():
+        h.update(name.encode() + b"\0" + (root / rel).read_bytes() + b"\0")
+    return h.hexdigest()[:16]
+
+
+def load_sources(root: Path = REPO) -> dict[str, CommentedMap]:
+    y = yaml_rt()
+    return {name: y.load((root / rel).read_text(encoding="utf-8")) for name, rel in SOURCES.items()}
+
+
+def export(root: Path = REPO, book: Path | None = None) -> Path:
+    book = book or root / BOOK
+    doc = CommentedMap()
+    doc["_base"] = fingerprint(root)
+    for name, data in load_sources(root).items():
+        doc[name] = data
+        doc.yaml_set_comment_before_after_key(name, before=f"\n{'=' * 98}\n{name}: {SOURCES[name]} · {TITLES[name]}\n{'=' * 98}")
+    out = io.StringIO()
+    yaml_rt().dump(doc, out)
+    book.write_text(HEADER + out.getvalue(), encoding="utf-8")
+    return book
+
+
+def load_book(root: Path = REPO, book: Path | None = None) -> CommentedMap:
+    path = book or root / BOOK
+    if not path.exists():
+        raise FileNotFoundError(f"{path} does not exist; run `python -m nba.rules export --technical` first")
+    data = yaml_rt().load(path.read_text(encoding="utf-8"))
+    missing = [n for n in SOURCES if n not in data]
+    if missing:
+        raise ValueError(f"{path} is missing section(s) {missing}")
+    return data
+
+
+def plain(value):
+    """ruamel nodes -> plain dict / list / scalars, for comparison and for the engine loaders."""
+    if isinstance(value, dict):
+        return {str(k): plain(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [plain(v) for v in value]
+    if isinstance(value, bool) or value is None:
+        return value
+    if isinstance(value, int):
+        return int(value)
+    if isinstance(value, float):
+        return float(value)
+    return str(value)
+
+
+@dataclass(frozen=True)
+class Change:
+    section: str
+    path: tuple[str, ...]  # keys below the section
+    before: object  # None with `added`, or the old value
+    after: object
+    kind: str  # changed | added | removed
+
+    @property
+    def hard(self) -> bool:
+        full = (self.section, *self.path)
+        return any(len(full) >= len(p) and all(a == "*" or a == b for a, b in zip(p, full)) for p in HARD)
+
+    @property
+    def where(self) -> str:
+        return f"{SOURCES[self.section]} › " + " › ".join(self.path)
+
+
+def changes(base: dict, edited: dict, section: str, path=()) -> list[Change]:
+    """Leaf-level differences; lists are compared whole (an edited list is one change)."""
+    out = []
+    for key in list(base) + [k for k in edited if k not in base]:
+        p = (*path, key)
+        if key not in edited:
+            out.append(Change(section, p, base[key], None, "removed"))
+        elif key not in base:
+            out.append(Change(section, p, None, edited[key], "added"))
+        elif isinstance(base[key], dict) and isinstance(edited[key], dict):
+            out += changes(base[key], edited[key], section, p)
+        elif base[key] != edited[key]:
+            out.append(Change(section, p, base[key], edited[key], "changed"))
+    return out
+
+
+def all_changes(root: Path = REPO, book: Path | None = None) -> tuple[list[Change], bool]:
+    """(changes, sources_moved): sources_moved means the source files changed after the export."""
+    data = load_book(root, book)
+    base = {n: plain(v) for n, v in load_sources(root).items()}
+    found = [c for n in SOURCES for c in changes(base[n], plain(data[n]), n)]
+    return found, str(data.get("_base")) != fingerprint(root)
+
+
+def edited_sections(root: Path = REPO, book: Path | None = None) -> dict[str, dict]:
+    data = load_book(root, book)
+    return {n: plain(data[n]) for n in SOURCES}
+
+
+# ---------------------------------------------------------------- write back
+
+
+def _norm(line: str) -> str:
+    indent = len(line) - len(line.lstrip())
+    return line[:indent] + re.sub(r"\s+", " ", line.strip())
+
+
+def merge_text(original: str, regenerated: str) -> str:
+    """Keep original lines wherever the regenerated line only differs in spacing."""
+    old, new = original.splitlines(), regenerated.splitlines()
+    sm = difflib.SequenceMatcher(a=[_norm(x) for x in old], b=[_norm(x) for x in new], autojunk=False)
+    out = []
+    for tag, i1, i2, j1, j2 in sm.get_opcodes():
+        out += old[i1:i2] if tag == "equal" else new[j1:j2]
+    return "\n".join(out) + "\n"
+
+
+def _set(node, path, value):
+    for key in path[:-1]:
+        node = node[key]
+    node[path[-1]] = value
+
+
+def _delete(node, path):
+    for key in path[:-1]:
+        node = node[key]
+    del node[path[-1]]
+
+
+def _get(node, path):
+    for key in path:
+        node = node[key]
+    return node
+
+
+def to_node(value, like=None):
+    """Plain value -> ruamel node, keeping the flow style ([a, b] / {k: v}) of the value it replaces.
+    New collections of scalars are written on one line."""
+    def flow(items):
+        style = like.fa.flow_style() if hasattr(like, "fa") else None
+        return style if style is not None else all(not isinstance(v, (dict, list)) for v in items)
+
+    if isinstance(value, dict):
+        node = CommentedMap()
+        for k, v in value.items():
+            node[k] = to_node(v, like.get(k) if isinstance(like, dict) else None)
+        if flow(value.values()):
+            node.fa.set_flow_style()
+        return node
+    if isinstance(value, list):
+        node = CommentedSeq(to_node(v) for v in value)
+        if flow(value):
+            node.fa.set_flow_style()
+        return node
+    return value
+
+
+def section_changes(root: Path, edited: dict[str, dict]) -> list[Change]:
+    base = {n: plain(v) for n, v in load_sources(root).items()}
+    return [c for n in SOURCES for c in changes(base[n], edited[n], n)]
+
+
+def apply(root: Path = REPO, edited: dict[str, dict] | None = None) -> dict[str, list[Change]]:
+    """Write the edited rule files (default: the technical rules.yaml) into the source files, line by
+    line. Returns the changes per source file."""
+    edited = edited if edited is not None else edited_sections(root)
+    found = section_changes(root, edited)
+    y = yaml_rt()
+    written: dict[str, list[Change]] = {}
+    for name, rel in SOURCES.items():
+        mine = [c for c in found if c.section == name]
+        if not mine:
+            continue
+        path = root / rel
+        original = path.read_text(encoding="utf-8")
+        node = y.load(original)
+        for c in mine:
+            if c.kind == "removed":
+                _delete(node, c.path)
+            else:
+                old = _get(node, c.path) if c.kind == "changed" else None
+                _set(node, c.path, to_node(_get(edited[name], c.path), old))
+        out = io.StringIO()
+        y.dump(node, out)
+        path.write_text(merge_text(original, out.getvalue()), encoding="utf-8")
+        written[str(rel)] = mine
+    return written

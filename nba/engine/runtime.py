@@ -42,7 +42,9 @@ class Runtime:
         cfg = load_config(tables, p_mode=p_mode)
         # A propensity estimate must never use action outcomes recorded after evaluation.
         cfg.history = [r for r in cfg.history if r.get("decided_at") and r["decided_at"] <= t]
-        return cls(tables, states, profile_population(states), policy, cfg)
+        from nba.learn.evidence import load_settings
+        from nba.learn.lookalike import attach
+        return attach(cls(tables, states, profile_population(states), policy, cfg), load_settings())
 
     def card(self, customer_id):
         state = self.states[customer_id]

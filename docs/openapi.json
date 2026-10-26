@@ -400,6 +400,52 @@
         "summary": "Decision"
       }
     },
+    "/api/replay": {
+      "post": {
+        "description": "Replay preview only: returns re-decisions and revocations without changing API state or approvals.",
+        "operationId": "preview_replay_api_replay_post",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "until",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Until"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preview Replay"
+      }
+    },
     "/api/summary": {
       "get": {
         "operationId": "get_summary_api_summary_get",

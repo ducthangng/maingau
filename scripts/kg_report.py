@@ -39,8 +39,8 @@ def main() -> None:
     args = ap.parse_args()
     t0 = time.time()
     tables = load_workbook()
-    states = build_states(tables)
-    policy = load_policy(catalog=tables["product_catalog"])
+    policy = load_policy(tables=tables)
+    states = build_states(tables, policy.config["eval_time"], snapshot_mode=policy.config["snapshot_mode"])
     pop = population(tables)
     res = {}
     for cid, s in states.items():

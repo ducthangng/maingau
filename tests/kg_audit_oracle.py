@@ -76,7 +76,7 @@ NEEDS = ["N-HEAT-PUMP", "N-SERVICE-FIX", "N-EV-CHARGING", "N-PRICE-SECURITY", "N
 REQUIRES = {
     "P-EN-02": ["active_electricity", "price_guarantee_driver"],
     "P-EN-05": ["smart_meter_on_active_electricity"],
-    "P-MO-01": ["active_energy"],
+    # P-MO-01 has no requirement: generic offers only drop owned products (D1; README §6.4, Q-KG-21).
     "P-MO-02": ["active_mobile"],
     "P-MO-03": ["active_mobile"],
     "P-SL-02": ["hems_gateway", "home_battery"],
@@ -98,9 +98,11 @@ DATA_MISSING_OFFERS = {"P-EN-04", "P-IN-01"}
 
 # §4.3 + §6.11 (policy layer, extension edges; Campaign is the S10 EVIDENCED_BY target)
 NODE_TYPES = {"Customer", "Contract", "Device", "Order", "Ticket", "Session", "Signal", "Need", "Offer", "Channel",
-              "Consent", "Exclusion", "Action", "SignalType", "ConsentType", "ExclusionRule", "Campaign"}
+              "Consent", "Exclusion", "Action", "SignalType", "ConsentType", "ExclusionRule", "Campaign",
+              "Archetype"}  # README §6.11 (Q-KG-22)
 EDGE_TYPES = {"HOLDS", "OWNS_DEVICE", "PLACED", "RAISED", "EMITTED", "INDICATES", "ADDRESSED_BY", "DELIVERED_VIA",
-              "REQUIRES", "BLOCKS", "RECEIVED", "RESPONDED", "EVIDENCED_BY", "HAS_SESSION", "HELD_OUT", "REINFORCES"}
+              "REQUIRES", "BLOCKS", "RECEIVED", "RESPONDED", "EVIDENCED_BY", "HAS_SESSION", "HELD_OUT", "REINFORCES",
+              "INSTANCE_OF", "IN_ARCHETYPE", "GENERIC_OFFER"}  # README §6.11 (Q-KG-22)
 
 # §6.13
 ARCHETYPE_COUNTS = {"A4": 75, "A1": 33, "A3": 201, "A5": 50, "A2": 342, "A0": 49}

@@ -105,6 +105,14 @@ def _clean_sheet(name: str, df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+def _stamp(tables: dict[str, pd.DataFrame], path: Path) -> dict[str, pd.DataFrame]:
+    """Record the source workbook on every table, so e.g. the policy loader can resolve eval_time
+    from the same workbook when it only receives the product catalog."""
+    for df in tables.values():
+        df.attrs["workbook"] = str(Path(path).resolve())
+    return tables
+
+
 def _cache_key(path: Path) -> str:
     """Workbook identity plus a parser fingerprint, so a changed parser never reads an old pickle."""
     st = path.stat()
@@ -122,9 +130,9 @@ def load_workbook(path: str | Path = DEFAULT_WORKBOOK, use_cache: bool = True) -
     cache = CACHE_DIR / _cache_key(path)
     if use_cache and cache.exists():
         with cache.open("rb") as fh:
-            return pickle.load(fh)
+            return _stamp(pickle.load(fh), path)
     raw = pd.read_excel(path, sheet_name=None, dtype=str)
-    tables = {name: _clean_sheet(name, df) for name, df in raw.items()}
+    tables = _stamp({name: _clean_sheet(name, df) for name, df in raw.items()}, path)
     if use_cache:
         CACHE_DIR.mkdir(parents=True, exist_ok=True)
         tmp = cache.with_suffix(f".{os.getpid()}.tmp")
