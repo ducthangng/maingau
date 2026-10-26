@@ -173,6 +173,7 @@ cd web && npm run dev            # http://localhost:5173: Worklist, Groups
 | `.venv/bin/python scripts/replay_demo.py` | Event replay report (`out/replay_report.md`) |
 | `.venv/bin/python -m nba.rules export` → edit `rules.yaml` → `diff` → `apply --by "Name"` | Change rules as plain-language cards; `diff` shows who changes and checks the hard rules |
 | `.venv/bin/python scripts/policy_diff.py` | Which customers change decision after an edit to `kg/policy.yaml` |
+| `.venv/bin/python scripts/export_kg_viz.py` | Graph data for the decision-graph viewer: the ontology, the policy layer and eight demo customers' decision paths (`out/kg_viz.json`) |
 | `.venv/bin/python -m nba.learn run` | Feedback loop: which offers work, compared with the control group |
 | `.venv/bin/python -m pytest -q tests/` | All tests (about 90 s), including the reference customers in both p modes |
 
