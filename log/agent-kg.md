@@ -57,6 +57,7 @@ These are kept up to date and edited in place. Status values: `open`, `answered`
 | Q-KG-10 | Generic offers by phone/SMS: MG-100112's generic StromAktiv call is +€14.8 (rate) / +€2.6 (uplift), not negative as D1 assumed (README K11) | Outcome of MG-100112 and of every no-profiling customer whose only channel is a call | Team | open | — |
 | Q-KG-11 | Agent NBA: please (a) change the evidence example in `nba/contracts.py` Signal.evidence from `order:SO-1#2` to `order:SO-1` (Order IDs are order_id now), and (b) consider an optional `ConsentItem.doi_at` so the consent-proof drawer can show the real double opt-in date (KG currently puts it only in the channel reason text) | Contract comment is wrong; consent proof in the UI | Agent NBA | open | — |
 | Q-KG-12 | Agent NBA: use `nba.kg.rules.check_tuple(state, offer_id, channel, policy)` for the override 409 and for `legacy_comparison.blocked_now_by`; do not re-implement gates | One source of truth for hard rules | Agent NBA | open | — |
+| Q-KG-13 | Agent NBA: `rank()` (34a9f5c) drops ΔCLV ≤ 0 silently and ranks all origins together. README §6.12 needs (a) dropped tuples added to `blocked` as `ECON-NONPOSITIVE` and (b) the tiers: signal/service tuples first; generic tuples for profiled customers only when no signal/service tuple has ΔCLV > 0 (`generic.fallback_for_profiled`). Without (b), MG-100023 would get a generic StromWärme (about +€24) instead of P-AS-01 | Team test MG-100023 → P-AS-01; need-first ranking | Agent NBA | open | — |
 
 ## Session entries
 
@@ -195,3 +196,32 @@ These are kept up to date and edited in place. Status values: `open`, `answered`
 - Agent NBA: use `kg_bundle()` and `check_tuple()` in `assemble` and the API.
 
 **Next session starts with:** review `feat/nba` (pushed at 34a9f5c), then event replay.
+
+### Session 5 · 2026-10-26 17:35–17:45 Europe/Berlin · Claude Code (Opus) · branch feat/kg · review only
+
+**Goal:** review Agent NBA's first push (`origin/feat/nba` 34a9f5c), as the reviewer role in PLAN_KG §10.
+
+**Done:**
+- Ran the branch in a detached scratch worktree, outside `MAINGAU-nba`, and removed it afterwards.
+- Read `value.py`, `propensity.py`, `rank.py`, `churn.py` and `config/nba.yaml` against README §6.5–§6.6.
+
+**Verified:**
+- `pytest -q` on 34a9f5c: 43 passed.
+- Correct against the README:
+  - model basis (`clv_now_model`);
+  - one-off margin counted once;
+  - P-EN-02 removes only the 0.10 driver;
+  - P-SV-01 keeps 0.95 for cancellation pending and subtracts €15;
+  - reject penalty only for open complaint or dunning;
+  - backoff L3→L0 with `n_min` 30;
+  - rate mode shrinks with 0.034·30 (raw 3.4% at L0);
+  - uplift uses the offer's own control only when n ≥ 30;
+  - confidence high/medium only at L3;
+  - unknown churn drivers raise instead of guessing.
+
+**Issues / risks:**
+- Q-KG-13: tiers and `ECON-NONPOSITIVE` rows are missing (expected in `assemble`).
+- The branch is based on 30dc4c9. It must merge `origin/main` (f23a28f) to get `kg_bundle`, `check_tuple`, the cache fix and the K6 fix.
+
+**Next session starts with:** event replay (`nba/kg/events.py`, deep dive B).
+
