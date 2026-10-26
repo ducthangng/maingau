@@ -923,7 +923,7 @@ Rules are applied before any ranking. Then:
    - with profiling consent: evaluated only when no signal or service tuple has ΔCLV > 0 (`generic.fallback_for_profiled`, K12). This keeps need-first ranking: a real need signal is never outbid by a generic push.
 3. Rank by ΔCLV inside the evaluated set; drop ΔCLV ≤ 0 (`ECON-NONPOSITIVE`). If nothing remains, the decision is `NO_ACTION` with the reason.
 
-**Generic channels:** every consented and available channel (`generic.allowed_channels: all`). With the only channel being a 6 € call, a generic offer can still be positive. For MG-100112, StromAktiv by phone breaks even at p ≈ 0.98%, so at the catalog average it is +€14.8 (`rate`) or +€2.6 (`uplift`). See K11 before changing this.
+**Generic channels (decided, K11, 26 Oct):** every consented and available channel, including phone and SMS (`generic.allowed_channels: all`); the economics decide. With the only channel being a 6 € call, a generic offer can still be positive. For MG-100112, StromAktiv by phone breaks even at p ≈ 0.98%, so at the catalog average it is +€14.87 (`rate`) or +€2.54 (`uplift`), and the decision is a generic StromAktiv call.
 
 ### 6.13 Triage: archetypes, urgency and flags (owner: Agent KG, `nba/kg/segments.py`)
 
@@ -1149,7 +1149,7 @@ Customer facts below were verified in the workbook on 26 Oct. "Spec expects" is 
 | MG-100186 | Service first | Open complaint TK-200745 (2026-09-20); gas deregistered 2026-09-12 | Service mode, P-SV-01 |
 | MG-100068 | Two signals compete; check the ranking | Gas deregistered 2026-09-10; Wallbox delivered 2025-12-28; no Autostrom; **price guarantee ends 2026-10-08** (S4 too); profiling, newsletter, email and portal granted | P-EN-03, P-AS-01, P-EN-02 and P-SL-01 compete. Report the ranking with components |
 | MG-100023 | P-AS-01 (team-confirmed test case) | Wallbox delivered 2025-08-14; StromAktiv; profiling, newsletter and portal granted; `marketing_email` withdrawn; no exclusion | Needs `p_mode: rate` (K1). S3 is the only signal tuple, so generic offers are not evaluated |
-| MG-100112 | **Changed (D1):** "wallbox signal ignored because there is no profiling consent → non-personalised logic → ΔCLV ≤ 0 → no action" | Wallbox delivered 2024-10-25; gas only; **profiling not granted**; only `marketing_phone` granted | Strict: S3 is listed as blocked by `CONSENT-PROFILING` and no personalised tuple exists. Open (K11): the generic StromAktiv call is +€14.8 / +€2.6, so the outcome is NO_ACTION only if K11 is decided that way |
+| MG-100112 | **Changed (D1 + K11):** "wallbox signal ignored because there is no profiling consent → non-personalised logic → generic StromAktiv by phone" | Wallbox delivered 2024-10-25; gas only; **profiling not granted**; only `marketing_phone` granted | Strict: S3 blocked by `CONSENT-PROFILING`; no personalised tuple; chosen `P-EN-01|outbound_call|sie`, `origin = generic`, content "nicht personalisiert" (+€14.87 rate / +€2.54 uplift) |
 | MG-100009 | P-SV-01 | Autostrom only; 3 failed sessions in Sep 2026; only `portal_app_personalisation` and profiling granted | S2 strong; service mode |
 | MG-100659 | P-SV-01 | Autostrom; 3 failed sessions in Sep 2026; low CSAT | S2 strong |
 | MG-100035 | No sales offer | Electricity `cancellation_pending` (received 2026-09-04); churn 0.95 | P-SV-01 cannot lower 0.95, so NO_ACTION is acceptable; no sales tuple allowed |
@@ -1157,11 +1157,11 @@ Customer facts below were verified in the workbook on 26 Oct. "Spec expects" is 
 | MG-100004 | Non-personalised fallback; open complaint | Profiling not granted; open complaint TK-200772; `dunning_level = 2` | Service first; generic content; tone Sie by default |
 | MG-100012 | Non-personalised fallback | Profiling not granted; StromGarant + gas; newsletter, phone and portal granted | Generic path only (e.g. P-MO-01 at the catalog average); content "nicht personalisiert"; tone Sie |
 
-**Strict tests** (must pass under both p modes): MG-100096, MG-100186, MG-100009, MG-100659, MG-100035, MG-100087, MG-100004, MG-100012, and the consent part of MG-100112.
+**Strict tests** (must pass under both p modes): MG-100096, MG-100186, MG-100009, MG-100659, MG-100035, MG-100087, MG-100004, MG-100012, MG-100112.
 
 **Strict under the default `rate` mode:** MG-100023 → P-AS-01.
 
-**Report tests** (assert the signal fires and the expected offer appears in `candidates` or `blocked` with a reason; write chosen vs expected to `out/test_report.md`): MG-100051, MG-100060, MG-100068, and the final action of MG-100112.
+**Report tests** (assert the signal fires and the expected offer appears in `candidates` or `blocked` with a reason; write chosen vs expected to `out/test_report.md`): MG-100051, MG-100060, MG-100068.
 
 **Invariants for all 750 customers:**
 - No candidate or chosen tuple without the channel consent and channel availability.
@@ -1189,7 +1189,7 @@ Customer facts below were verified in the workbook on 26 Oct. "Spec expects" is 
 | K8 | Snapshot has future facts (79 late CDRs; 2 tickets closed with later `resolved_at`) | `snapshot_mode: provided`; flag `SNAPSHOT-INCONSISTENT` | Authoritative snapshot, or strict as-of? |
 | K9 | Scope of an unsubscribe found in `newsletter_performance` | Withdraws `newsletter_email` only | Also `marketing_email`? |
 | K10 | Retention content during `cancellation_pending` | Blocked, because retention counts as sales content | Confirm |
-| K11 | D1 expects MG-100112 → no action because "a 6 € call at p 1–3% is negative". With the catalog values, generic StromAktiv by phone breaks even at p ≈ 0.98% and is +€14.8 (rate) / +€2.6 (uplift) | Economics decide (`generic.allowed_channels: all`) → MG-100112 gets a generic StromAktiv call | Team: allow generic offers by phone/SMS, or restrict generic offers to newsletter/email/portal/app (then MG-100112 → NO_ACTION)? |
+| K11 | D1 expected MG-100112 → no action because "a 6 € call at p 1–3% is negative". With the catalog values, generic StromAktiv by phone breaks even at p ≈ 0.98% and is +€14.87 (rate) / +€2.54 (uplift) | **Decided (team, 26 Oct):** generic offers may use phone/SMS; economics decide → MG-100112 gets a generic StromAktiv call | — |
 | K12 | Should customers with profiling consent fall back to generic offers when no signal tuple is positive? | Yes, only as fallback (`generic.fallback_for_profiled: true`) | Team |
 | K13 | The marketing archetype draft (five profiles) has numbers that do not match the data: MG-100325 cost to serve is 55 € (not 7 €) and it has the driver "price guarantee ends <90d"; P-SL-02 needs a home battery, which MG-100325 lacks; profile 4 churn median is 0.30 (not 40–95%) and CLV median 320 € (not < 100 €); there is no "cancellation page" in `portal_sessions`; profile 5 has 6 customers with data-limit hits and Mobil S/M plans | §6.13 uses rule-based archetypes with verified counts; the UI shows engine values, never the draft's ranges | — |
 

@@ -1,0 +1,14 @@
+du:
+  personalised:
+    subject: "Mobilfunk von MAINGAU"
+    body: "Mit Mobil S, M oder L kannst du einen passenden Mobilfunktarif auswählen. Wir beraten dich gern zu den Optionen."
+  generic:
+    subject: "Mobilfunk von MAINGAU"
+    body: "Nicht personalisiert. Mit Mobil S, M oder L kannst du einen passenden Mobilfunktarif auswählen. Wir beraten dich gern zu den Optionen."
+sie:
+  personalised:
+    subject: "Mobilfunk von MAINGAU"
+    body: "Mit Mobil S, M oder L können Sie einen passenden Mobilfunktarif auswählen. Wir beraten Sie gern zu den Optionen."
+  generic:
+    subject: "Mobilfunk von MAINGAU"
+    body: "Nicht personalisiert. Mit Mobil S, M oder L können Sie einen passenden Mobilfunktarif auswählen. Wir beraten Sie gern zu den Optionen."

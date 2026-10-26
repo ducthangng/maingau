@@ -1,0 +1,14 @@
+du:
+  personalised:
+    subject: "Energie zu Hause besser steuern"
+    body: "Das HEMS Starter-Set unterstützt dich beim Energiemanagement zu Hause. Wir erklären dir gern die Funktionen und Voraussetzungen."
+  generic:
+    subject: "Energie zu Hause besser steuern"
+    body: "Nicht personalisiert. Das HEMS Starter-Set unterstützt dich beim Energiemanagement zu Hause. Wir erklären dir gern die Funktionen und Voraussetzungen."
+sie:
+  personalised:
+    subject: "Energie zu Hause besser steuern"
+    body: "Das HEMS Starter-Set unterstützt Sie beim Energiemanagement zu Hause. Wir erklären Ihnen gern die Funktionen und Voraussetzungen."
+  generic:
+    subject: "Energie zu Hause besser steuern"
+    body: "Nicht personalisiert. Das HEMS Starter-Set unterstützt Sie beim Energiemanagement zu Hause. Wir erklären Ihnen gern die Funktionen und Voraussetzungen."

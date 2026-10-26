@@ -1,0 +1,14 @@
+du:
+  personalised:
+    subject: "Flexibler Stromtarif"
+    body: "Ein dynamischer Stromtarif kann flexiblen Verbrauch unterstützen. Wir erklären dir gern die Chancen und die Preisschwankungen."
+  generic:
+    subject: "Flexibler Stromtarif"
+    body: "Nicht personalisiert. Ein dynamischer Stromtarif kann flexiblen Verbrauch unterstützen. Wir erklären dir gern die Chancen und die Preisschwankungen."
+sie:
+  personalised:
+    subject: "Flexibler Stromtarif"
+    body: "Ein dynamischer Stromtarif kann flexiblen Verbrauch unterstützen. Wir erklären Ihnen gern die Chancen und die Preisschwankungen."
+  generic:
+    subject: "Flexibler Stromtarif"
+    body: "Nicht personalisiert. Ein dynamischer Stromtarif kann flexiblen Verbrauch unterstützen. Wir erklären Ihnen gern die Chancen und die Preisschwankungen."

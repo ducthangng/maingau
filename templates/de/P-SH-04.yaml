@@ -1,0 +1,14 @@
+du:
+  personalised:
+    subject: "Geräte mit Smart Plugs steuern"
+    body: "Mit dem Smart Plug 4er-Set kannst du angeschlossene Geräte steuern. Wir informieren dich gern über die Funktionen."
+  generic:
+    subject: "Geräte mit Smart Plugs steuern"
+    body: "Nicht personalisiert. Mit dem Smart Plug 4er-Set kannst du angeschlossene Geräte steuern. Wir informieren dich gern über die Funktionen."
+sie:
+  personalised:
+    subject: "Geräte mit Smart Plugs steuern"
+    body: "Mit dem Smart Plug 4er-Set können Sie angeschlossene Geräte steuern. Wir informieren Sie gern über die Funktionen."
+  generic:
+    subject: "Geräte mit Smart Plugs steuern"
+    body: "Nicht personalisiert. Mit dem Smart Plug 4er-Set können Sie angeschlossene Geräte steuern. Wir informieren Sie gern über die Funktionen."

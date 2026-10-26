@@ -1,0 +1,14 @@
+du:
+  personalised:
+    subject: "Heizen mit smarten Thermostaten"
+    body: "Smarte Thermostate helfen dir, Heizzeiten zu steuern. Wir zeigen dir gern die Funktionen des Sets."
+  generic:
+    subject: "Heizen mit smarten Thermostaten"
+    body: "Nicht personalisiert. Smarte Thermostate helfen dir, Heizzeiten zu steuern. Wir zeigen dir gern die Funktionen des Sets."
+sie:
+  personalised:
+    subject: "Heizen mit smarten Thermostaten"
+    body: "Smarte Thermostate helfen Ihnen, Heizzeiten zu steuern. Wir zeigen Ihnen gern die Funktionen des Sets."
+  generic:
+    subject: "Heizen mit smarten Thermostaten"
+    body: "Nicht personalisiert. Smarte Thermostate helfen Ihnen, Heizzeiten zu steuern. Wir zeigen Ihnen gern die Funktionen des Sets."

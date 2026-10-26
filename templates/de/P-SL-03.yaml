@@ -1,0 +1,14 @@
+du:
+  personalised:
+    subject: "Die Wallbox mit HEMS verbinden"
+    body: "Die Wallbox-Integration verbindet das Laden mit dem Energiemanagement. Wir prüfen gern mit dir die technischen Voraussetzungen."
+  generic:
+    subject: "Die Wallbox mit HEMS verbinden"
+    body: "Nicht personalisiert. Die Wallbox-Integration verbindet das Laden mit dem Energiemanagement. Wir prüfen gern mit dir die technischen Voraussetzungen."
+sie:
+  personalised:
+    subject: "Die Wallbox mit HEMS verbinden"
+    body: "Die Wallbox-Integration verbindet das Laden mit dem Energiemanagement. Wir prüfen gern mit Ihnen die technischen Voraussetzungen."
+  generic:
+    subject: "Die Wallbox mit HEMS verbinden"
+    body: "Nicht personalisiert. Die Wallbox-Integration verbindet das Laden mit dem Energiemanagement. Wir prüfen gern mit Ihnen die technischen Voraussetzungen."

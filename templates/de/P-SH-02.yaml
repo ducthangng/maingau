@@ -1,0 +1,14 @@
+du:
+  personalised:
+    subject: "Eine Wallbox für zu Hause"
+    body: "Mit einer Wallbox kannst du dein Elektroauto zu Hause laden. Wir informieren dich gern über die technischen Voraussetzungen."
+  generic:
+    subject: "Eine Wallbox für zu Hause"
+    body: "Nicht personalisiert. Mit einer Wallbox kannst du dein Elektroauto zu Hause laden. Wir informieren dich gern über die technischen Voraussetzungen."
+sie:
+  personalised:
+    subject: "Eine Wallbox für zu Hause"
+    body: "Mit einer Wallbox können Sie Ihr Elektroauto zu Hause laden. Wir informieren Sie gern über die technischen Voraussetzungen."
+  generic:
+    subject: "Eine Wallbox für zu Hause"
+    body: "Nicht personalisiert. Mit einer Wallbox können Sie Ihr Elektroauto zu Hause laden. Wir informieren Sie gern über die technischen Voraussetzungen."

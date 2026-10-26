@@ -1,0 +1,18 @@
+du:
+  personalised:
+    subject: "Preisgarantie mit StromGarant"
+    body: "Mit StromGarant kannst du dir eine neue Preisgarantie sichern. Wir erklären dir gern die Bedingungen."
+    dated_body: "Mit StromGarant kannst du dir eine neue Preisgarantie sichern. Wir erklären dir gern die Bedingungen."
+  generic:
+    subject: "Preisgarantie mit StromGarant"
+    body: "Nicht personalisiert. Mit StromGarant kannst du dir eine neue Preisgarantie sichern. Wir erklären dir gern die Bedingungen."
+    dated_body: "Mit StromGarant kannst du dir eine neue Preisgarantie sichern. Wir erklären dir gern die Bedingungen."
+sie:
+  personalised:
+    subject: "Preisgarantie mit StromGarant"
+    body: "Mit StromGarant können Sie sich eine neue Preisgarantie sichern. Wir erklären Ihnen gern die Bedingungen."
+    dated_body: "Mit StromGarant können Sie sich eine neue Preisgarantie sichern. Wir erklären Ihnen gern die Bedingungen."
+  generic:
+    subject: "Preisgarantie mit StromGarant"
+    body: "Nicht personalisiert. Mit StromGarant können Sie sich eine neue Preisgarantie sichern. Wir erklären Ihnen gern die Bedingungen."
+    dated_body: "Mit StromGarant können Sie sich eine neue Preisgarantie sichern. Wir erklären Ihnen gern die Bedingungen."

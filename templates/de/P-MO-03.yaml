@@ -1,0 +1,14 @@
+du:
+  personalised:
+    subject: "Eine zusätzliche SIM"
+    body: "Mit einer Zusatz-SIM kannst du weitere Anschlüsse im Haushalt nutzen. Wir erklären dir gern die Bedingungen."
+  generic:
+    subject: "Eine zusätzliche SIM"
+    body: "Nicht personalisiert. Mit einer Zusatz-SIM kannst du weitere Anschlüsse im Haushalt nutzen. Wir erklären dir gern die Bedingungen."
+sie:
+  personalised:
+    subject: "Eine zusätzliche SIM"
+    body: "Mit einer Zusatz-SIM können Sie weitere Anschlüsse im Haushalt nutzen. Wir erklären Ihnen gern die Bedingungen."
+  generic:
+    subject: "Eine zusätzliche SIM"
+    body: "Nicht personalisiert. Mit einer Zusatz-SIM können Sie weitere Anschlüsse im Haushalt nutzen. Wir erklären Ihnen gern die Bedingungen."

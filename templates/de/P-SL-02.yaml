@@ -1,0 +1,14 @@
+du:
+  personalised:
+    subject: "Den Heimspeicher optimieren"
+    body: "Die HEMS Speicher-Optimierung unterstützt die Steuerung eines Heimspeichers. Wir erklären dir gern, wie das Zusatzangebot funktioniert."
+  generic:
+    subject: "Den Heimspeicher optimieren"
+    body: "Nicht personalisiert. Die HEMS Speicher-Optimierung unterstützt die Steuerung eines Heimspeichers. Wir erklären dir gern, wie das Zusatzangebot funktioniert."
+sie:
+  personalised:
+    subject: "Den Heimspeicher optimieren"
+    body: "Die HEMS Speicher-Optimierung unterstützt die Steuerung eines Heimspeichers. Wir erklären Ihnen gern, wie das Zusatzangebot funktioniert."
+  generic:
+    subject: "Den Heimspeicher optimieren"
+    body: "Nicht personalisiert. Die HEMS Speicher-Optimierung unterstützt die Steuerung eines Heimspeichers. Wir erklären Ihnen gern, wie das Zusatzangebot funktioniert."

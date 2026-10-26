@@ -1,0 +1,14 @@
+du:
+  personalised:
+    subject: "Strom für zu Hause"
+    body: "Mit StromAktiv kannst du deinen Haushalt mit Strom versorgen. Wir informieren dich gern über den Tarif."
+  generic:
+    subject: "Strom für zu Hause"
+    body: "Nicht personalisiert. Mit StromAktiv kannst du deinen Haushalt mit Strom versorgen. Wir informieren dich gern über den Tarif."
+sie:
+  personalised:
+    subject: "Strom für zu Hause"
+    body: "Mit StromAktiv können Sie Ihren Haushalt mit Strom versorgen. Wir informieren Sie gern über den Tarif."
+  generic:
+    subject: "Strom für zu Hause"
+    body: "Nicht personalisiert. Mit StromAktiv können Sie Ihren Haushalt mit Strom versorgen. Wir informieren Sie gern über den Tarif."

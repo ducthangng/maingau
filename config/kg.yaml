@@ -14,7 +14,7 @@ profiling_off:
 generic:
   offers: [P-EN-01, P-MO-01, P-SL-01, P-SH-01, P-SH-03, P-SH-04]
   fallback_for_profiled: true      # profiled customers get generic offers only if no signal tuple has ΔCLV > 0 (K12)
-  allowed_channels: all            # "all" = every consented channel; a list restricts generic offers (K11)
+  allowed_channels: all            # every consented channel incl. phone/SMS (K11 decided 26 Oct)
 
 exclusions:
   autostrom_cancelled_scope: all_sales   # all_sales | e_mobility (K6)
