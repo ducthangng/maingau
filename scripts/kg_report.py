@@ -106,7 +106,8 @@ def main() -> None:
     out.write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(f"wrote {out.relative_to(REPO)} ({elapsed:.2f} s)")
     if args.graph:
-        n, e = export_graph(states, policy, REPO / "out" / "kg")
+        archetypes = {cid: t.archetype.id for cid, (*_, t) in res.items()}
+        n, e = export_graph(states, policy, REPO / "out" / "kg", archetypes)
         print(f"wrote out/kg/kg_nodes.jsonl ({n} nodes) and kg_edges.jsonl ({e} edges)")
 
 

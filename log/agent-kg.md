@@ -55,6 +55,8 @@ These are kept up to date and edited in place. Status values: `open`, `answered`
 | Q-KG-08 | P-EN-04 (GasAktiv) and P-IN-01 (Internet) are never generated (`DATA-MISSING`). Confirm this is acceptable for the hidden reference customers | Catalog coverage | MAINGAU mentor | decided-default | — |
 | Q-KG-09 | The marketing archetype draft (5 profiles) does not match the data (README K13). Use the rule-based archetypes in README §6.13 | UI must not show wrong ranges | — | closed | Archetypes A0–A5 with verified counts (26 Oct) |
 | Q-KG-10 | Generic offers by phone/SMS: MG-100112's generic StromAktiv call is +€14.8 (rate) / +€2.6 (uplift), not negative as D1 assumed (README K11) | Outcome of MG-100112 and of every no-profiling customer whose only channel is a call | Team | open | — |
+| Q-KG-11 | Agent NBA: please (a) change the evidence example in `nba/contracts.py` Signal.evidence from `order:SO-1#2` to `order:SO-1` (Order IDs are order_id now), and (b) consider an optional `ConsentItem.doi_at` so the consent-proof drawer can show the real double opt-in date (KG currently puts it only in the channel reason text) | Contract comment is wrong; consent proof in the UI | Agent NBA | open | — |
+| Q-KG-12 | Agent NBA: use `nba.kg.rules.check_tuple(state, offer_id, channel, policy)` for the override 409 and for `legacy_comparison.blocked_now_by`; do not re-implement gates | One source of truth for hard rules | Agent NBA | open | — |
 
 ## Session entries
 
@@ -125,3 +127,46 @@ These are kept up to date and edited in place. Status values: `open`, `answered`
 - Agent NBA: contracts now include the worklist fields above.
 
 **Next session starts with:** fix the findings of the independent KG review (running), then K11 once the team decides.
+
+### Session 3 · 2026-10-26 16:10–17:10 Europe/Berlin · Claude Code (Opus) · branch feat/kg · commits ebf5ab0..(this commit)
+
+**Goal:** fix the confirmed findings of the independent KG review. The review was a workflow of 4 reviewers plus 4 adversarial verifiers: 17 findings confirmed (11 distinct issues), 3 refuted.
+
+**Done:**
+- `nba/data.py`: the cache key now includes a parser fingerprint (sha256 of `data.py` + the pandas version), and the pickle is written atomically. A stale cache had served NaN and string numbers (high severity).
+- `nba/kg/rules.py`:
+  - EXCL-AUTOSTROM-CANCELLED stays active whatever the K6 scope; `blocks_offer()` applies the scope per offer, so `e_mobility` no longer leaks P-AS-01.
+  - Per-channel `blocked` rows (`offer_id = "*"`, channel set, CONSENT-CHANNEL or CHANNEL-AVAILABLE).
+  - HOLDING-PRECONDITION rows for owned generic offers.
+  - S10 is reported as ignored without profiling consent.
+  - The real double opt-in date appears in the newsletter reason.
+  - New `check_tuple()` for overrides and the legacy comparison.
+- `nba/kg/predicates.py`:
+  - non-string `churn_drivers` is handled safely;
+  - the S11 detail is now factual (MG-100087: "no active MAINGAU electricity contract (EN-500096 is cancellation_pending)").
+- `nba/kg/graph.py`:
+  - channel and consent-type nodes are namespaced (no ID collision, no self-loop);
+  - Order nodes are keyed by `order_id`, so S3 evidence resolves;
+  - S10 evidence gets a Campaign node;
+  - HAS_SESSION edges are emitted;
+  - control rows use HELD_OUT instead of RECEIVED;
+  - the export links IN_ARCHETYPE and drops unused archetype nodes.
+- `nba/kg/paths.py`: the P-SV-01 offer node has no invalid `product:service` `ui_ref`.
+- Ontology, README §5.4, §5.6 and §6.11, and PLAN_KG synced. 12 new regression tests.
+
+**Verified:**
+- `pytest -q`: 37 passed.
+- `scripts/kg_report.py --graph`: 10,784 nodes and 17,989 edges, 0 orphan nodes, 0 dangling edges; RECEIVED 2,022 (= delivered), HELD_OUT 248 (= control), IN_ARCHETYPE 750.
+- Tuple counts unchanged (808 signal / 69 service / 6,343 generic): the fixes change reporting and the K6 alternative, not today's decisions.
+
+**Refuted findings (kept as is):**
+- The "no consented channel" row is not added when an exclusion is already active.
+- No data-quality flag for the `TK-open-complaint` event at T0. It only matters during replay.
+- `portal_sessions.session_start` and `mobile_contracts.min_term_end` stay strings, as README §5.1 specifies; consumers parse them.
+
+**Contract changes:** none in `nba/contracts.py`. Requests to Agent NBA: Q-KG-11 and Q-KG-12.
+
+**Issues / risks:** the shared folder `MAINGAU` still holds the stale pickle from 15:12. The new cache key ignores it automatically, so nothing needs deleting.
+
+**Next session starts with:** event replay (deep dive B) in `nba/kg/events.py`, unless the team re-prioritises. Then review Agent NBA's and Agent CARDS' first deliveries.
+

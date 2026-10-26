@@ -63,6 +63,12 @@ def _master(state: CustomerState) -> dict:
     return state.one("customer_master") or {}
 
 
+def churn_driver_text(state: CustomerState) -> str:
+    """customer_value.churn_drivers as a string; non-string values (None, NaN) count as empty."""
+    raw = (state.one("customer_value") or {}).get("churn_drivers")
+    return raw if isinstance(raw, str) else ""
+
+
 def has_profiling(state: CustomerState) -> bool:
     return any(
         r["consent_type"] == "profiling_analytics" and r["status"] == "granted"
@@ -217,8 +223,14 @@ def autostrom_without_electricity(s: CustomerState) -> Hit | None:
         return None
     a = _active(s.rows["autostrom_contracts"])[0]
     car = " ".join(x for x in (a.get("car_brand"), a.get("car_model")) if x)
-    return Hit(f"charges with Autostrom ({car}) but buys home electricity elsewhere",
-               "autostrom_contracts.status", a.get("start_date"), [f"contract:{a['contract_id']}"])
+    other = [r for r in s.rows["energy_contracts"] if r["commodity"] == "electricity"]
+    evidence = [f"contract:{a['contract_id']}"] + [f"contract:{r['contract_id']}" for r in other]
+    if other:
+        states = ", ".join(f"{r['contract_id']} is {r['status']}" for r in other)
+        detail = f"charges with Autostrom ({car}); no active MAINGAU electricity contract ({states})"
+    else:
+        detail = f"charges with Autostrom ({car}); no MAINGAU home electricity contract"
+    return Hit(detail, "autostrom_contracts.status", a.get("start_date"), evidence)
 
 
 @_signal
@@ -276,8 +288,7 @@ def has_smart_meter(s: CustomerState) -> tuple[bool, str]:
 
 @_holding
 def has_price_guarantee_driver(s: CustomerState) -> tuple[bool, str]:
-    drivers = (s.one("customer_value") or {}).get("churn_drivers") or ""
-    ok = "price guarantee ends <90d" in drivers
+    ok = "price guarantee ends <90d" in churn_driver_text(s)
     return ok, "churn driver 'price guarantee ends <90d' present" if ok else "no price-guarantee churn driver"
 
 
@@ -367,5 +378,5 @@ def excl_autostrom_cancelled(s: CustomerState) -> Hit | None:
 
 def driver_flags(state: CustomerState) -> set[str]:
     """Churn-driver labels without the multi-product tag, e.g. {'open complaint', '2 tickets in 12m'}."""
-    raw = (state.one("customer_value") or {}).get("churn_drivers") or ""
+    raw = churn_driver_text(state)
     return {t.strip() for t in raw.split(";") if t.strip() and not re.match(r"multi-product", t.strip())}

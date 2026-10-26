@@ -494,7 +494,7 @@ The values below are illustrative, **not expected results**. `nba/contracts.py` 
 
 **`chosen` when nothing qualifies.** `chosen.tuple_id = "NO_ACTION"`, and `reason_line` explains why: everything blocked, or no candidate with ΔCLV > 0.
 
-**`blocked` rows with `offer_id = "*"`** apply to every non-service offer of the customer: an active exclusion, the contact cap, or no consented marketing channel.
+**`blocked` rows with `offer_id = "*"`** apply to every non-service offer of the customer: an active exclusion, the contact cap, or no consented marketing channel. With `channel` set, the row means that channel is blocked for every offer (e.g. "outbound call not allowed for any offer: marketing_phone withdrawn on 2023-03-09").
 
 **`out/index.json`** has one row per customer for the overview page:
 
@@ -551,6 +551,8 @@ def consent_view(state, policy) -> list[ConsentItem]               # profile.con
 def channel_view(state, policy) -> list[ChannelItem]               # profile.channels (CARDS reuses it)
 def exclusion_view(state, policy) -> list[ExclusionItem]           # profile.exclusions (CARDS reuses it)
 def data_quality(state) -> list[DataQuality]                       # §6.9; NBA adds it to the checklist
+def check_tuple(state, offer_id, channel, policy) -> list[Blocked] # hard-rule blockers of one tuple; [] = allowed
+                                                                   # (override 409, legacy_comparison.blocked_now_by)
 
 # Agent CARDS — nba/profile/*.py
 def infer_tone(state) -> Tone             # value + method + evidence; NBA imports this
@@ -875,7 +877,7 @@ These are flags shown as ⚠ in the checklist. **They never block.**
   | Customer | `customer_id` |
   | Contract (subtype Energy / Mobile / Autostrom) | `contract_id` |
   | Device | `device_id` |
-  | Order | `order_id` + line number |
+  | Order | `order_id` (unique per order line) |
   | Ticket | `ticket_id` |
   | Session | `session_id` |
   | Consent | `customer_id` + type |
@@ -898,12 +900,15 @@ These are flags shown as ⚠ in the checklist. **They never block.**
   | DELIVERED_VIA | Offer → Channel |
   | REQUIRES | Channel → Consent; Offer → precondition |
   | BLOCKS | Exclusion → Offer, by action type |
-  | RECEIVED | Customer → Action |
+  | RECEIVED | Customer → Action (delivered only; control rows use HELD_OUT) |
   | RESPONDED | Customer → Action, with property `response` |
 
-- **Two extension edges** for evidence:
-  - `EVIDENCED_BY`: Signal → Contract / Order / Ticket / Session / Device.
+- **Extension edges and nodes:**
+  - `EVIDENCED_BY`: Signal → Contract / Order / Ticket / Session / Device / Campaign (S10 clicks).
   - `HAS_SESSION`: Contract → Session.
+  - `HELD_OUT`: Customer → Action for control-group rows that were never sent.
+  - `REINFORCES`: S10 → Need (evidence only, no tuple).
+  - Channel and consent-type nodes are namespaced in the graph (`channel:email`, `consent:marketing_email`) because they share names.
 - **Division of labour:** rules are declared in YAML and evaluated by named Python predicates. Scoring lives in code. Customer data stays in tables; the graph is built per customer on demand, so there is no graph database.
 
 ### 6.12 Candidate tiers and arbitration (owner: Agent KG builds tiers, Agent NBA ranks)
