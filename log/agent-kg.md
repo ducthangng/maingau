@@ -58,6 +58,8 @@ These are kept up to date and edited in place. Status values: `open`, `answered`
 | Q-KG-11 | Agent NBA: please (a) change the evidence example in `nba/contracts.py` Signal.evidence from `order:SO-1#2` to `order:SO-1` (Order IDs are order_id now), and (b) consider an optional `ConsentItem.doi_at` so the consent-proof drawer can show the real double opt-in date (KG currently puts it only in the channel reason text) | Contract comment is wrong; consent proof in the UI | Agent NBA | open | — |
 | Q-KG-12 | Agent NBA: use `nba.kg.rules.check_tuple(state, offer_id, channel, policy)` for the override 409 and for `legacy_comparison.blocked_now_by`; do not re-implement gates | One source of truth for hard rules | Agent NBA | open | — |
 | Q-KG-13 | Agent NBA: `rank()` (34a9f5c) drops ΔCLV ≤ 0 silently and ranks all origins together. README §6.12 needs (a) dropped tuples added to `blocked` as `ECON-NONPOSITIVE` and (b) the tiers: signal/service tuples first; generic tuples for profiled customers only when no signal/service tuple has ΔCLV > 0 (`generic.fallback_for_profiled`). Without (b), MG-100023 would get a generic StromWärme (about +€24) instead of P-AS-01 | Team test MG-100023 → P-AS-01; need-first ranking | Agent NBA | open | — |
+| Q-KG-14 | Agent NBA: the export is 34 MB (`indent=2`) and still 23 MB compact, above the ~20 MB budget for `web/public/data` (README §13.2). Write compact JSON and trim per-candidate duplication: only the top 5 tuples per customer get the full `checks`/`path`, or drop channel duplicates of the same offer | Vercel static deploy and UI load time | Agent NBA | open | — |
+| Q-KG-15 | Agent NBA: internal reason lines mix languages: the NO_ACTION and ECON-NONPOSITIVE reasons are German ("Keine zulässige Aktion…", "erwartete ΔCLV"), the rest is English. README §0: UI text may be English or German, customer content German. Pick one language for internal reasons, English recommended | Consistent UI and pitch | Agent NBA | open | — |
 
 ## Session entries
 
@@ -224,4 +226,41 @@ These are kept up to date and edited in place. Status values: `open`, `answered`
 - The branch is based on 30dc4c9. It must merge `origin/main` (f23a28f) to get `kg_bundle`, `check_tuple`, the cache fix and the K6 fix.
 
 **Next session starts with:** event replay (`nba/kg/events.py`, deep dive B).
+
+
+
+### Session 6 · 2026-10-26 17:50–18:05 Europe/Berlin · Claude Code (Opus) · branch feat/kg · commits 20f066f..(this commit)
+
+**Goal:** review Agent NBA's delivery on main (ef82704) and report KG status.
+
+**Done:**
+- Fast-forwarded `feat/kg` to `origin/main` (ef82704).
+- Ran `nba.build` for all 750 customers into the scratchpad, plus an independent checker (my own script, not NBA's tests).
+
+**Verified:**
+- `pytest -q` on main: 88 passed (KG 40 + NBA 48).
+- `nba.build`: 750 cards in 2.3 s; two runs give identical hashes (deterministic); every card validates against `CustomerCard`.
+- Independent checker over all 750 customers, 0 violations:
+  - chosen ΔCLV > 0;
+  - the chosen tuple is among the candidates and `check_tuple` returns [] for it;
+  - no personalised tuple or content without profiling;
+  - P-SV-01 content has no product words;
+  - §6.12 tiers respected (no profiled customer gets a generic offer while a signal/service tuple has ΔCLV > 0).
+- 238 ECON-NONPOSITIVE rows; 154 NO_ACTION.
+- Chosen offers: P-MO-01 201, P-EN-01 152, P-SL-01 95, P-EN-02 60, P-SV-01 47, P-MO-03 16, P-SL-02 8, P-EN-03 6, P-AS-01 4, P-SL-03 4, P-EN-05 3. Σ expected ΔCLV €9,798 (model-based, mock).
+- Test customers match README §9:
+  - MG-100023 → P-AS-01 (+€7.12, p 1.6%);
+  - MG-100009 / MG-100659 / MG-100096 / MG-100186 / MG-100004 → P-SV-01;
+  - MG-100035 / MG-100087 → NO_ACTION;
+  - MG-100012 → generic P-MO-01;
+  - MG-100051 / MG-100060 → P-EN-03;
+  - MG-100068 and MG-100325 → P-EN-02;
+  - MG-100112 → generic P-EN-01 by phone (+€14.87, K11 still open).
+- `out/test_report.md` covers both p modes.
+
+**Issues / risks:**
+- The profile is still a placeholder: tone is the default, the timeline and product items are empty. It is waiting for Agent CARDS' `nba/profile`, which is not pushed (no `feat/cards` on origin).
+- Export size: Q-KG-14. Mixed-language reasons: Q-KG-15.
+
+**Next session starts with:** event replay (deep dive B), then review `nba/profile` when CARDS pushes it.
 
