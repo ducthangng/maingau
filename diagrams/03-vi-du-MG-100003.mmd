@@ -1,0 +1,19 @@
+%% MAINGAU NBA · Ví dụ replay: MG-100003 rút consent giữa ngày
+sequenceDiagram
+    autonumber
+    participant ES as Event stream
+    participant RP as Replay và bỏ trùng
+    participant ST as Trạng thái khách
+    participant KG as KG
+    participant EN as Engine ③–⑨
+    participant MK as Dashboard marketing
+    Note over ES,MK: MG-100003 · khách từ 2015 · CLV 1.559 €
+    ES->>RP: consent_changed profiling → withdrawn (xảy ra 10:14:00, nạp 10:14:05)
+    ES->>RP: consent_changed newsletter_email → withdrawn (xảy ra 10:14:05)
+    RP->>RP: kiểm trùng event_id
+    RP->>ST: cập nhật consent theo occurred_at
+    ST->>KG: dữ kiện consent đã đổi
+    KG-->>EN: cổng consent và cổng profiling bị ảnh hưởng
+    EN->>EN: tính lại riêng MG-100003
+    EN->>MK: THU HỒI action newsletter, bỏ cá nhân hóa
+    MK-->>MK: hiện trong danh sách thu hồi, kèm event_id

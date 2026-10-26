@@ -1,0 +1,327 @@
+{
+  "method": "Source counts and reconstructed formula diagnostics; not product implementation tests",
+  "snapshot_cutoff_assumption": "2026-09-30T23:59:59",
+  "files": [
+    {
+      "path": "MAINGAU/MAINGAU-pipeline-va-diem-khac-biet.md",
+      "sha256": "8531e3ecb04f2d77ace34854035179c0686bbe29c5ef145191262c34f986441f"
+    },
+    {
+      "path": "MAINGAU/Hackathon_slides_for_MAINGAU.pdf",
+      "sha256": "afea4976801df2681f509f5f1b5aa3ee906eb14e585fd43366aef2434f0d5198"
+    },
+    {
+      "path": "MAINGAU/data/maingau_nba_mockdata.xlsx",
+      "sha256": "839b6a7424ef76e95c06f3cc25f03bd0942d915d220090118cc7be0df70b0b48"
+    },
+    {
+      "path": "MAINGAU/data/event_stream_2026-10-01.jsonl",
+      "sha256": "94a65bb723eb62b68dcef7dd0a05ac0fedebd2bbfd412098a83bbc182f47185a"
+    }
+  ],
+  "sheet_rows_excluding_header": {
+    "README": 10,
+    "sources": 18,
+    "columns": 196,
+    "clv_method": 11,
+    "value_assumptions": 38,
+    "customer_value": 750,
+    "customer_master": 750,
+    "energy_contracts": 718,
+    "mobile_contracts": 131,
+    "autostrom_contracts": 238,
+    "charge_sessions": 5696,
+    "shop_orders": 446,
+    "hems_devices": 145,
+    "hems_telemetry_daily": 1036,
+    "consent_status": 4500,
+    "newsletter_campaigns": 13,
+    "newsletter_performance": 6161,
+    "portal_sessions": 5416,
+    "service_interactions": 788,
+    "call_transcripts": 229,
+    "service_nba_feedback": 100,
+    "nba_action_history": 2270,
+    "product_catalog": 18
+  },
+  "sheet_count": 23,
+  "source_registry_rows": 18,
+  "event_stream": {
+    "raw": 647,
+    "unique": 635,
+    "duplicates": 12,
+    "conflicting_duplicate_ids": [],
+    "unique_event_type_counts": {
+      "hems_device_offline": 1,
+      "charge_session_started": 65,
+      "portal_login": 244,
+      "page_viewed": 87,
+      "newsletter_opened": 40,
+      "ticket_created": 41,
+      "charge_session_completed": 57,
+      "meter_reading_submitted": 21,
+      "newsletter_clicked": 1,
+      "order_placed": 11,
+      "cart_abandoned": 13,
+      "call_transcript_ready": 2,
+      "ticket_updated": 1,
+      "consent_changed": 2,
+      "charge_session_failed": 8,
+      "mobile_data_threshold": 4,
+      "agent_nba_feedback": 1,
+      "hems_daily_summary": 32,
+      "contract_cancellation_received": 2,
+      "gas_meter_deregistration_received": 1,
+      "dunning_level_changed": 1
+    },
+    "adjacent_occurred_at_backsteps_in_ingestion_order": 100,
+    "ingested_at_backsteps": 0,
+    "max_arrival_delay_hours": 47.2625,
+    "last_ingested_at": "2026-10-03 19:27:39"
+  },
+  "history": {
+    "total": 2270,
+    "delivered_noncontrol": 2022,
+    "control_rows": 248,
+    "delivered_conversions": 69,
+    "control_conversions": 5,
+    "customers_appearing_in_both_treatment_and_control": 207,
+    "immature_14d_labels_at_snapshot": 223,
+    "offers_without_history": [
+      "P-EN-01",
+      "P-EN-03",
+      "P-EN-04",
+      "P-MO-03",
+      "P-SL-02",
+      "P-SL-03",
+      "P-SH-04",
+      "P-SV-01"
+    ]
+  },
+  "historical_diagnostics": {
+    "assumed_channel_consent_mapping": {
+      "newsletter_email": "newsletter_email",
+      "outbound_call": "marketing_phone",
+      "sms": "marketing_sms",
+      "portal_popup": "portal_app_personalisation",
+      "app_push": "portal_app_personalisation"
+    },
+    "delivered_after_last_recorded_withdrawal": 334,
+    "withdrawal_counts_by_channel": {
+      "outbound_call": 37,
+      "newsletter_email": 213,
+      "portal_popup": 38,
+      "app_push": 12,
+      "sms": 34
+    },
+    "newsletter_actions_after_campaign_sent_with_unsubscribe_flag": 70,
+    "unsubscribe_timestamp_missing": "No unsubscribe_at column; 70 is a send-time proxy, not confirmed post-unsubscribe count",
+    "actions_to_customers_dunning_at_snapshot": 81,
+    "dunning_history_missing": "No dunning_since timestamp; snapshot dunning is not historical dunning at action time",
+    "autostrom_delivered": 203,
+    "autostrom_delivered_to_active_holders_at_snapshot": 72,
+    "autostrom_active_contract_start_not_after_action": 70
+  },
+  "snapshot_diagnostics": {
+    "dunning_customers": 31,
+    "open_complaint_customers_by_status": 29,
+    "cancellation_customers": 8,
+    "blocked_union_by_status": 67,
+    "open_complaint_customers_reconstructed_at_cutoff": 30,
+    "active_autostrom_only_excluding_active_energy_mobile_and_any_HEMS": 126,
+    "cdr_received_after_snapshot": 79,
+    "cdr_customers_received_after_snapshot": 69,
+    "sessions_ended_after_snapshot": 15,
+    "resolved_after_snapshot": [
+      {
+        "ticket_id": "TK-200565",
+        "customer_id": "MG-100562",
+        "category": "complaint",
+        "status": "closed",
+        "resolved_at": "2026-10-02 04:40:54"
+      },
+      {
+        "ticket_id": "TK-200640",
+        "customer_id": "MG-100655",
+        "category": "autostrom",
+        "status": "closed",
+        "resolved_at": "2026-10-01 20:11:22"
+      }
+    ],
+    "guest_order_lines": 25
+  },
+  "source_counts": {
+    "machine_opens": 1589,
+    "human_opens": 1457,
+    "nonempty_service_message_rows": 559,
+    "distinct_nonempty_service_texts_including_English": 24,
+    "feedback_action_counts": {
+      "accepted": 34,
+      "dismissed": 55,
+      "ignored": 11
+    },
+    "feedback_dismiss_reasons": {
+      "not_relevant": 13,
+      "customer_upset": 30,
+      "customer_already_has_product": 9,
+      "no_time": 3
+    }
+  },
+  "clv_reconstruction": {
+    "median_absolute_error_eur": 0.27122898964023534,
+    "max_absolute_error_eur": 3.0461172250575146,
+    "rows_with_error_above_1eur": 31
+  },
+  "MG100009_formula_diagnostic": {
+    "assumptions": "Catalog P-EN-01 additive margin/churn; p_accept=0.034 illustrative; no contact cost; no open complaint/dunning rejection penalty",
+    "model_clv_before": 402.9648527482651,
+    "model_clv_after_accept": 719.3286473287645,
+    "gain_if_accepted": 316.3637945804994,
+    "illustrative_expected_gain": 10.756369015736981,
+    "meaning": "Positive under these assumptions; an open service issue does not algebraically force all sales scores negative"
+  },
+  "scenario_events": [
+    {
+      "event_id": "c2e98605-5d4c-8eb0-1931-376479dab01c",
+      "event_type": "ticket_updated",
+      "source_system": "ticketing",
+      "customer_id": "MG-100004",
+      "occurred_at": "2026-10-01 09:40:00",
+      "ingested_at": "2026-10-01 09:40:15",
+      "payload": {
+        "ticket_id": "TK-open-complaint",
+        "status": "open",
+        "note": "Kunde fordert Rückruf"
+      }
+    },
+    {
+      "event_id": "745a28a6-a003-f732-eff1-8ba727116dcb",
+      "event_type": "consent_changed",
+      "source_system": "consent_mgmt",
+      "customer_id": "MG-100003",
+      "occurred_at": "2026-10-01 10:14:00",
+      "ingested_at": "2026-10-01 10:14:05",
+      "payload": {
+        "consent_type": "profiling_analytics",
+        "new_status": "withdrawn",
+        "source": "portal_privacy_center"
+      }
+    },
+    {
+      "event_id": "2f9c0885-c2b2-5ee4-2fa2-086f9816a4f5",
+      "event_type": "consent_changed",
+      "source_system": "consent_mgmt",
+      "customer_id": "MG-100003",
+      "occurred_at": "2026-10-01 10:14:05",
+      "ingested_at": "2026-10-01 10:14:11",
+      "payload": {
+        "consent_type": "newsletter_email",
+        "new_status": "withdrawn",
+        "source": "portal_privacy_center"
+      }
+    },
+    {
+      "event_id": "bb1f453d-f43c-c03a-1b91-7a1ddf700a5f",
+      "event_type": "ticket_created",
+      "source_system": "ticketing",
+      "customer_id": "MG-100125",
+      "occurred_at": "2026-10-01 11:31:02",
+      "ingested_at": "2026-10-01 11:31:20",
+      "payload": {
+        "ticket_id": "TK-201001",
+        "category": "meter_deregistration",
+        "channel": "portal_form",
+        "message_text": "Sehr geehrte Damen und Herren, ich möchte meinen Gaszähler zum 31.10. abmelden lassen. Bitte bestätigen Sie mir die Abmeldung. Mit freundlichen Grüßen"
+      }
+    },
+    {
+      "event_id": "99902cb2-3f06-6256-b3fa-e1e4fef46787",
+      "event_type": "charge_session_failed",
+      "source_system": "autostrom_backend",
+      "customer_id": "MG-100009",
+      "occurred_at": "2026-10-01 17:22:00",
+      "ingested_at": "2026-10-01 17:22:23",
+      "payload": {
+        "charge_type": "DC",
+        "location_id": "L-4711",
+        "failure_reason": "connector_error"
+      }
+    },
+    {
+      "event_id": "2afa3645-2eb1-5ca2-9e7b-f78839445629",
+      "event_type": "ticket_created",
+      "source_system": "ticketing",
+      "customer_id": "MG-100009",
+      "occurred_at": "2026-10-01 17:25:00",
+      "ingested_at": "2026-10-01 17:25:15",
+      "payload": {
+        "ticket_id": "TK-201002",
+        "category": "autostrom",
+        "channel": "phone"
+      }
+    },
+    {
+      "event_id": "8e2c1685-401e-0548-4fd9-86321a48ef9f",
+      "event_type": "agent_nba_feedback",
+      "source_system": "crm",
+      "customer_id": "MG-100009",
+      "occurred_at": "2026-10-01 17:27:40",
+      "ingested_at": "2026-10-01 17:27:41",
+      "payload": {
+        "ticket_id": "TK-201002",
+        "suggested_offer_id": "P-EN-01",
+        "agent_action": "dismissed",
+        "dismiss_reason": "customer_upset"
+      }
+    },
+    {
+      "event_id": "16ad95c8-f7a9-3fdb-3e58-7e62054bcbcb",
+      "event_type": "call_transcript_ready",
+      "source_system": "telephony",
+      "customer_id": "MG-100009",
+      "occurred_at": "2026-10-01 17:25:00",
+      "ingested_at": "2026-10-01 17:38:10",
+      "payload": {
+        "ticket_id": "TK-201002",
+        "transcript": "Agent: MAINGAU Energie Kundenservice, guten Tag. Wie kann ich Ihnen helfen?\nKunde: Guten Tag. Ich stehe wieder an der Schnellladesäule in Hanau, und das Laden bricht nach einer Minute ab.\nAgent: Das tut mir leid. Ich sehe Ihre bisherigen Meldungen.\nKunde: Das ist jetzt das vierte Mal. Ich bin auf diese Säule auf meinem Arbeitsweg angewiesen.",
+        "duration_s": 260
+      }
+    },
+    {
+      "event_id": "062ca1c1-182a-f243-1a9f-9ad0aad2e0d2",
+      "event_type": "mobile_data_threshold",
+      "source_system": "telco_backend",
+      "customer_id": "MG-100005",
+      "occurred_at": "2026-10-01 18:30:00",
+      "ingested_at": "2026-10-01 18:49:56",
+      "payload": {
+        "threshold_pct": 80,
+        "days_left_in_cycle": 11
+      }
+    },
+    {
+      "event_id": "069076ac-8368-8d07-7249-d1497eab71d1",
+      "event_type": "gas_meter_deregistration_received",
+      "source_system": "billing_erp",
+      "customer_id": "MG-100125",
+      "occurred_at": "2026-10-01 11:31:02",
+      "ingested_at": "2026-10-02 02:14:40",
+      "payload": {
+        "commodity": "gas",
+        "effective_date": "2026-10-31"
+      }
+    },
+    {
+      "event_id": "61eb8bf0-6a0a-2626-c7a5-e1dbb0499403",
+      "event_type": "dunning_level_changed",
+      "source_system": "billing_erp",
+      "customer_id": "MG-100004",
+      "occurred_at": "2026-10-01 01:00:00",
+      "ingested_at": "2026-10-02 02:29:32",
+      "payload": {
+        "old_level": 2,
+        "new_level": 3
+      }
+    }
+  ]
+}

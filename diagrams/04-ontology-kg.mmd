@@ -1,0 +1,39 @@
+%% MAINGAU NBA · Ontology của KG chính sách & sản phẩm
+flowchart LR
+    SIG["Signal / Event<br/>gas_meter_deregistration · charge_failed ×3/30d<br/>mobile_data_threshold · price_guarantee_end · cart_abandoned"]
+    NEED["Need<br/>HEAT_PUMP · SERVICE_ISSUE · MORE_DATA<br/>RETENTION_RISK · HOME_CHARGING"]
+    ACT["Action<br/>P-EN-03 · P-SV-01 · P-MO-02 · P-EN-02 · P-SH-02 …"]
+    VAL["value_assumptions<br/>product_catalog"]
+    TYP["Action type<br/>SALES · UPSELL · RETENTION · ONE_OFF · SERVICE"]
+    PROD["Sản phẩm khách đang có"]
+    EXC["Exclusion<br/>dunning · open complaint · cancellation"]
+    CHN["Channel<br/>email · newsletter · portal pop-up · app push · SMS · call"]
+    CON["ConsentType"]
+    TPL["Template tiếng Đức · đã duyệt"]
+    TON["Tone Du / Sie"]
+    ET["EventType"]
+    FCT["Fact"]
+    GAT["Gate / Rule"]
+    ATR["Attribute"]
+    PUR["Purpose<br/>SCORING · EXCLUSION_ONLY · PROFILING_REQUIRED"]
+
+    SIG -->|"indicates · có ngưỡng"| NEED
+    NEED -->|"servedBy"| ACT
+    ACT -->|"valueKey"| VAL
+    ACT -->|"type"| TYP
+    ACT -->|"requiresNotHeld"| PROD
+    ACT -->|"blockedBy · chặn bán, không chặn SERVICE"| EXC
+    ACT -->|"deliveredVia"| CHN
+    CHN -->|"requiresConsent"| CON
+    TPL -->|"for"| ACT
+    TPL -->|"uses"| TON
+    ET -->|"updates"| FCT
+    FCT -->|"usedBy"| GAT
+    ATR -->|"purpose"| PUR
+
+    classDef kg fill:#E3F2FD,stroke:#1565C0,color:#0D2A4A
+    classDef gate fill:#FDE2E1,stroke:#C0392B,color:#3B0D0B
+    classDef core fill:#F8FAFC,stroke:#475569,color:#0F172A
+    class SIG,NEED,ACT,TYP,ET,FCT kg
+    class EXC,CON,GAT,PUR gate
+    class VAL,PROD,CHN,TPL,TON,ATR core

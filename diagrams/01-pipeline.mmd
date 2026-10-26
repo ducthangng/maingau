@@ -1,0 +1,62 @@
+%% MAINGAU NBA · Pipeline toàn cảnh · 26/10/2026
+flowchart TD
+    subgraph SRC["Nguồn dữ liệu"]
+        direction LR
+        S1["Snapshot 30.09<br/>16 bảng · 750 khách · 1 customer_id"]
+        S2["Event stream 01.10<br/>647 dòng → 635 event"]
+    end
+
+    N1["① Nạp & làm sạch<br/>bỏ trùng event_id · 2 đồng hồ occurred/ingested<br/>bỏ lượt mở do máy · CDR trễ · đơn khách vãng lai"]
+    N2["② Trạng thái khách as-of<br/>sản phẩm · consent mới nhất · case mở · dunning · CLV"]
+    KG[("KG chính sách & sản phẩm<br/>ontology · 60–80 node · có phiên bản")]
+    N3["③ Tín hiệu → Nhu cầu → Ứng viên"]
+    N4{"④ Cổng cứng<br/>consent kênh → profiling → exclusion<br/>→ đã có sản phẩm → độ mới"}
+    X["Bị loại<br/>mã lý do + log"]
+    N5["⑤ Chấm ΔCLV<br/>đúng clv_method"]
+    N6{"⑥ Phân xử<br/>xếp hạng · bỏ ΔCLV âm<br/>giới hạn liên hệ · 10% control"}
+    N7["⑦ Kênh & tone Du/Sie"]
+    N8["⑧ Nội dung<br/>template đã duyệt · tiếng Đức"]
+    N9["⑨ Lý do 1 dòng + log quyết định"]
+    N10{"⑩ Human-in-the-loop"}
+    N11["⑪ Xuất / hàng đợi gửi<br/>engine không tự gửi"]
+    N12["⑫ Phản hồi & học<br/>response · control · uplift (khái niệm)"]
+
+    subgraph UI["Giao diện"]
+        direction LR
+        U1["Prototype engine"]
+        U2["Dashboard marketing"]
+        U3["Customer 360°"]
+    end
+
+    S1 --> N1
+    S2 --> N1
+    N1 --> N2 --> N3 --> N4
+    N4 -->|"bị chặn"| X
+    N4 -->|"hợp lệ"| N5 --> N6 --> N7 --> N8 --> N9 --> N10
+    N10 -->|"marketing duyệt lô"| N11
+    N10 -->|"agent dùng trong 360"| N11
+    N10 -.->|"override có mã lý do"| N6
+    N11 --> N12
+    N12 -.->|"cập nhật p_accept"| N5
+    N12 -.->|"phản hồi thành event"| N2
+
+    KG -.->|"đường tín hiệu → action"| N3
+    KG -.->|"luật cứng"| N4
+    KG -.->|"đường đi = lý do"| N9
+
+    N9 -.-> U1
+    N10 -.-> U2
+    N10 -.-> U3
+
+    classDef src fill:#EEF2F6,stroke:#64748B,color:#0F172A
+    classDef core fill:#F8FAFC,stroke:#475569,color:#0F172A
+    classDef gate fill:#FDE2E1,stroke:#C0392B,color:#3B0D0B
+    classDef kg fill:#E3F2FD,stroke:#1565C0,color:#0D2A4A
+    classDef hitl fill:#FFF4D6,stroke:#B7791F,color:#3D2A00
+    classDef out fill:#E8F5E9,stroke:#2E7D32,color:#0B2E13
+    class S1,S2 src
+    class N1,N2,N3,N5,N7,N8,N9,N12 core
+    class N4,N6,X gate
+    class KG kg
+    class N10 hitl
+    class N11,U1,U2,U3 out

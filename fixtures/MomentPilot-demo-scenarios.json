@@ -1,0 +1,193 @@
+{
+  "metadata": {
+    "purpose": "Synthetic arithmetic and decision-contract fixtures for the proposed hackathon product",
+    "synthetic": true,
+    "current_maingau_tariffs": false,
+    "measured_business_impact": false,
+    "created_on": "2026-10-25",
+    "currency": "EUR",
+    "money_encoding": "decimal strings",
+    "assumptions": [
+      "All example prices, discount rates, margins and usage are hypothetical.",
+      "Compared services and tax basis are the same within each scenario.",
+      "All relevant incremental costs are assumed to be listed; real data requires verification.",
+      "All product, commercial and channel gates are assumed to pass unless the scenario explicitly changes one.",
+      "The financial offer fixtures assume the customer has stated a total-cost reduction objective and consider only the displayed candidates.",
+      "The charging fixtures use one hypothetical non-stacking benefit; they do not establish real MAINGAU stacking rules.",
+      "A projected saving is conditional on the stated usage and time horizon, not a guarantee.",
+      "No scenario authorizes a real contact, contract change or benefit activation."
+    ]
+  },
+  "scenarios": [
+    {
+      "id": "A_NEW_BENEFIT",
+      "horizon_months": 12,
+      "inputs": {
+        "eligible_usage_kwh": "1600",
+        "demo_discount_eur_per_kwh": "0.10",
+        "benefit_already_active": false,
+        "additional_total_cost_eur": "90.00"
+      },
+      "expected": {
+        "new_benefit_eur": "160.00",
+        "net_customer_cost_reduction_eur": "70.00",
+        "action": "OFFER",
+        "review_status": "DRAFT",
+        "value_status": "PROJECTED",
+        "calculation_basis": "STATED_INPUTS",
+        "incremental_company_profit_eur": null
+      }
+    },
+    {
+      "id": "B_EXISTING_BENEFIT",
+      "horizon_months": 12,
+      "inputs": {
+        "eligible_usage_kwh": "1600",
+        "demo_discount_eur_per_kwh": "0.10",
+        "benefit_already_active": true,
+        "additional_total_cost_eur": "90.00"
+      },
+      "expected": {
+        "new_benefit_eur": "0.00",
+        "net_customer_cost_reduction_eur": "-90.00",
+        "action": "NO_MARKETING",
+        "reason": "The new offer cannot be credited with a benefit already active in the reference state."
+      }
+    },
+    {
+      "id": "C_ACTIVATE_WITHOUT_PURCHASE",
+      "known_eligible_window_months": 8,
+      "inputs": {
+        "holding_eligibility_confirmed_for_demo": true,
+        "activation_status": "NOT_ACTIVE",
+        "demo_monthly_fee_after_other_discounts_eur": "12.00",
+        "demo_discount_fraction": "0.25",
+        "remaining_confirmed_discount_months": 8,
+        "activation_cost_eur": "0.00"
+      },
+      "expected": {
+        "benefit_realization_eur_in_known_window": "24.00",
+        "new_purchase_required": false,
+        "action": "ACTIVATE_EXISTING_BENEFIT",
+        "execution": "PREPARE_AUTHORIZED_WORKFLOW_ONLY",
+        "unknown_future_periods_must_not_be_extrapolated": true,
+        "incremental_company_profit_eur": null
+      }
+    },
+    {
+      "id": "D_DECISIVE_USAGE_UNKNOWN",
+      "horizon_months": 12,
+      "inputs": {
+        "eligible_usage_kwh_low": "600",
+        "eligible_usage_kwh_high": "1800",
+        "demo_discount_eur_per_kwh": "0.10",
+        "additional_total_cost_eur": "150.00"
+      },
+      "expected": {
+        "net_customer_cost_reduction_low_eur": "-90.00",
+        "net_customer_cost_reduction_high_eur": "30.00",
+        "break_even_eligible_usage_kwh": "1500",
+        "bounds_are_statistical_confidence_interval": false,
+        "action": "REQUEST_INFORMATION",
+        "question_target": "eligible_usage_kwh_in_comparable_period",
+        "after_confirmed_response": {
+          "eligible_usage_kwh": "1600",
+          "net_customer_cost_reduction_eur": "10.00",
+          "action": "OFFER",
+          "review_status": "DRAFT",
+          "create_new_revision": true,
+          "preserve_previous_decision": true
+        }
+      }
+    },
+    {
+      "id": "E_PROMO_HORIZON",
+      "horizon_months": 24,
+      "inputs": {
+        "reference_monthly_fee_eur": "20.00",
+        "offer_first_phase_months": 12,
+        "offer_first_phase_monthly_fee_eur": "12.00",
+        "offer_second_phase_months": 12,
+        "offer_second_phase_monthly_fee_eur": "28.00",
+        "one_time_fee_eur": "20.00"
+      },
+      "expected": {
+        "first_12_month_cost_reduction_eur": "76.00",
+        "reference_total_24_month_cost_eur": "480.00",
+        "offer_total_24_month_cost_eur": "500.00",
+        "net_24_month_cost_reduction_eur": "-20.00",
+        "action_for_cost_reduction_objective_at_24_months": "NO_MARKETING",
+        "must_not_extend_promo_price_into_second_phase": true
+      }
+    },
+    {
+      "id": "F_UNRESOLVED_POLICY_SCOPE",
+      "horizon_months": 12,
+      "inputs": {
+        "eligible_usage_kwh": "1600",
+        "alternative_demo_discount_eur_per_kwh": ["0.05", "0.10"],
+        "additional_total_cost_eur": "90.00",
+        "policy_status": "UNRESOLVED_SCOPE",
+        "note": "These are synthetic alternatives, not a claim that both rates govern the same real contract."
+      },
+      "expected": {
+        "net_cost_reduction_under_first_rate_eur": "-10.00",
+        "net_cost_reduction_under_second_rate_eur": "70.00",
+        "action": "WAIT",
+        "review_route": "POLICY_SCOPE_REVIEW",
+        "must_not_claim_saving_until_policy_resolved": true
+      }
+    },
+    {
+      "id": "G_WITHDRAWAL_BEFORE_HANDOFF",
+      "inputs": {
+        "decision_permission_revision": 1,
+        "decision_permission_status": "PERMITTED",
+        "current_permission_revision": 2,
+        "current_marketing_objection": true
+      },
+      "expected": {
+        "review_status": "STALE",
+        "marketing_handoff_status": "BLOCKED",
+        "action": "NO_MARKETING",
+        "must_not_switch_channel_to_bypass_objection": true,
+        "service_rights_remain_separate": true
+      }
+    },
+    {
+      "id": "H_GROSS_AS_NET_CLAIM",
+      "inputs": {
+        "gross_benefit_eur": "160.00",
+        "additional_cost_eur": "90.00",
+        "net_cost_reduction_eur": "70.00",
+        "draft_claim_kind": "NET_COST_REDUCTION",
+        "draft_claim_amount_eur": "160.00"
+      },
+      "expected": {
+        "claim_status": "BLOCKED",
+        "reason": "CLAIM_TYPE_AND_LEDGER_VALUE_MISMATCH",
+        "numeric_membership_check_alone_is_insufficient": true
+      }
+    },
+    {
+      "id": "I_CAPACITY_ALLOCATION",
+      "inputs": {
+        "score_unit": "SYNTHETIC_UTILITY_POINTS_NOT_EUROS",
+        "customer_scores": {
+          "C1": {"CALL": 10, "EMAIL": 9},
+          "C2": {"CALL": 8, "EMAIL": 1}
+        },
+        "call_capacity": 1,
+        "email_capacity": 2,
+        "max_actions_per_customer": 1,
+        "channel_permissions": "ASSUMED_PERMITTED_FOR_DEMO"
+      },
+      "expected": {
+        "naive_highest_call_first_total_utility": 11,
+        "optimal_assignment": {"C1": "EMAIL", "C2": "CALL"},
+        "optimal_total_utility": 17,
+        "measured_real_world_profit_gain": null
+      }
+    }
+  ]
+}
