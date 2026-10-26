@@ -9,12 +9,27 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from typing import Iterable
 
 import pandas as pd
 
-DEFAULT_EVAL_TIME = datetime(2026, 9, 30, 23, 59, 59)
+DEFAULT_EVAL_TIME = datetime(2026, 9, 30, 23, 59, 59)  # the mock snapshot; prefer resolve_eval_time()
+
+
+def resolve_eval_time(tables: dict[str, pd.DataFrame], configured: str | datetime | None = "auto") -> datetime:
+    """Evaluation time: an explicit ISO value / datetime wins; "auto" (or None) is the end of the latest
+    customer_value.clv_calc_date, i.e. the snapshot the value model was computed for (README §8, D)."""
+    if isinstance(configured, datetime):
+        return configured.replace(tzinfo=None)  # the data is timezone-naive (nba.data._parse_ts drops offsets too)
+    if isinstance(configured, date):  # unquoted YAML date: end of that day
+        return datetime.combine(configured, time(23, 59, 59))
+    if configured not in (None, "", "auto"):
+        return datetime.fromisoformat(str(configured).replace("Z", "+00:00")).replace(tzinfo=None)
+    dates = [d for d in tables["customer_value"]["clv_calc_date"] if d is not None]
+    if not dates:
+        raise ValueError("cannot infer eval_time: customer_value.clv_calc_date is empty; set eval_time in config/kg.yaml")
+    return max(dates).replace(hour=23, minute=59, second=59, microsecond=0)
 
 # Sheets keyed by customer_id. Reference sheets and newsletter_campaigns are global.
 CUSTOMER_SHEETS = (
@@ -56,7 +71,7 @@ def _revision(rows: dict[str, list[dict]], events: Iterable[dict]) -> str:
 
 def build_states(
     tables: dict[str, pd.DataFrame],
-    eval_time: datetime = DEFAULT_EVAL_TIME,
+    eval_time: datetime | str | None = None,
     events: list[dict] | None = None,
     snapshot_mode: str = "provided",
     customer_ids: Iterable[str] | None = None,
@@ -66,6 +81,7 @@ def build_states(
     snapshot_mode "provided" uses the snapshot as given (README §10, K8).
     "strict_asof" and event replay are Agent KG's M3 stretch goals.
     """
+    eval_time = resolve_eval_time(tables, eval_time)
     if snapshot_mode != "provided":
         raise NotImplementedError("strict_asof replay is Agent KG M3 (README §7.1)")
     if events:

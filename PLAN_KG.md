@@ -157,6 +157,7 @@ Rules, counts and the score formula are in README §6.13. Implementation:
 | 7 | `scripts/export_schema.py`, `scripts/kg_report.py` | Done: `docs/schema/`, `out/kg_report.md` |
 | 8 | Push, then log in `log/agent-kg.md` | Agent NBA swaps its stub for the real KG |
 | 9 | `events.py` replay + `scripts/replay_demo.py` | Done 26 Oct: 635 events, 29 pending cards revoked; demo MG-100003, MG-100465, MG-100125, MG-100009, MG-100004 |
+| 10 | New data and policy changes (README §6.15) | Done 26 Oct: `kg/data_contract.yaml` + `scripts/validate_data.py`; thresholds in `policy.yaml → parameters`; `scripts/policy_diff.py`; `eval_time: auto` |
 
 ## 10. Review duties (Agent KG checks the other two)
 

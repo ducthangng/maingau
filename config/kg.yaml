@@ -1,6 +1,6 @@
 # Agent KG settings (README §6.1–§6.4, §6.12, §10). Written into meta.versions.policy.
 policy_version: kg-0.1
-eval_time: "2026-09-30T23:59:59"
+eval_time: auto                    # auto = end of the latest customer_value.clv_calc_date; or an ISO time
 snapshot_mode: provided            # provided | strict_asof (K8)
 
 signals:

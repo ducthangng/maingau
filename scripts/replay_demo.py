@@ -82,7 +82,7 @@ def main() -> None:
     lines = [
         "# Event replay report (deep dive B)",
         "",
-        f"Snapshot 2026-09-30 23:59:59 → replay of {len(events)} unique events, ingest order, up to "
+        f"Snapshot {next(iter(rt.states.values())).eval_time} → replay of {len(events)} unique events, ingest order, up to "
         f"{next(iter(res.states.values())).eval_time}. Mock data; decisions by Agent NBA's engine on the replayed state.",
         "",
         "## Totals",

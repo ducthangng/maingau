@@ -52,8 +52,9 @@ def main() -> None:
     t0 = time.time()
     tables = load_workbook()
     wanted = [c for c in args.customers.split(",") if c] or None
-    states = build_states(tables, customer_ids=wanted)
-    policy = load_policy(catalog=tables["product_catalog"])
+    policy = load_policy(tables=tables)
+    states = build_states(tables, policy.config["eval_time"], snapshot_mode=policy.config["snapshot_mode"],
+                          customer_ids=wanted)
     pop = population(tables)
     sources = source_info(tables)
     out = Path(args.out)

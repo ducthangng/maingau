@@ -12,7 +12,7 @@ def extract_signals(state: CustomerState, policy: Policy) -> list[Signal]:
     """Every enabled signal that fires, in policy order, with plain-language detail and evidence refs."""
     out: list[Signal] = []
     for sdef in policy.enabled_signals:
-        hit = P.SIGNALS[sdef.predicate](state)
+        hit = P.SIGNALS[sdef.predicate](state, policy.params)
         if hit is None:
             continue
         needs = hit.needs or list(sdef.indicates or sdef.reinforces)

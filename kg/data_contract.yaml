@@ -1,0 +1,102 @@
+# Data contract for a new workbook / snapshot (README §6.15). Owner: Agent KG.
+# Checked by `python scripts/validate_data.py`. An ERROR stops the pipeline: the rules could
+# silently miss it (e.g. a new contract status "cancelled" would not trigger EXCL-CANCELLATION).
+# A WARNING is reported but does not stop the build.
+version: data-0.1
+
+sheets: [README, autostrom_contracts, call_transcripts, charge_sessions, clv_method, columns, consent_status,
+         customer_master, customer_value, energy_contracts, hems_devices, hems_telemetry_daily, mobile_contracts,
+         nba_action_history, newsletter_campaigns, newsletter_performance, portal_sessions, product_catalog,
+         service_interactions, service_nba_feedback, shop_orders, sources, value_assumptions]
+
+primary_keys:
+  customer_master: [customer_id]
+  customer_value: [customer_id]
+  energy_contracts: [contract_id]
+  mobile_contracts: [contract_id]
+  autostrom_contracts: [contract_id]
+  charge_sessions: [session_id]
+  hems_devices: [device_id]
+  shop_orders: [order_id]
+  service_interactions: [ticket_id]
+  nba_action_history: [action_id]
+  call_transcripts: [transcript_id]
+  service_nba_feedback: [feedback_id]
+  consent_status: [customer_id, consent_type]
+  newsletter_campaigns: [campaign_id]
+  portal_sessions: [session_id]
+  product_catalog: [product_id]
+  hems_telemetry_daily: [customer_id, date]
+
+# customer_id must exist in customer_master; null allowed only where listed (guest shop orders).
+foreign_keys:
+  customer_sheets: [customer_value, energy_contracts, mobile_contracts, autostrom_contracts, charge_sessions,
+                    hems_devices, hems_telemetry_daily, shop_orders, service_interactions, call_transcripts,
+                    service_nba_feedback, consent_status, nba_action_history, newsletter_performance, portal_sessions]
+  nullable: [shop_orders]
+
+# Values the rules depend on: anything else is an ERROR.
+enums_error:
+  energy_contracts.status: [active, cancellation_pending, terminated_meter_deregistration]
+  energy_contracts.commodity: [electricity, gas]
+  energy_contracts.tariff: [GasAktiv, GasGarant, StromAktiv, StromGarant, StromKomfort, StromWärme]
+  energy_contracts.meter_type: [conventional, smart_meter_imsys]
+  mobile_contracts.status: [active]
+  autostrom_contracts.status: [active, cancelled]
+  consent_status.consent_type: [marketing_email, marketing_phone, marketing_sms, newsletter_email, portal_app_personalisation, profiling_analytics]
+  consent_status.status: [granted, not_given, withdrawn]
+  service_interactions.status: [closed, open]
+  shop_orders.order_status: [cancelled, delivered, returned]
+  hems_devices.device_type: [heat_pump, hems_gateway, home_battery, pv_inverter, smart_plug, wallbox]
+  hems_devices.connection_status: [offline, online]
+  charge_sessions.session_status: [aborted, completed, failed]
+  charge_sessions.cdr_source: [own_backend, roaming_hub]
+  nba_action_history.channel: [app_push, newsletter_email, outbound_call, portal_popup, sms]
+  nba_action_history.tonality: [du, sie]
+  nba_action_history.delivery_status: [delivered, not_sent_control]
+  service_nba_feedback.customer_reaction: [annoyed, declined, interested]
+  service_nba_feedback.dismiss_reason: [customer_already_has_product, customer_upset, no_time, not_relevant]
+  customer_master.preferred_contact_language: [de, en]
+  service_interactions.category: [autostrom, billing, complaint, hems, meter, meter_deregistration, mobile, moving, tariff]  # 'complaint' drives P1
+  nba_action_history.response: [clicked, dismissed, held_out, ignored, viewed]  # ignored/dismissed drive contact_fatigue
+
+# enums_error columns where an empty cell is legitimate; everywhere else an empty rule value is an ERROR.
+nullable: [service_nba_feedback.customer_reaction, service_nba_feedback.dismiss_reason]
+
+# Display-only values: anything else is a WARNING (empty cells allowed).
+enums_warning:
+  mobile_contracts.plan: [Mobil L, Mobil M, Mobil S]
+  newsletter_performance.click_target: [energy_landingpage, heat_pump_article, mobile_landingpage, service_landingpage, shop_landingpage, smart_living_landingpage]
+  newsletter_performance.open_client_class: [apple_mpp_prefetch, human]
+  service_nba_feedback.agent_action: [accepted, dismissed, ignored]
+  customer_master.customer_type: [B2C]
+
+# customer_value.churn_drivers labels (split on ";"); an unknown label is an ERROR because the churn
+# model removes drivers by label (README §6.5).
+churn_driver_patterns:
+  - '^multi-product \(\d+ lines\)$'
+  - '^[2-9]\d* tickets in 12m$'
+  - '^price guarantee ends <90d$'
+  - '^open complaint$'
+  - '^low CSAT$'
+  - '^dunning level [23]$'
+  - '^3 failed charges in 30d$'
+  - '^HEMS user$'
+  - '^cancellation pending$'
+
+# Timestamp columns outside the naming convention (date, *_at, *_date, *_since, *_until).
+# Every date text must be ISO 8601 (YYYY-MM-DD or YYYY-MM-DD HH:MM:SS); anything else is an ERROR,
+# because a German dd.mm.yyyy can be silently read with day and month swapped.
+extra_dates: [portal_sessions.session_start, mobile_contracts.min_term_end]
+
+# Boolean columns (nba.data.BOOL_COLUMNS) must hold true/false/1/0/yes/no; other text is an ERROR.
+
+# Numeric ranges (inclusive); outside is an ERROR, a non-number is an ERROR.
+ranges:
+  customer_value.churn_prob_12m: [0, 1]
+  customer_value.active_business_lines: [0, 10]
+  energy_contracts.dunning_level: [0, 3]
+  customer_master.household_size: [1, 20]
+  mobile_contracts.sim_count: [0, 20]
+  mobile_contracts.data_limit_reached_3m: [0, 3]
+  product_catalog.churn_effect_if_bought: [-1, 1]

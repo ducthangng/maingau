@@ -990,6 +990,45 @@ Counts are from Agent KG's check script; `scripts/kg_report.py` reproduces them.
   - Late decision events: MG-100465 cancellation 16.9 h, MG-100510 cancellation 9.9 h, MG-100125 gas deregistration 14.7 h, MG-100004 dunning 25.5 h.
   - Report: `python scripts/replay_demo.py` → `out/replay_report.md`, `out/replay/timeline.json`.
 
+### 6.15 New data and policy changes (owner: Agent KG)
+
+The KG is **not a stored graph**. Customer nodes and edges are rebuilt from the tables on every run, so new data needs no "KG update". Only the policy (business rules) is edited by people.
+
+| What changes | What happens | Who acts |
+|---|---|---|
+| New snapshot, same schema | Run the steps below. New customers, contracts and consents flow in automatically; triage, p and percentiles are recomputed; decisions approved on an older state stop applying (`state_revision`) | Pipeline |
+| New events | `nba.kg.events.replay` updates only affected customers and revokes pending cards (§6.14) | Pipeline |
+| New product in `product_catalog` | Loading the policy fails until `kg/policy.yaml` has the offer (needs, preconditions, generic flag); Agent NBA adds a German template. Margins and churn effects are read from the catalog | People |
+| New threshold (e.g. S4 window) | Edit `parameters` in `kg/policy.yaml`, then run the policy diff | Marketing / Agent KG |
+| New signal, need, exclusion or channel | Edit `kg/policy.yaml` + a predicate in `nba/kg/predicates.py` + a test | Agent KG |
+| New value in a rule column (e.g. contract status `cancelled`) | `validate_data.py` stops the pipeline (ERROR) until `kg/data_contract.yaml` and the rules handle it | Agent KG |
+
+**Steps for a new snapshot:**
+
+```bash
+.venv/bin/python scripts/validate_data.py --workbook <new.xlsx>   # 1. stop on ERROR (exit code 1)
+# 2. eval_time: config/kg.yaml `eval_time: auto` = end of the latest customer_value.clv_calc_date
+#    (or set an ISO time, or `python -m nba.build --asof ...`)
+.venv/bin/python -m nba.build --out out/ --export web/public/data # 3. rebuild every customer
+.venv/bin/python scripts/replay_demo.py                          # 4. apply the event stream (deep dive B)
+```
+
+**Changing the policy:**
+
+- Thresholds live in `kg/policy.yaml → parameters` (13 values, validated with bounds).
+- Edit, then run `.venv/bin/python scripts/policy_diff.py`. It decides every customer under the committed policy (`HEAD`) and under the edited one, and lists **only the customers whose decision changes**: customer, before, after.
+- Example: S2 at 4 failures and an S4 window of 30 days changes 39 of 750 decisions.
+- Any change also changes the policy fingerprint in `meta.versions.policy`, so approvals made under the old policy stop applying.
+- The contact cap and the generic-offer switches stay in `config/kg.yaml`.
+
+**Data contract** (`kg/data_contract.yaml`):
+- sheets, primary keys, customer foreign keys;
+- allowed values (ERROR for values the rules use, WARNING for display values);
+- churn-driver label patterns and numeric ranges;
+- date parsing.
+
+On the current workbook it reports 0 errors and 7 warnings, including the known snapshot inconsistencies of §3.
+
 ## 7. Tasks: three agents in parallel
 
 ### 7.1 Agent KG: ontology, knowledge graph, signals, rules and triage
@@ -1151,12 +1190,14 @@ python -m nba.build --customers MG-100068,MG-100009 --out out/    # subset
 python -m nba.build --out out/ --export web/public/data            # refresh the UI data
 python scripts/export_preview.py --out web/public/data             # KG-only preview until nba.build exists
 python scripts/replay_demo.py                                      # deep dive B: out/replay_report.md, out/replay/timeline.json
+python scripts/validate_data.py --workbook <xlsx>                  # data contract check before a build (exit 1 on ERROR)
+python scripts/policy_diff.py [--base <git ref>]                   # customers whose decision changes with the edited policy
 pytest -q
 uvicorn api.app:app --reload --port 8000
 cd web && npm install && npm run dev
 ```
 
-**Config files:** p mode, contact cap, `p_service_success`, generic offers and channels, the Autostrom-cancelled scope and the unsubscribe scope all live in `config/*.yaml` and are written into `meta.versions`.
+**Config files:** p mode, contact cap, `p_service_success`, generic offers and channels, the Autostrom-cancelled scope and the unsubscribe scope all live in `config/*.yaml`. Rule thresholds live in `kg/policy.yaml → parameters`. All of them are written into `meta.versions`; `eval_time: auto` resolves from the data (§6.15).
 
 ## 9. Acceptance tests
 

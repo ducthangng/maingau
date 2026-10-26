@@ -3,6 +3,24 @@
 # that every name resolves and that every ID exists in the workbook's product_catalog.
 version: kg-0.1
 
+# Tunable thresholds (README §6.3, §6.9, §6.13). Marketing may change these without code; every change
+# changes the policy fingerprint, so earlier decisions stop applying. Preview the effect with
+# `python scripts/policy_diff.py` before committing.
+parameters:
+  failed_charges_window_days: 30     # S2: failed charging sessions counted in (eval - N days, eval]
+  failed_charges_min: 3              # S2: at least this many failed sessions
+  price_guarantee_window_days: 90    # S4: 0 <= days until price_guarantee_until < N (max 90: P-EN-02 needs the "<90d" driver)
+  data_limit_min_months: 2           # S5: data limit reached in at least N of the last 3 months
+  risk_churn_min: 0.35               # A4 archetype and P2 tier: churn_prob_12m >= this
+  p1_dunning_min: 2                  # P1 tier: dunning_level >= this (lower levels go to P2)
+  p2_price_guarantee_days: 30        # P2 tier: price guarantee ends within N days
+  p3_dereg_recent_days: 90           # P3 tier: gas meter deregistered within N days
+  top_clv_quantile: 0.9              # flag top_clv: clv_eur >= this quantile
+  fatigue_contacts_30d: 2            # flag contact_fatigue: contacts in 30 days >= N
+  fatigue_ignored_90d: 3             # flag contact_fatigue: ignored/dismissed in 90 days >= N
+  roaming_late_hours: 72             # FRESH-CDR: roaming sessions within N hours before eval
+  value_stale_days: 31               # FRESH-VALUE: clv_calc_date older than N days
+
 needs:
   N-HEAT-PUMP:             {label_en: "Heat pump / electric heating",   label_de: "Wärmepumpe / elektrisch heizen"}
   N-SERVICE-FIX:           {label_en: "Problem to resolve",             label_de: "Problem lösen"}
@@ -20,10 +38,10 @@ needs:
 # `reinforces` (S10 only) attaches evidence to existing needs without creating tuples.
 signals:
   S1:  {label: "Gas meter deregistered",                 predicate: gas_meter_deregistered,     strength: strong, purpose: contract,    indicates: [N-HEAT-PUMP]}
-  S2:  {label: "≥ 3 failed charging sessions in 30 days", predicate: failed_charges_30d,         strength: strong, purpose: service,     indicates: [N-SERVICE-FIX]}
+  S2:  {label: "≥ {failed_charges_min} failed charging sessions in {failed_charges_window_days} days", predicate: failed_charges_30d,         strength: strong, purpose: service,     indicates: [N-SERVICE-FIX]}
   S3:  {label: "Wallbox bought, no Autostrom",           predicate: wallbox_without_autostrom,  strength: strong, purpose: behavioural, indicates: [N-EV-CHARGING]}
-  S4:  {label: "Price guarantee ends within 90 days",    predicate: price_guarantee_ending,     strength: strong, purpose: contract,    indicates: [N-PRICE-SECURITY]}
-  S5:  {label: "Data limit reached ≥ 2 of 3 months",     predicate: data_limit_repeated,        strength: medium, purpose: behavioural, indicates: [N-MORE-DATA]}
+  S4:  {label: "Price guarantee ends within {price_guarantee_window_days} days", predicate: price_guarantee_ending,     strength: strong, purpose: contract,    indicates: [N-PRICE-SECURITY]}
+  S5:  {label: "Data limit reached ≥ {data_limit_min_months} of 3 months", predicate: data_limit_repeated,        strength: medium, purpose: behavioural, indicates: [N-MORE-DATA]}
   S6:  {label: "More household members than SIMs",       predicate: household_exceeds_sims,     strength: weak,   purpose: contract,    indicates: [N-EXTRA-SIM]}
   S7:  {label: "PV without HEMS",                        predicate: pv_without_hems,            strength: medium, purpose: device,      indicates: [N-ENERGY-MANAGEMENT]}
   S8:  {label: "HEMS with home battery or wallbox",      predicate: hems_battery_or_wallbox,    strength: medium, purpose: device,      indicates: [N-STORAGE-OPT, N-WALLBOX-INTEGRATION]}
