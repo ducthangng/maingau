@@ -7,7 +7,7 @@ import pytest
 from ruamel.yaml import YAML
 
 from nba.data import REPO
-from nba.rules.book import SOURCES, all_changes, apply, export, load_sources, merge_text, plain
+from nba.rules.book import BOOK, SOURCES, all_changes, apply, export, load_sources, merge_text, plain
 from nba.rules.impact import impact
 
 
@@ -24,7 +24,7 @@ def edit(root, *path_value):
     y = YAML()
     y.preserve_quotes = True
     y.width = 4096
-    book = root / "rules.yaml"
+    book = root / BOOK
     data = y.load(book.read_text(encoding="utf-8"))
     for path, value in path_value:
         node = data
@@ -36,7 +36,7 @@ def edit(root, *path_value):
 
 
 def test_export_holds_every_rule_file_and_has_no_edits(root):
-    text = (root / "rules.yaml").read_text(encoding="utf-8")
+    text = (root / BOOK).read_text(encoding="utf-8")
     for name, rel in SOURCES.items():
         assert f"\n{name}:" in text and str(rel) in text
     assert all_changes(root) == ([], False)
