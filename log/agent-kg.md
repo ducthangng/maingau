@@ -54,12 +54,13 @@ These are kept up to date and edited in place. Status values: `open`, `answered`
 | Q-KG-07 | Event `ticket_updated` references `TK-open-complaint`, which is not in the snapshot. Treat it as an orphan with a conservative customer-level complaint flag? | Exclusion for MG-100004 during event replay (stretch) | Team | open | — |
 | Q-KG-08 | P-EN-04 (GasAktiv) and P-IN-01 (Internet) are never generated (`DATA-MISSING`). Confirm this is acceptable for the hidden reference customers | Catalog coverage | MAINGAU mentor | decided-default | — |
 | Q-KG-09 | The marketing archetype draft (5 profiles) does not match the data (README K13). Use the rule-based archetypes in README §6.13 | UI must not show wrong ranges | — | closed | Archetypes A0–A5 with verified counts (26 Oct) |
-| Q-KG-10 | Generic offers by phone/SMS: MG-100112's generic StromAktiv call is +€14.8 (rate) / +€2.6 (uplift), not negative as D1 assumed (README K11) | Outcome of MG-100112 and of every no-profiling customer whose only channel is a call | Team | open | — |
+| Q-KG-10 | Generic offers by phone/SMS: MG-100112's generic StromAktiv call is +€14.8 (rate) / +€2.6 (uplift), not negative as D1 assumed (README K11) | Outcome of MG-100112 and of every no-profiling customer whose only channel is a call | Team | answered | Team decided 26 Oct: allow; MG-100112 → generic StromAktiv by phone (README §6.12, §9, K11) |
 | Q-KG-11 | Agent NBA: please (a) change the evidence example in `nba/contracts.py` Signal.evidence from `order:SO-1#2` to `order:SO-1` (Order IDs are order_id now), and (b) consider an optional `ConsentItem.doi_at` so the consent-proof drawer can show the real double opt-in date (KG currently puts it only in the channel reason text) | Contract comment is wrong; consent proof in the UI | Agent NBA | open | — |
 | Q-KG-12 | Agent NBA: use `nba.kg.rules.check_tuple(state, offer_id, channel, policy)` for the override 409 and for `legacy_comparison.blocked_now_by`; do not re-implement gates | One source of truth for hard rules | Agent NBA | open | — |
 | Q-KG-13 | Agent NBA: `rank()` (34a9f5c) drops ΔCLV ≤ 0 silently and ranks all origins together. README §6.12 needs (a) dropped tuples added to `blocked` as `ECON-NONPOSITIVE` and (b) the tiers: signal/service tuples first; generic tuples for profiled customers only when no signal/service tuple has ΔCLV > 0 (`generic.fallback_for_profiled`). Without (b), MG-100023 would get a generic StromWärme (about +€24) instead of P-AS-01 | Team test MG-100023 → P-AS-01; need-first ranking | Agent NBA | open | — |
 | Q-KG-14 | Agent NBA: the export is 34 MB (`indent=2`) and still 23 MB compact, above the ~20 MB budget for `web/public/data` (README §13.2). Write compact JSON and trim per-candidate duplication: only the top 5 tuples per customer get the full `checks`/`path`, or drop channel duplicates of the same offer | Vercel static deploy and UI load time | Agent NBA | open | — |
 | Q-KG-15 | Agent NBA: internal reason lines mix languages: the NO_ACTION and ECON-NONPOSITIVE reasons are German ("Keine zulässige Aktion…", "erwartete ΔCLV"), the rest is English. README §0: UI text may be English or German, customer content German. Pick one language for internal reasons, English recommended | Consistent UI and pitch | Agent NBA | open | — |
+| Q-KG-16 | Agent NBA: K11 is decided. Make MG-100112 strict in `tests/test_acceptance.py` under both p modes (chosen `P-EN-01|outbound_call|sie`, `origin = generic`, content not personalised, S3 blocked by CONSENT-PROFILING), and close Q-NBA-11 in your log | README §9 strict list | Agent NBA | open | — |
 
 ## Session entries
 
@@ -263,4 +264,17 @@ These are kept up to date and edited in place. Status values: `open`, `answered`
 - Export size: Q-KG-14. Mixed-language reasons: Q-KG-15.
 
 **Next session starts with:** event replay (deep dive B), then review `nba/profile` when CARDS pushes it.
+
+### Session 7 · 2026-10-26 18:10–18:15 Europe/Berlin · Claude Code (Opus) · branch feat/kg · commits d1914ed..(this commit)
+
+**Goal:** record the team decisions: K11 resolved, the Customer 360 UI proposal dropped.
+
+**Done:**
+- README §6.12, §9 (MG-100112 strict under both modes) and §10 K11 updated; `config/kg.yaml` comment updated.
+- Q-KG-10 answered; Q-KG-16 opened for Agent NBA.
+- The Customer 360 layout proposal (A/B/C) was dropped by the team. Agent CARDS keeps its own design per `prompts/agent-cards.md`.
+
+**Verified:** `nba.build --customers MG-100112` gives `P-EN-01|outbound_call|sie` in both modes: rate +€14.87 at p 3.41%, uplift +€2.54 at p 1.40%. Not personalised; S3 blocked by CONSENT-PROFILING.
+
+**Next session starts with:** event replay (deep dive B); review `nba/profile` and `web/` when Agent CARDS pushes.
 
