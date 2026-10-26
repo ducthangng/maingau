@@ -31,6 +31,9 @@ export default function Layout() {
             <NavLink to="/groups" className={navClass}>
               Groups
             </NavLink>
+            <NavLink to="/rules" className={navClass}>
+              Rules
+            </NavLink>
           </nav>
           <span className="ml-auto text-xs text-neutral-500">
             {summary.status === "ready" ? `Snapshot ${summary.data.eval_time.replace("T", " ")}` : ""}

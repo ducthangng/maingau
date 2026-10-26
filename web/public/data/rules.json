@@ -1,0 +1,2247 @@
+{
+ "version": 1,
+ "generated_at": "2026-10-26T17:57:01+00:00",
+ "rules": [
+  {
+   "id": "C-01",
+   "name": "Channel needs consent",
+   "tier": "hard",
+   "active": true,
+   "locked": true,
+   "target": "All channels",
+   "children": []
+  },
+  {
+   "id": "C-02",
+   "name": "Newsletter needs double opt-in",
+   "tier": "hard",
+   "active": true,
+   "locked": true,
+   "target": "Newsletter",
+   "children": []
+  },
+  {
+   "id": "C-03",
+   "name": "Unsubscribe stops newsletter",
+   "tier": "hard",
+   "active": true,
+   "locked": true,
+   "target": "Newsletter",
+   "condition": {
+    "entity": "newsletter_performance",
+    "column": "unsubscribed",
+    "op": "=",
+    "value": true,
+    "label": "unsubscribed is yes"
+   },
+   "children": []
+  },
+  {
+   "id": "C-04",
+   "name": "Withdrawn consent cancels pending",
+   "tier": "hard",
+   "active": true,
+   "locked": true,
+   "target": "Pending actions",
+   "children": []
+  },
+  {
+   "id": "C-05",
+   "name": "No profiling, no personalisation",
+   "tier": "hard",
+   "active": true,
+   "locked": true,
+   "target": "Personalisation",
+   "condition": {
+    "entity": "consent_status",
+    "column": "status",
+    "op": "!=",
+    "value": "profiling_analytics:granted",
+    "label": "profiling analytics not granted"
+   },
+   "children": []
+  },
+  {
+   "id": "C-06",
+   "name": "Dunning: service only",
+   "tier": "hard",
+   "active": true,
+   "locked": true,
+   "target": "All sales",
+   "condition": {
+    "entity": "energy_contracts",
+    "column": "dunning_level",
+    "op": ">=",
+    "value": 1,
+    "label": "dunning level ≥ 1"
+   },
+   "children": []
+  },
+  {
+   "id": "C-07",
+   "name": "Open complaint: no sales",
+   "tier": "hard",
+   "active": true,
+   "locked": true,
+   "target": "All sales",
+   "condition": {
+    "entity": "service_interactions",
+    "column": "status",
+    "op": "=",
+    "value": "open",
+    "label": "status is open"
+   },
+   "children": []
+  },
+  {
+   "id": "C-08",
+   "name": "Cancellation: no sales",
+   "tier": "hard",
+   "active": true,
+   "locked": true,
+   "target": "All sales",
+   "children": []
+  },
+  {
+   "id": "C-09",
+   "name": "Payment data only to exclude",
+   "tier": "hard",
+   "active": true,
+   "locked": true,
+   "target": "Payment data",
+   "children": []
+  },
+  {
+   "id": "B-01",
+   "name": "Max 5 e-mails in 90 days",
+   "tier": "custom",
+   "active": true,
+   "target": "E-mail, Newsletter",
+   "children": []
+  },
+  {
+   "id": "B-02",
+   "name": "Max 2 contacts in 30 days",
+   "tier": "custom",
+   "active": true,
+   "target": "All channels",
+   "children": []
+  },
+  {
+   "id": "B-03",
+   "name": "Max 1 call in 90 days",
+   "tier": "custom",
+   "active": true,
+   "target": "Phone call",
+   "children": []
+  },
+  {
+   "id": "B-04",
+   "name": "Max 1 SMS in 90 days",
+   "tier": "custom",
+   "active": true,
+   "target": "SMS",
+   "children": []
+  },
+  {
+   "id": "B-05",
+   "name": "Pause offer after 2 dismissals (60 days)",
+   "tier": "custom",
+   "active": true,
+   "target": "Offer",
+   "children": []
+  },
+  {
+   "id": "B-06",
+   "name": "No sales 14 days after a ticket",
+   "tier": "custom",
+   "active": true,
+   "target": "All customers",
+   "condition": {
+    "entity": "service_interactions",
+    "column": "resolved_at",
+    "op": "within_days",
+    "value": 14,
+    "label": "resolved within 14 days"
+   },
+   "children": []
+  },
+  {
+   "id": "B-07",
+   "name": "Never offer what they own",
+   "tier": "custom",
+   "active": true,
+   "target": "All offers",
+   "children": []
+  },
+  {
+   "id": "B-08",
+   "name": "Calls only if value ≥ 10 €",
+   "tier": "custom",
+   "active": true,
+   "target": "Phone call",
+   "children": []
+  },
+  {
+   "id": "B-09",
+   "name": "Max 50 calls per week",
+   "tier": "custom",
+   "active": true,
+   "target": "Phone call",
+   "children": []
+  }
+ ],
+ "entities": [
+  {
+   "id": "customer_master",
+   "label": "Customer",
+   "operators": [
+    {
+     "id": "customer_since|within_days|30",
+     "column": "customer_since",
+     "op": "within_days",
+     "value": 30,
+     "label": "customer since within 30 days"
+    },
+    {
+     "id": "customer_since|within_days|90",
+     "column": "customer_since",
+     "op": "within_days",
+     "value": 90,
+     "label": "customer since within 90 days"
+    },
+    {
+     "id": "household_size|>=|2",
+     "column": "household_size",
+     "op": ">=",
+     "value": 2,
+     "label": "household size ≥ 2"
+    },
+    {
+     "id": "household_size|>=|3",
+     "column": "household_size",
+     "op": ">=",
+     "value": 3,
+     "label": "household size ≥ 3"
+    },
+    {
+     "id": "household_size|>=|4",
+     "column": "household_size",
+     "op": ">=",
+     "value": 4,
+     "label": "household size ≥ 4"
+    },
+    {
+     "id": "household_size|>=|5",
+     "column": "household_size",
+     "op": ">=",
+     "value": 5,
+     "label": "household size ≥ 5"
+    },
+    {
+     "id": "portal_account|=|true",
+     "column": "portal_account",
+     "op": "=",
+     "value": true,
+     "label": "portal account is yes"
+    },
+    {
+     "id": "portal_account|=|false",
+     "column": "portal_account",
+     "op": "=",
+     "value": false,
+     "label": "portal account is no"
+    },
+    {
+     "id": "app_installed|=|true",
+     "column": "app_installed",
+     "op": "=",
+     "value": true,
+     "label": "app installed is yes"
+    },
+    {
+     "id": "app_installed|=|false",
+     "column": "app_installed",
+     "op": "=",
+     "value": false,
+     "label": "app installed is no"
+    },
+    {
+     "id": "preferred_contact_language|=|de",
+     "column": "preferred_contact_language",
+     "op": "=",
+     "value": "de",
+     "label": "preferred contact language is de"
+    },
+    {
+     "id": "preferred_contact_language|=|en",
+     "column": "preferred_contact_language",
+     "op": "=",
+     "value": "en",
+     "label": "preferred contact language is en"
+    }
+   ]
+  },
+  {
+   "id": "customer_value",
+   "label": "Customer value",
+   "operators": [
+    {
+     "id": "active_business_lines|>=|1",
+     "column": "active_business_lines",
+     "op": ">=",
+     "value": 1,
+     "label": "active business lines ≥ 1"
+    },
+    {
+     "id": "active_business_lines|>=|2",
+     "column": "active_business_lines",
+     "op": ">=",
+     "value": 2,
+     "label": "active business lines ≥ 2"
+    },
+    {
+     "id": "active_business_lines|>=|3",
+     "column": "active_business_lines",
+     "op": ">=",
+     "value": 3,
+     "label": "active business lines ≥ 3"
+    },
+    {
+     "id": "active_business_lines|>=|4",
+     "column": "active_business_lines",
+     "op": ">=",
+     "value": 4,
+     "label": "active business lines ≥ 4"
+    }
+   ]
+  },
+  {
+   "id": "consent_status",
+   "label": "Consent",
+   "operators": [
+    {
+     "id": "status|=|marketing_email:granted",
+     "column": "status",
+     "op": "=",
+     "value": "marketing_email:granted",
+     "label": "marketing email granted"
+    },
+    {
+     "id": "status|=|marketing_email:not_given",
+     "column": "status",
+     "op": "=",
+     "value": "marketing_email:not_given",
+     "label": "marketing email not given"
+    },
+    {
+     "id": "status|=|marketing_email:withdrawn",
+     "column": "status",
+     "op": "=",
+     "value": "marketing_email:withdrawn",
+     "label": "marketing email withdrawn"
+    },
+    {
+     "id": "status|=|marketing_phone:granted",
+     "column": "status",
+     "op": "=",
+     "value": "marketing_phone:granted",
+     "label": "marketing phone granted"
+    },
+    {
+     "id": "status|=|marketing_phone:not_given",
+     "column": "status",
+     "op": "=",
+     "value": "marketing_phone:not_given",
+     "label": "marketing phone not given"
+    },
+    {
+     "id": "status|=|marketing_phone:withdrawn",
+     "column": "status",
+     "op": "=",
+     "value": "marketing_phone:withdrawn",
+     "label": "marketing phone withdrawn"
+    },
+    {
+     "id": "status|=|marketing_sms:granted",
+     "column": "status",
+     "op": "=",
+     "value": "marketing_sms:granted",
+     "label": "marketing sms granted"
+    },
+    {
+     "id": "status|=|marketing_sms:not_given",
+     "column": "status",
+     "op": "=",
+     "value": "marketing_sms:not_given",
+     "label": "marketing sms not given"
+    },
+    {
+     "id": "status|=|marketing_sms:withdrawn",
+     "column": "status",
+     "op": "=",
+     "value": "marketing_sms:withdrawn",
+     "label": "marketing sms withdrawn"
+    },
+    {
+     "id": "status|=|newsletter_email:granted",
+     "column": "status",
+     "op": "=",
+     "value": "newsletter_email:granted",
+     "label": "newsletter email granted"
+    },
+    {
+     "id": "status|=|newsletter_email:not_given",
+     "column": "status",
+     "op": "=",
+     "value": "newsletter_email:not_given",
+     "label": "newsletter email not given"
+    },
+    {
+     "id": "status|=|newsletter_email:withdrawn",
+     "column": "status",
+     "op": "=",
+     "value": "newsletter_email:withdrawn",
+     "label": "newsletter email withdrawn"
+    },
+    {
+     "id": "status|=|portal_app_personalisation:granted",
+     "column": "status",
+     "op": "=",
+     "value": "portal_app_personalisation:granted",
+     "label": "portal personalisation granted"
+    },
+    {
+     "id": "status|=|portal_app_personalisation:not_given",
+     "column": "status",
+     "op": "=",
+     "value": "portal_app_personalisation:not_given",
+     "label": "portal personalisation not given"
+    },
+    {
+     "id": "status|=|portal_app_personalisation:withdrawn",
+     "column": "status",
+     "op": "=",
+     "value": "portal_app_personalisation:withdrawn",
+     "label": "portal personalisation withdrawn"
+    },
+    {
+     "id": "status|=|profiling_analytics:granted",
+     "column": "status",
+     "op": "=",
+     "value": "profiling_analytics:granted",
+     "label": "profiling analytics granted"
+    },
+    {
+     "id": "status|=|profiling_analytics:not_given",
+     "column": "status",
+     "op": "=",
+     "value": "profiling_analytics:not_given",
+     "label": "profiling analytics not given"
+    },
+    {
+     "id": "status|=|profiling_analytics:withdrawn",
+     "column": "status",
+     "op": "=",
+     "value": "profiling_analytics:withdrawn",
+     "label": "profiling analytics withdrawn"
+    },
+    {
+     "id": "updated_at|within_days|30",
+     "column": "updated_at",
+     "op": "within_days",
+     "value": 30,
+     "label": "updated within 30 days"
+    },
+    {
+     "id": "updated_at|within_days|90",
+     "column": "updated_at",
+     "op": "within_days",
+     "value": 90,
+     "label": "updated within 90 days"
+    },
+    {
+     "id": "source|=|contract_signup",
+     "column": "source",
+     "op": "=",
+     "value": "contract_signup",
+     "label": "source is contract signup"
+    },
+    {
+     "id": "source|=|hotline",
+     "column": "source",
+     "op": "=",
+     "value": "hotline",
+     "label": "source is hotline"
+    },
+    {
+     "id": "source|=|newsletter_form",
+     "column": "source",
+     "op": "=",
+     "value": "newsletter_form",
+     "label": "source is newsletter form"
+    },
+    {
+     "id": "source|=|newsletter_unsubscribe_link",
+     "column": "source",
+     "op": "=",
+     "value": "newsletter_unsubscribe_link",
+     "label": "source is unsubscribe link"
+    },
+    {
+     "id": "source|=|portal",
+     "column": "source",
+     "op": "=",
+     "value": "portal",
+     "label": "source is portal"
+    },
+    {
+     "id": "source|=|shop_checkout",
+     "column": "source",
+     "op": "=",
+     "value": "shop_checkout",
+     "label": "source is shop checkout"
+    },
+    {
+     "id": "double_opt_in_confirmed_at|within_days|30",
+     "column": "double_opt_in_confirmed_at",
+     "op": "within_days",
+     "value": 30,
+     "label": "opt-in confirmed within 30 days"
+    },
+    {
+     "id": "double_opt_in_confirmed_at|within_days|90",
+     "column": "double_opt_in_confirmed_at",
+     "op": "within_days",
+     "value": 90,
+     "label": "opt-in confirmed within 90 days"
+    }
+   ]
+  },
+  {
+   "id": "energy_contracts",
+   "label": "Energy contract",
+   "operators": [
+    {
+     "id": "commodity|=|electricity",
+     "column": "commodity",
+     "op": "=",
+     "value": "electricity",
+     "label": "commodity is electricity"
+    },
+    {
+     "id": "commodity|=|gas",
+     "column": "commodity",
+     "op": "=",
+     "value": "gas",
+     "label": "commodity is gas"
+    },
+    {
+     "id": "tariff|=|GasAktiv",
+     "column": "tariff",
+     "op": "=",
+     "value": "GasAktiv",
+     "label": "tariff is GasAktiv"
+    },
+    {
+     "id": "tariff|=|GasGarant",
+     "column": "tariff",
+     "op": "=",
+     "value": "GasGarant",
+     "label": "tariff is GasGarant"
+    },
+    {
+     "id": "tariff|=|StromAktiv",
+     "column": "tariff",
+     "op": "=",
+     "value": "StromAktiv",
+     "label": "tariff is StromAktiv"
+    },
+    {
+     "id": "tariff|=|StromGarant",
+     "column": "tariff",
+     "op": "=",
+     "value": "StromGarant",
+     "label": "tariff is StromGarant"
+    },
+    {
+     "id": "tariff|=|StromKomfort",
+     "column": "tariff",
+     "op": "=",
+     "value": "StromKomfort",
+     "label": "tariff is StromKomfort"
+    },
+    {
+     "id": "tariff|=|StromWärme",
+     "column": "tariff",
+     "op": "=",
+     "value": "StromWärme",
+     "label": "tariff is StromWärme"
+    },
+    {
+     "id": "status|=|active",
+     "column": "status",
+     "op": "=",
+     "value": "active",
+     "label": "status is active"
+    },
+    {
+     "id": "status|=|cancellation_pending",
+     "column": "status",
+     "op": "=",
+     "value": "cancellation_pending",
+     "label": "status is cancellation pending"
+    },
+    {
+     "id": "status|=|terminated_meter_deregistration",
+     "column": "status",
+     "op": "=",
+     "value": "terminated_meter_deregistration",
+     "label": "status is meter deregistered"
+    },
+    {
+     "id": "start_date|within_days|30",
+     "column": "start_date",
+     "op": "within_days",
+     "value": 30,
+     "label": "start date within 30 days"
+    },
+    {
+     "id": "start_date|within_days|90",
+     "column": "start_date",
+     "op": "within_days",
+     "value": 90,
+     "label": "start date within 90 days"
+    },
+    {
+     "id": "price_guarantee_until|within_days|30",
+     "column": "price_guarantee_until",
+     "op": "within_days",
+     "value": 30,
+     "label": "price guarantee ends in 30 days"
+    },
+    {
+     "id": "price_guarantee_until|within_days|90",
+     "column": "price_guarantee_until",
+     "op": "within_days",
+     "value": 90,
+     "label": "price guarantee ends in 90 days"
+    },
+    {
+     "id": "meter_type|=|conventional",
+     "column": "meter_type",
+     "op": "=",
+     "value": "conventional",
+     "label": "meter type is conventional"
+    },
+    {
+     "id": "meter_type|=|smart_meter_imsys",
+     "column": "meter_type",
+     "op": "=",
+     "value": "smart_meter_imsys",
+     "label": "meter type is smart meter imsys"
+    },
+    {
+     "id": "feed_in_meter|=|true",
+     "column": "feed_in_meter",
+     "op": "=",
+     "value": true,
+     "label": "feed in meter is yes"
+    },
+    {
+     "id": "feed_in_meter|=|false",
+     "column": "feed_in_meter",
+     "op": "=",
+     "value": false,
+     "label": "feed in meter is no"
+    },
+    {
+     "id": "payment_method|=|bank_transfer",
+     "column": "payment_method",
+     "op": "=",
+     "value": "bank_transfer",
+     "label": "payment method bank transfer"
+    },
+    {
+     "id": "payment_method|=|sepa_direct_debit",
+     "column": "payment_method",
+     "op": "=",
+     "value": "sepa_direct_debit",
+     "label": "payment method sepa direct debit"
+    },
+    {
+     "id": "dunning_level|>=|1",
+     "column": "dunning_level",
+     "op": ">=",
+     "value": 1,
+     "label": "dunning level ≥ 1"
+    },
+    {
+     "id": "dunning_level|>=|2",
+     "column": "dunning_level",
+     "op": ">=",
+     "value": 2,
+     "label": "dunning level ≥ 2"
+    },
+    {
+     "id": "dunning_level|>=|3",
+     "column": "dunning_level",
+     "op": ">=",
+     "value": 3,
+     "label": "dunning level ≥ 3"
+    },
+    {
+     "id": "cancellation_received_at|within_days|30",
+     "column": "cancellation_received_at",
+     "op": "within_days",
+     "value": 30,
+     "label": "cancellation received in 30 days"
+    },
+    {
+     "id": "cancellation_received_at|within_days|90",
+     "column": "cancellation_received_at",
+     "op": "within_days",
+     "value": 90,
+     "label": "cancellation received in 90 days"
+    },
+    {
+     "id": "last_meter_reading_at|within_days|30",
+     "column": "last_meter_reading_at",
+     "op": "within_days",
+     "value": 30,
+     "label": "last meter reading in 30 days"
+    },
+    {
+     "id": "last_meter_reading_at|within_days|90",
+     "column": "last_meter_reading_at",
+     "op": "within_days",
+     "value": 90,
+     "label": "last meter reading in 90 days"
+    },
+    {
+     "id": "meter_deregistered_at|within_days|30",
+     "column": "meter_deregistered_at",
+     "op": "within_days",
+     "value": 30,
+     "label": "meter deregistered in 30 days"
+    },
+    {
+     "id": "meter_deregistered_at|within_days|90",
+     "column": "meter_deregistered_at",
+     "op": "within_days",
+     "value": 90,
+     "label": "meter deregistered in 90 days"
+    }
+   ]
+  },
+  {
+   "id": "mobile_contracts",
+   "label": "Mobile contract",
+   "operators": [
+    {
+     "id": "plan|=|Mobil L",
+     "column": "plan",
+     "op": "=",
+     "value": "Mobil L",
+     "label": "plan is Mobil L"
+    },
+    {
+     "id": "plan|=|Mobil M",
+     "column": "plan",
+     "op": "=",
+     "value": "Mobil M",
+     "label": "plan is Mobil M"
+    },
+    {
+     "id": "plan|=|Mobil S",
+     "column": "plan",
+     "op": "=",
+     "value": "Mobil S",
+     "label": "plan is Mobil S"
+    },
+    {
+     "id": "data_volume_gb|>=|30",
+     "column": "data_volume_gb",
+     "op": ">=",
+     "value": 30,
+     "label": "data volume gb ≥ 30"
+    },
+    {
+     "id": "data_volume_gb|>=|100",
+     "column": "data_volume_gb",
+     "op": ">=",
+     "value": 100,
+     "label": "data volume gb ≥ 100"
+    },
+    {
+     "id": "sim_count|>=|2",
+     "column": "sim_count",
+     "op": ">=",
+     "value": 2,
+     "label": "sim count ≥ 2"
+    },
+    {
+     "id": "sim_count|>=|3",
+     "column": "sim_count",
+     "op": ">=",
+     "value": 3,
+     "label": "sim count ≥ 3"
+    },
+    {
+     "id": "start_date|within_days|30",
+     "column": "start_date",
+     "op": "within_days",
+     "value": 30,
+     "label": "start date within 30 days"
+    },
+    {
+     "id": "start_date|within_days|90",
+     "column": "start_date",
+     "op": "within_days",
+     "value": 90,
+     "label": "start date within 90 days"
+    },
+    {
+     "id": "min_term_end|within_days|30",
+     "column": "min_term_end",
+     "op": "within_days",
+     "value": 30,
+     "label": "min term end within 30 days"
+    },
+    {
+     "id": "min_term_end|within_days|90",
+     "column": "min_term_end",
+     "op": "within_days",
+     "value": 90,
+     "label": "min term end within 90 days"
+    },
+    {
+     "id": "data_limit_reached_3m|>=|1",
+     "column": "data_limit_reached_3m",
+     "op": ">=",
+     "value": 1,
+     "label": "data limit reached 3m ≥ 1"
+    },
+    {
+     "id": "data_limit_reached_3m|>=|2",
+     "column": "data_limit_reached_3m",
+     "op": ">=",
+     "value": 2,
+     "label": "data limit reached 3m ≥ 2"
+    },
+    {
+     "id": "data_limit_reached_3m|>=|3",
+     "column": "data_limit_reached_3m",
+     "op": ">=",
+     "value": 3,
+     "label": "data limit reached 3m ≥ 3"
+    },
+    {
+     "id": "roaming_days_3m|>=|2",
+     "column": "roaming_days_3m",
+     "op": ">=",
+     "value": 2,
+     "label": "roaming days 3m ≥ 2"
+    },
+    {
+     "id": "roaming_days_3m|>=|5",
+     "column": "roaming_days_3m",
+     "op": ">=",
+     "value": 5,
+     "label": "roaming days 3m ≥ 5"
+    },
+    {
+     "id": "roaming_days_3m|>=|9",
+     "column": "roaming_days_3m",
+     "op": ">=",
+     "value": 9,
+     "label": "roaming days 3m ≥ 9"
+    },
+    {
+     "id": "esim|=|true",
+     "column": "esim",
+     "op": "=",
+     "value": true,
+     "label": "esim is yes"
+    },
+    {
+     "id": "esim|=|false",
+     "column": "esim",
+     "op": "=",
+     "value": false,
+     "label": "esim is no"
+    }
+   ]
+  },
+  {
+   "id": "autostrom_contracts",
+   "label": "Autostrom contract",
+   "operators": [
+    {
+     "id": "status|=|active",
+     "column": "status",
+     "op": "=",
+     "value": "active",
+     "label": "status is active"
+    },
+    {
+     "id": "status|=|cancelled",
+     "column": "status",
+     "op": "=",
+     "value": "cancelled",
+     "label": "status is cancelled"
+    },
+    {
+     "id": "start_date|within_days|30",
+     "column": "start_date",
+     "op": "within_days",
+     "value": 30,
+     "label": "start date within 30 days"
+    },
+    {
+     "id": "start_date|within_days|90",
+     "column": "start_date",
+     "op": "within_days",
+     "value": 90,
+     "label": "start date within 90 days"
+    },
+    {
+     "id": "cancelled_at|within_days|30",
+     "column": "cancelled_at",
+     "op": "within_days",
+     "value": 30,
+     "label": "cancelled within 30 days"
+    },
+    {
+     "id": "cancelled_at|within_days|90",
+     "column": "cancelled_at",
+     "op": "within_days",
+     "value": 90,
+     "label": "cancelled within 90 days"
+    },
+    {
+     "id": "charge_cards|>=|2",
+     "column": "charge_cards",
+     "op": ">=",
+     "value": 2,
+     "label": "charge cards ≥ 2"
+    },
+    {
+     "id": "app_user|=|true",
+     "column": "app_user",
+     "op": "=",
+     "value": true,
+     "label": "app user is yes"
+    },
+    {
+     "id": "app_user|=|false",
+     "column": "app_user",
+     "op": "=",
+     "value": false,
+     "label": "app user is no"
+    },
+    {
+     "id": "payment_method|=|credit_card",
+     "column": "payment_method",
+     "op": "=",
+     "value": "credit_card",
+     "label": "payment method credit card"
+    },
+    {
+     "id": "payment_method|=|sepa_direct_debit",
+     "column": "payment_method",
+     "op": "=",
+     "value": "sepa_direct_debit",
+     "label": "payment method sepa direct debit"
+    }
+   ]
+  },
+  {
+   "id": "hems_devices",
+   "label": "HEMS device",
+   "operators": [
+    {
+     "id": "device_type|=|heat_pump",
+     "column": "device_type",
+     "op": "=",
+     "value": "heat_pump",
+     "label": "device type is heat pump"
+    },
+    {
+     "id": "device_type|=|hems_gateway",
+     "column": "device_type",
+     "op": "=",
+     "value": "hems_gateway",
+     "label": "device type is hems gateway"
+    },
+    {
+     "id": "device_type|=|home_battery",
+     "column": "device_type",
+     "op": "=",
+     "value": "home_battery",
+     "label": "device type is home battery"
+    },
+    {
+     "id": "device_type|=|pv_inverter",
+     "column": "device_type",
+     "op": "=",
+     "value": "pv_inverter",
+     "label": "device type is pv inverter"
+    },
+    {
+     "id": "device_type|=|smart_plug",
+     "column": "device_type",
+     "op": "=",
+     "value": "smart_plug",
+     "label": "device type is smart plug"
+    },
+    {
+     "id": "device_type|=|wallbox",
+     "column": "device_type",
+     "op": "=",
+     "value": "wallbox",
+     "label": "device type is wallbox"
+    },
+    {
+     "id": "manufacturer|=|Vendor A",
+     "column": "manufacturer",
+     "op": "=",
+     "value": "Vendor A",
+     "label": "manufacturer is Vendor A"
+    },
+    {
+     "id": "manufacturer|=|Vendor B",
+     "column": "manufacturer",
+     "op": "=",
+     "value": "Vendor B",
+     "label": "manufacturer is Vendor B"
+    },
+    {
+     "id": "manufacturer|=|Vendor C",
+     "column": "manufacturer",
+     "op": "=",
+     "value": "Vendor C",
+     "label": "manufacturer is Vendor C"
+    },
+    {
+     "id": "activated_at|within_days|30",
+     "column": "activated_at",
+     "op": "within_days",
+     "value": 30,
+     "label": "activated within 30 days"
+    },
+    {
+     "id": "activated_at|within_days|90",
+     "column": "activated_at",
+     "op": "within_days",
+     "value": 90,
+     "label": "activated within 90 days"
+    },
+    {
+     "id": "firmware_version|=|2.4.1",
+     "column": "firmware_version",
+     "op": "=",
+     "value": "2.4.1",
+     "label": "firmware version is 2.4.1"
+    },
+    {
+     "id": "firmware_version|=|2.5.0",
+     "column": "firmware_version",
+     "op": "=",
+     "value": "2.5.0",
+     "label": "firmware version is 2.5.0"
+    },
+    {
+     "id": "firmware_version|=|2.5.2",
+     "column": "firmware_version",
+     "op": "=",
+     "value": "2.5.2",
+     "label": "firmware version is 2.5.2"
+    },
+    {
+     "id": "firmware_version|=|3.0.0",
+     "column": "firmware_version",
+     "op": "=",
+     "value": "3.0.0",
+     "label": "firmware version is 3.0.0"
+    },
+    {
+     "id": "connection_status|=|offline",
+     "column": "connection_status",
+     "op": "=",
+     "value": "offline",
+     "label": "connection status is offline"
+    },
+    {
+     "id": "connection_status|=|online",
+     "column": "connection_status",
+     "op": "=",
+     "value": "online",
+     "label": "connection status is online"
+    },
+    {
+     "id": "last_seen_at|within_days|30",
+     "column": "last_seen_at",
+     "op": "within_days",
+     "value": 30,
+     "label": "last seen within 30 days"
+    },
+    {
+     "id": "last_seen_at|within_days|90",
+     "column": "last_seen_at",
+     "op": "within_days",
+     "value": 90,
+     "label": "last seen within 90 days"
+    }
+   ]
+  },
+  {
+   "id": "shop_orders",
+   "label": "Shop order",
+   "operators": [
+    {
+     "id": "order_created_at|within_days|30",
+     "column": "order_created_at",
+     "op": "within_days",
+     "value": 30,
+     "label": "order created within 30 days"
+    },
+    {
+     "id": "order_created_at|within_days|90",
+     "column": "order_created_at",
+     "op": "within_days",
+     "value": 90,
+     "label": "order created within 90 days"
+    },
+    {
+     "id": "order_channel|=|app",
+     "column": "order_channel",
+     "op": "=",
+     "value": "app",
+     "label": "order channel is app"
+    },
+    {
+     "id": "order_channel|=|web",
+     "column": "order_channel",
+     "op": "=",
+     "value": "web",
+     "label": "order channel is web"
+    },
+    {
+     "id": "product_name|=|Balkonkraftwerk 800 W",
+     "column": "product_name",
+     "op": "=",
+     "value": "Balkonkraftwerk 800 W",
+     "label": "Balkonkraftwerk 800 W"
+    },
+    {
+     "id": "product_name|=|LED-Set 10 Stk",
+     "column": "product_name",
+     "op": "=",
+     "value": "LED-Set 10 Stk",
+     "label": "LED-Set 10 Stk"
+    },
+    {
+     "id": "product_name|=|Ladekabel Typ 2",
+     "column": "product_name",
+     "op": "=",
+     "value": "Ladekabel Typ 2",
+     "label": "Ladekabel Typ 2"
+    },
+    {
+     "id": "product_name|=|Powerbank Solar",
+     "column": "product_name",
+     "op": "=",
+     "value": "Powerbank Solar",
+     "label": "Powerbank Solar"
+    },
+    {
+     "id": "product_name|=|Smart Plug 4er-Set",
+     "column": "product_name",
+     "op": "=",
+     "value": "Smart Plug 4er-Set",
+     "label": "Smart Plug 4er-Set"
+    },
+    {
+     "id": "product_name|=|Smarte Thermostate 3er",
+     "column": "product_name",
+     "op": "=",
+     "value": "Smarte Thermostate 3er",
+     "label": "Smarte Thermostate 3er"
+    },
+    {
+     "id": "product_name|=|Stromzähler-Lesekopf",
+     "column": "product_name",
+     "op": "=",
+     "value": "Stromzähler-Lesekopf",
+     "label": "Stromzähler-Lesekopf"
+    },
+    {
+     "id": "product_name|=|Wallbox 11 kW",
+     "column": "product_name",
+     "op": "=",
+     "value": "Wallbox 11 kW",
+     "label": "Wallbox 11 kW"
+    },
+    {
+     "id": "product_category|=|accessories",
+     "column": "product_category",
+     "op": "=",
+     "value": "accessories",
+     "label": "product category accessories"
+    },
+    {
+     "id": "product_category|=|e_mobility",
+     "column": "product_category",
+     "op": "=",
+     "value": "e_mobility",
+     "label": "product category e mobility"
+    },
+    {
+     "id": "product_category|=|energy_saving",
+     "column": "product_category",
+     "op": "=",
+     "value": "energy_saving",
+     "label": "product category energy saving"
+    },
+    {
+     "id": "product_category|=|smart_home",
+     "column": "product_category",
+     "op": "=",
+     "value": "smart_home",
+     "label": "product category smart home"
+    },
+    {
+     "id": "product_category|=|solar",
+     "column": "product_category",
+     "op": "=",
+     "value": "solar",
+     "label": "product category solar"
+    },
+    {
+     "id": "quantity|>=|2",
+     "column": "quantity",
+     "op": ">=",
+     "value": 2,
+     "label": "quantity ≥ 2"
+    },
+    {
+     "id": "payment_method|=|credit_card",
+     "column": "payment_method",
+     "op": "=",
+     "value": "credit_card",
+     "label": "payment method is credit card"
+    },
+    {
+     "id": "payment_method|=|invoice",
+     "column": "payment_method",
+     "op": "=",
+     "value": "invoice",
+     "label": "payment method is invoice"
+    },
+    {
+     "id": "payment_method|=|paypal",
+     "column": "payment_method",
+     "op": "=",
+     "value": "paypal",
+     "label": "payment method is paypal"
+    },
+    {
+     "id": "payment_method|=|sepa",
+     "column": "payment_method",
+     "op": "=",
+     "value": "sepa",
+     "label": "payment method is sepa"
+    },
+    {
+     "id": "order_status|=|cancelled",
+     "column": "order_status",
+     "op": "=",
+     "value": "cancelled",
+     "label": "order status is cancelled"
+    },
+    {
+     "id": "order_status|=|delivered",
+     "column": "order_status",
+     "op": "=",
+     "value": "delivered",
+     "label": "order status is delivered"
+    },
+    {
+     "id": "order_status|=|returned",
+     "column": "order_status",
+     "op": "=",
+     "value": "returned",
+     "label": "order status is returned"
+    }
+   ]
+  },
+  {
+   "id": "service_interactions",
+   "label": "Service ticket",
+   "operators": [
+    {
+     "id": "created_at|within_days|30",
+     "column": "created_at",
+     "op": "within_days",
+     "value": 30,
+     "label": "created within 30 days"
+    },
+    {
+     "id": "created_at|within_days|90",
+     "column": "created_at",
+     "op": "within_days",
+     "value": 90,
+     "label": "created within 90 days"
+    },
+    {
+     "id": "channel|=|chat",
+     "column": "channel",
+     "op": "=",
+     "value": "chat",
+     "label": "channel is chat"
+    },
+    {
+     "id": "channel|=|email",
+     "column": "channel",
+     "op": "=",
+     "value": "email",
+     "label": "channel is email"
+    },
+    {
+     "id": "channel|=|phone",
+     "column": "channel",
+     "op": "=",
+     "value": "phone",
+     "label": "channel is phone"
+    },
+    {
+     "id": "channel|=|portal_form",
+     "column": "channel",
+     "op": "=",
+     "value": "portal_form",
+     "label": "channel is portal form"
+    },
+    {
+     "id": "category|=|autostrom",
+     "column": "category",
+     "op": "=",
+     "value": "autostrom",
+     "label": "category is autostrom"
+    },
+    {
+     "id": "category|=|billing",
+     "column": "category",
+     "op": "=",
+     "value": "billing",
+     "label": "category is billing"
+    },
+    {
+     "id": "category|=|complaint",
+     "column": "category",
+     "op": "=",
+     "value": "complaint",
+     "label": "category is complaint"
+    },
+    {
+     "id": "category|=|hems",
+     "column": "category",
+     "op": "=",
+     "value": "hems",
+     "label": "category is hems"
+    },
+    {
+     "id": "category|=|meter",
+     "column": "category",
+     "op": "=",
+     "value": "meter",
+     "label": "category is meter"
+    },
+    {
+     "id": "category|=|meter_deregistration",
+     "column": "category",
+     "op": "=",
+     "value": "meter_deregistration",
+     "label": "category is meter deregistration"
+    },
+    {
+     "id": "category|=|mobile",
+     "column": "category",
+     "op": "=",
+     "value": "mobile",
+     "label": "category is mobile"
+    },
+    {
+     "id": "category|=|moving",
+     "column": "category",
+     "op": "=",
+     "value": "moving",
+     "label": "category is moving"
+    },
+    {
+     "id": "category|=|tariff",
+     "column": "category",
+     "op": "=",
+     "value": "tariff",
+     "label": "category is tariff"
+    },
+    {
+     "id": "status|=|closed",
+     "column": "status",
+     "op": "=",
+     "value": "closed",
+     "label": "status is closed"
+    },
+    {
+     "id": "status|=|open",
+     "column": "status",
+     "op": "=",
+     "value": "open",
+     "label": "status is open"
+    },
+    {
+     "id": "resolved_at|within_days|30",
+     "column": "resolved_at",
+     "op": "within_days",
+     "value": 30,
+     "label": "resolved within 30 days"
+    },
+    {
+     "id": "resolved_at|within_days|90",
+     "column": "resolved_at",
+     "op": "within_days",
+     "value": 90,
+     "label": "resolved within 90 days"
+    },
+    {
+     "id": "csat_1to5|>=|3",
+     "column": "csat_1to5",
+     "op": ">=",
+     "value": 3,
+     "label": "csat 1to5 ≥ 3"
+    },
+    {
+     "id": "csat_1to5|>=|4",
+     "column": "csat_1to5",
+     "op": ">=",
+     "value": 4,
+     "label": "csat 1to5 ≥ 4"
+    },
+    {
+     "id": "csat_1to5|>=|5",
+     "column": "csat_1to5",
+     "op": ">=",
+     "value": 5,
+     "label": "csat 1to5 ≥ 5"
+    },
+    {
+     "id": "first_contact_resolution|=|true",
+     "column": "first_contact_resolution",
+     "op": "=",
+     "value": true,
+     "label": "first contact resolution is yes"
+    },
+    {
+     "id": "first_contact_resolution|=|false",
+     "column": "first_contact_resolution",
+     "op": "=",
+     "value": false,
+     "label": "first contact resolution is no"
+    },
+    {
+     "id": "goodwill_eur|>=|10",
+     "column": "goodwill_eur",
+     "op": ">=",
+     "value": 10,
+     "label": "goodwill eur ≥ 10"
+    },
+    {
+     "id": "goodwill_eur|>=|15",
+     "column": "goodwill_eur",
+     "op": ">=",
+     "value": 15,
+     "label": "goodwill eur ≥ 15"
+    },
+    {
+     "id": "goodwill_eur|>=|20",
+     "column": "goodwill_eur",
+     "op": ">=",
+     "value": 20,
+     "label": "goodwill eur ≥ 20"
+    },
+    {
+     "id": "goodwill_eur|>=|25",
+     "column": "goodwill_eur",
+     "op": ">=",
+     "value": 25,
+     "label": "goodwill eur ≥ 25"
+    },
+    {
+     "id": "goodwill_eur|>=|30",
+     "column": "goodwill_eur",
+     "op": ">=",
+     "value": 30,
+     "label": "goodwill eur ≥ 30"
+    }
+   ]
+  },
+  {
+   "id": "charge_sessions",
+   "label": "Charging session",
+   "operators": [
+    {
+     "id": "auth_method|=|app",
+     "column": "auth_method",
+     "op": "=",
+     "value": "app",
+     "label": "auth method is app"
+    },
+    {
+     "id": "auth_method|=|rfid_card",
+     "column": "auth_method",
+     "op": "=",
+     "value": "rfid_card",
+     "label": "auth method is rfid card"
+    },
+    {
+     "id": "started_at|within_days|30",
+     "column": "started_at",
+     "op": "within_days",
+     "value": 30,
+     "label": "started within 30 days"
+    },
+    {
+     "id": "started_at|within_days|90",
+     "column": "started_at",
+     "op": "within_days",
+     "value": 90,
+     "label": "started within 90 days"
+    },
+    {
+     "id": "ended_at|within_days|30",
+     "column": "ended_at",
+     "op": "within_days",
+     "value": 30,
+     "label": "ended within 30 days"
+    },
+    {
+     "id": "ended_at|within_days|90",
+     "column": "ended_at",
+     "op": "within_days",
+     "value": 90,
+     "label": "ended within 90 days"
+    },
+    {
+     "id": "charge_type|=|AC",
+     "column": "charge_type",
+     "op": "=",
+     "value": "AC",
+     "label": "charge type is AC"
+    },
+    {
+     "id": "charge_type|=|DC",
+     "column": "charge_type",
+     "op": "=",
+     "value": "DC",
+     "label": "charge type is DC"
+    },
+    {
+     "id": "country|=|AT",
+     "column": "country",
+     "op": "=",
+     "value": "AT",
+     "label": "country is AT"
+    },
+    {
+     "id": "country|=|DE",
+     "column": "country",
+     "op": "=",
+     "value": "DE",
+     "label": "country is DE"
+    },
+    {
+     "id": "country|=|DK",
+     "column": "country",
+     "op": "=",
+     "value": "DK",
+     "label": "country is DK"
+    },
+    {
+     "id": "country|=|FR",
+     "column": "country",
+     "op": "=",
+     "value": "FR",
+     "label": "country is FR"
+    },
+    {
+     "id": "country|=|IT",
+     "column": "country",
+     "op": "=",
+     "value": "IT",
+     "label": "country is IT"
+    },
+    {
+     "id": "country|=|NL",
+     "column": "country",
+     "op": "=",
+     "value": "NL",
+     "label": "country is NL"
+    },
+    {
+     "id": "session_status|=|aborted",
+     "column": "session_status",
+     "op": "=",
+     "value": "aborted",
+     "label": "session status is aborted"
+    },
+    {
+     "id": "session_status|=|completed",
+     "column": "session_status",
+     "op": "=",
+     "value": "completed",
+     "label": "session status is completed"
+    },
+    {
+     "id": "session_status|=|failed",
+     "column": "session_status",
+     "op": "=",
+     "value": "failed",
+     "label": "session status is failed"
+    },
+    {
+     "id": "failure_reason|=|auth_rejected",
+     "column": "failure_reason",
+     "op": "=",
+     "value": "auth_rejected",
+     "label": "auth rejected"
+    },
+    {
+     "id": "failure_reason|=|connector_error",
+     "column": "failure_reason",
+     "op": "=",
+     "value": "connector_error",
+     "label": "connector error"
+    },
+    {
+     "id": "failure_reason|=|station_offline",
+     "column": "failure_reason",
+     "op": "=",
+     "value": "station_offline",
+     "label": "station offline"
+    },
+    {
+     "id": "failure_reason|=|vehicle_communication",
+     "column": "failure_reason",
+     "op": "=",
+     "value": "vehicle_communication",
+     "label": "vehicle communication"
+    },
+    {
+     "id": "cdr_source|=|own_backend",
+     "column": "cdr_source",
+     "op": "=",
+     "value": "own_backend",
+     "label": "cdr source is own backend"
+    },
+    {
+     "id": "cdr_source|=|roaming_hub",
+     "column": "cdr_source",
+     "op": "=",
+     "value": "roaming_hub",
+     "label": "cdr source is roaming hub"
+    },
+    {
+     "id": "cdr_received_at|within_days|30",
+     "column": "cdr_received_at",
+     "op": "within_days",
+     "value": 30,
+     "label": "cdr received within 30 days"
+    },
+    {
+     "id": "cdr_received_at|within_days|90",
+     "column": "cdr_received_at",
+     "op": "within_days",
+     "value": 90,
+     "label": "cdr received within 90 days"
+    }
+   ]
+  },
+  {
+   "id": "nba_action_history",
+   "label": "Past action",
+   "operators": [
+    {
+     "id": "decided_at|within_days|30",
+     "column": "decided_at",
+     "op": "within_days",
+     "value": 30,
+     "label": "decided within 30 days"
+    },
+    {
+     "id": "decided_at|within_days|90",
+     "column": "decided_at",
+     "op": "within_days",
+     "value": 90,
+     "label": "decided within 90 days"
+    },
+    {
+     "id": "channel|=|app_push",
+     "column": "channel",
+     "op": "=",
+     "value": "app_push",
+     "label": "channel is app push"
+    },
+    {
+     "id": "channel|=|newsletter_email",
+     "column": "channel",
+     "op": "=",
+     "value": "newsletter_email",
+     "label": "channel is newsletter email"
+    },
+    {
+     "id": "channel|=|outbound_call",
+     "column": "channel",
+     "op": "=",
+     "value": "outbound_call",
+     "label": "channel is outbound call"
+    },
+    {
+     "id": "channel|=|portal_popup",
+     "column": "channel",
+     "op": "=",
+     "value": "portal_popup",
+     "label": "channel is portal popup"
+    },
+    {
+     "id": "channel|=|sms",
+     "column": "channel",
+     "op": "=",
+     "value": "sms",
+     "label": "channel is sms"
+    },
+    {
+     "id": "tonality|=|du",
+     "column": "tonality",
+     "op": "=",
+     "value": "du",
+     "label": "tonality is du"
+    },
+    {
+     "id": "tonality|=|sie",
+     "column": "tonality",
+     "op": "=",
+     "value": "sie",
+     "label": "tonality is sie"
+    },
+    {
+     "id": "content_variant|=|A",
+     "column": "content_variant",
+     "op": "=",
+     "value": "A",
+     "label": "content variant is A"
+    },
+    {
+     "id": "content_variant|=|B",
+     "column": "content_variant",
+     "op": "=",
+     "value": "B",
+     "label": "content variant is B"
+    },
+    {
+     "id": "control_group|=|true",
+     "column": "control_group",
+     "op": "=",
+     "value": true,
+     "label": "control group is yes"
+    },
+    {
+     "id": "control_group|=|false",
+     "column": "control_group",
+     "op": "=",
+     "value": false,
+     "label": "control group is no"
+    },
+    {
+     "id": "delivery_status|=|delivered",
+     "column": "delivery_status",
+     "op": "=",
+     "value": "delivered",
+     "label": "delivery status delivered"
+    },
+    {
+     "id": "delivery_status|=|not_sent_control",
+     "column": "delivery_status",
+     "op": "=",
+     "value": "not_sent_control",
+     "label": "delivery status not sent control"
+    },
+    {
+     "id": "response|=|clicked",
+     "column": "response",
+     "op": "=",
+     "value": "clicked",
+     "label": "response is clicked"
+    },
+    {
+     "id": "response|=|dismissed",
+     "column": "response",
+     "op": "=",
+     "value": "dismissed",
+     "label": "response is dismissed"
+    },
+    {
+     "id": "response|=|held_out",
+     "column": "response",
+     "op": "=",
+     "value": "held_out",
+     "label": "response is held out"
+    },
+    {
+     "id": "response|=|ignored",
+     "column": "response",
+     "op": "=",
+     "value": "ignored",
+     "label": "response is ignored"
+    },
+    {
+     "id": "response|=|viewed",
+     "column": "response",
+     "op": "=",
+     "value": "viewed",
+     "label": "response is viewed"
+    },
+    {
+     "id": "response_at|within_days|30",
+     "column": "response_at",
+     "op": "within_days",
+     "value": 30,
+     "label": "response within 30 days"
+    },
+    {
+     "id": "response_at|within_days|90",
+     "column": "response_at",
+     "op": "within_days",
+     "value": 90,
+     "label": "response within 90 days"
+    },
+    {
+     "id": "converted_within_14d|=|true",
+     "column": "converted_within_14d",
+     "op": "=",
+     "value": true,
+     "label": "converted within 14d is yes"
+    },
+    {
+     "id": "converted_within_14d|=|false",
+     "column": "converted_within_14d",
+     "op": "=",
+     "value": false,
+     "label": "converted within 14d is no"
+    },
+    {
+     "id": "consent_checked|=|true",
+     "column": "consent_checked",
+     "op": "=",
+     "value": true,
+     "label": "consent checked is yes"
+    },
+    {
+     "id": "consent_checked|=|false",
+     "column": "consent_checked",
+     "op": "=",
+     "value": false,
+     "label": "consent checked is no"
+    }
+   ]
+  },
+  {
+   "id": "newsletter_performance",
+   "label": "Newsletter",
+   "operators": [
+    {
+     "id": "delivered|=|true",
+     "column": "delivered",
+     "op": "=",
+     "value": true,
+     "label": "delivered is yes"
+    },
+    {
+     "id": "delivered|=|false",
+     "column": "delivered",
+     "op": "=",
+     "value": false,
+     "label": "delivered is no"
+    },
+    {
+     "id": "bounced|=|true",
+     "column": "bounced",
+     "op": "=",
+     "value": true,
+     "label": "bounced is yes"
+    },
+    {
+     "id": "bounced|=|false",
+     "column": "bounced",
+     "op": "=",
+     "value": false,
+     "label": "bounced is no"
+    },
+    {
+     "id": "opened_at|within_days|30",
+     "column": "opened_at",
+     "op": "within_days",
+     "value": 30,
+     "label": "opened within 30 days"
+    },
+    {
+     "id": "opened_at|within_days|90",
+     "column": "opened_at",
+     "op": "within_days",
+     "value": 90,
+     "label": "opened within 90 days"
+    },
+    {
+     "id": "open_client_class|=|apple_mpp_prefetch",
+     "column": "open_client_class",
+     "op": "=",
+     "value": "apple_mpp_prefetch",
+     "label": "open client class is apple mpp"
+    },
+    {
+     "id": "open_client_class|=|human",
+     "column": "open_client_class",
+     "op": "=",
+     "value": "human",
+     "label": "open client class is human"
+    },
+    {
+     "id": "clicked_at|within_days|30",
+     "column": "clicked_at",
+     "op": "within_days",
+     "value": 30,
+     "label": "clicked within 30 days"
+    },
+    {
+     "id": "clicked_at|within_days|90",
+     "column": "clicked_at",
+     "op": "within_days",
+     "value": 90,
+     "label": "clicked within 90 days"
+    },
+    {
+     "id": "click_target|=|energy_landingpage",
+     "column": "click_target",
+     "op": "=",
+     "value": "energy_landingpage",
+     "label": "energy landingpage"
+    },
+    {
+     "id": "click_target|=|heat_pump_article",
+     "column": "click_target",
+     "op": "=",
+     "value": "heat_pump_article",
+     "label": "heat pump article"
+    },
+    {
+     "id": "click_target|=|mobile_landingpage",
+     "column": "click_target",
+     "op": "=",
+     "value": "mobile_landingpage",
+     "label": "mobile landingpage"
+    },
+    {
+     "id": "click_target|=|service_landingpage",
+     "column": "click_target",
+     "op": "=",
+     "value": "service_landingpage",
+     "label": "service landingpage"
+    },
+    {
+     "id": "click_target|=|shop_landingpage",
+     "column": "click_target",
+     "op": "=",
+     "value": "shop_landingpage",
+     "label": "shop landingpage"
+    },
+    {
+     "id": "click_target|=|smart_living_landingpage",
+     "column": "click_target",
+     "op": "=",
+     "value": "smart_living_landingpage",
+     "label": "smart living landingpage"
+    },
+    {
+     "id": "converted_within_7d|=|true",
+     "column": "converted_within_7d",
+     "op": "=",
+     "value": true,
+     "label": "converted within 7d is yes"
+    },
+    {
+     "id": "converted_within_7d|=|false",
+     "column": "converted_within_7d",
+     "op": "=",
+     "value": false,
+     "label": "converted within 7d is no"
+    },
+    {
+     "id": "unsubscribed|=|true",
+     "column": "unsubscribed",
+     "op": "=",
+     "value": true,
+     "label": "unsubscribed is yes"
+    },
+    {
+     "id": "unsubscribed|=|false",
+     "column": "unsubscribed",
+     "op": "=",
+     "value": false,
+     "label": "unsubscribed is no"
+    }
+   ]
+  },
+  {
+   "id": "service_nba_feedback",
+   "label": "Agent feedback",
+   "operators": [
+    {
+     "id": "shown_at|within_days|30",
+     "column": "shown_at",
+     "op": "within_days",
+     "value": 30,
+     "label": "shown within 30 days"
+    },
+    {
+     "id": "shown_at|within_days|90",
+     "column": "shown_at",
+     "op": "within_days",
+     "value": 90,
+     "label": "shown within 90 days"
+    },
+    {
+     "id": "channel|=|chat",
+     "column": "channel",
+     "op": "=",
+     "value": "chat",
+     "label": "channel is chat"
+    },
+    {
+     "id": "channel|=|phone",
+     "column": "channel",
+     "op": "=",
+     "value": "phone",
+     "label": "channel is phone"
+    },
+    {
+     "id": "agent_action|=|accepted",
+     "column": "agent_action",
+     "op": "=",
+     "value": "accepted",
+     "label": "agent action is accepted"
+    },
+    {
+     "id": "agent_action|=|dismissed",
+     "column": "agent_action",
+     "op": "=",
+     "value": "dismissed",
+     "label": "agent action is dismissed"
+    },
+    {
+     "id": "agent_action|=|ignored",
+     "column": "agent_action",
+     "op": "=",
+     "value": "ignored",
+     "label": "agent action is ignored"
+    },
+    {
+     "id": "dismiss_reason|=|customer_already_has_product",
+     "column": "dismiss_reason",
+     "op": "=",
+     "value": "customer_already_has_product",
+     "label": "dismiss reason is owns product"
+    },
+    {
+     "id": "dismiss_reason|=|customer_upset",
+     "column": "dismiss_reason",
+     "op": "=",
+     "value": "customer_upset",
+     "label": "dismiss reason is customer upset"
+    },
+    {
+     "id": "dismiss_reason|=|no_time",
+     "column": "dismiss_reason",
+     "op": "=",
+     "value": "no_time",
+     "label": "dismiss reason is no time"
+    },
+    {
+     "id": "dismiss_reason|=|not_relevant",
+     "column": "dismiss_reason",
+     "op": "=",
+     "value": "not_relevant",
+     "label": "dismiss reason is not relevant"
+    },
+    {
+     "id": "offer_mentioned_to_customer|=|True",
+     "column": "offer_mentioned_to_customer",
+     "op": "=",
+     "value": "True",
+     "label": "offer mentioned to customer: yes"
+    },
+    {
+     "id": "offer_mentioned_to_customer|=|False",
+     "column": "offer_mentioned_to_customer",
+     "op": "=",
+     "value": "False",
+     "label": "offer mentioned to customer: no"
+    },
+    {
+     "id": "customer_reaction|=|annoyed",
+     "column": "customer_reaction",
+     "op": "=",
+     "value": "annoyed",
+     "label": "customer reaction is annoyed"
+    },
+    {
+     "id": "customer_reaction|=|declined",
+     "column": "customer_reaction",
+     "op": "=",
+     "value": "declined",
+     "label": "customer reaction is declined"
+    },
+    {
+     "id": "customer_reaction|=|interested",
+     "column": "customer_reaction",
+     "op": "=",
+     "value": "interested",
+     "label": "customer reaction is interested"
+    },
+    {
+     "id": "converted_within_14d|=|true",
+     "column": "converted_within_14d",
+     "op": "=",
+     "value": true,
+     "label": "converted within 14d is yes"
+    },
+    {
+     "id": "converted_within_14d|=|false",
+     "column": "converted_within_14d",
+     "op": "=",
+     "value": false,
+     "label": "converted within 14d is no"
+    }
+   ]
+  },
+  {
+   "id": "product_catalog",
+   "label": "Offer",
+   "operators": [
+    {
+     "id": "business_line|=|e_mobility",
+     "column": "business_line",
+     "op": "=",
+     "value": "e_mobility",
+     "label": "business line is e mobility"
+    },
+    {
+     "id": "business_line|=|energy",
+     "column": "business_line",
+     "op": "=",
+     "value": "energy",
+     "label": "business line is energy"
+    },
+    {
+     "id": "business_line|=|internet",
+     "column": "business_line",
+     "op": "=",
+     "value": "internet",
+     "label": "business line is internet"
+    },
+    {
+     "id": "business_line|=|mobile",
+     "column": "business_line",
+     "op": "=",
+     "value": "mobile",
+     "label": "business line is mobile"
+    },
+    {
+     "id": "business_line|=|service",
+     "column": "business_line",
+     "op": "=",
+     "value": "service",
+     "label": "business line is service"
+    },
+    {
+     "id": "business_line|=|shop",
+     "column": "business_line",
+     "op": "=",
+     "value": "shop",
+     "label": "business line is shop"
+    },
+    {
+     "id": "business_line|=|smart_living",
+     "column": "business_line",
+     "op": "=",
+     "value": "smart_living",
+     "label": "business line is smart living"
+    },
+    {
+     "id": "margin_class|=|high",
+     "column": "margin_class",
+     "op": "=",
+     "value": "high",
+     "label": "margin class is high"
+    },
+    {
+     "id": "margin_class|=|low",
+     "column": "margin_class",
+     "op": "=",
+     "value": "low",
+     "label": "margin class is low"
+    },
+    {
+     "id": "margin_class|=|medium",
+     "column": "margin_class",
+     "op": "=",
+     "value": "medium",
+     "label": "margin class is medium"
+    },
+    {
+     "id": "action_type|=|one_off",
+     "column": "action_type",
+     "op": "=",
+     "value": "one_off",
+     "label": "action type is one off"
+    },
+    {
+     "id": "action_type|=|retention",
+     "column": "action_type",
+     "op": "=",
+     "value": "retention",
+     "label": "action type is retention"
+    },
+    {
+     "id": "action_type|=|sales",
+     "column": "action_type",
+     "op": "=",
+     "value": "sales",
+     "label": "action type is sales"
+    },
+    {
+     "id": "action_type|=|service",
+     "column": "action_type",
+     "op": "=",
+     "value": "service",
+     "label": "action type is service"
+    },
+    {
+     "id": "action_type|=|upsell",
+     "column": "action_type",
+     "op": "=",
+     "value": "upsell",
+     "label": "action type is upsell"
+    }
+   ]
+  }
+ ]
+}
