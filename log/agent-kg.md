@@ -55,6 +55,9 @@ These are kept up to date and edited in place. Status values: `open`, `answered`
 | Q-KG-08 | P-EN-04 (GasAktiv) and P-IN-01 (Internet) are never generated (`DATA-MISSING`). Confirm this is acceptable for the hidden reference customers | Catalog coverage | MAINGAU mentor | decided-default | — |
 | Q-KG-09 | The marketing archetype draft (5 profiles) does not match the data (README K13). Use the rule-based archetypes in README §6.13 | UI must not show wrong ranges | — | closed | Archetypes A0–A5 with verified counts (26 Oct) |
 | Q-KG-10 | Generic offers by phone/SMS: MG-100112's generic StromAktiv call is +€14.8 (rate) / +€2.6 (uplift), not negative as D1 assumed (README K11) | Outcome of MG-100112 and of every no-profiling customer whose only channel is a call | Team | open | — |
+| Q-KG-11 | Agent NBA: please (a) change the evidence example in `nba/contracts.py` Signal.evidence from `order:SO-1#2` to `order:SO-1` (Order IDs are order_id now), and (b) consider an optional `ConsentItem.doi_at` so the consent-proof drawer can show the real double opt-in date (KG currently puts it only in the channel reason text) | Contract comment is wrong; consent proof in the UI | Agent NBA | open | — |
+| Q-KG-12 | Agent NBA: use `nba.kg.rules.check_tuple(state, offer_id, channel, policy)` for the override 409 and for `legacy_comparison.blocked_now_by`; do not re-implement gates | One source of truth for hard rules | Agent NBA | open | — |
+| Q-KG-13 | Agent NBA: `rank()` (34a9f5c) drops ΔCLV ≤ 0 silently and ranks all origins together. README §6.12 needs (a) dropped tuples added to `blocked` as `ECON-NONPOSITIVE` and (b) the tiers: signal/service tuples first; generic tuples for profiled customers only when no signal/service tuple has ΔCLV > 0 (`generic.fallback_for_profiled`). Without (b), MG-100023 would get a generic StromWärme (about +€24) instead of P-AS-01 | Team test MG-100023 → P-AS-01; need-first ranking | Agent NBA | open | — |
 
 ## Session entries
 
@@ -125,3 +128,100 @@ These are kept up to date and edited in place. Status values: `open`, `answered`
 - Agent NBA: contracts now include the worklist fields above.
 
 **Next session starts with:** fix the findings of the independent KG review (running), then K11 once the team decides.
+
+### Session 3 · 2026-10-26 16:10–17:10 Europe/Berlin · Claude Code (Opus) · branch feat/kg · commits ebf5ab0..(this commit)
+
+**Goal:** fix the confirmed findings of the independent KG review. The review was a workflow of 4 reviewers plus 4 adversarial verifiers: 17 findings confirmed (11 distinct issues), 3 refuted.
+
+**Done:**
+- `nba/data.py`: the cache key now includes a parser fingerprint (sha256 of `data.py` + the pandas version), and the pickle is written atomically. A stale cache had served NaN and string numbers (high severity).
+- `nba/kg/rules.py`:
+  - EXCL-AUTOSTROM-CANCELLED stays active whatever the K6 scope; `blocks_offer()` applies the scope per offer, so `e_mobility` no longer leaks P-AS-01.
+  - Per-channel `blocked` rows (`offer_id = "*"`, channel set, CONSENT-CHANNEL or CHANNEL-AVAILABLE).
+  - HOLDING-PRECONDITION rows for owned generic offers.
+  - S10 is reported as ignored without profiling consent.
+  - The real double opt-in date appears in the newsletter reason.
+  - New `check_tuple()` for overrides and the legacy comparison.
+- `nba/kg/predicates.py`:
+  - non-string `churn_drivers` is handled safely;
+  - the S11 detail is now factual (MG-100087: "no active MAINGAU electricity contract (EN-500096 is cancellation_pending)").
+- `nba/kg/graph.py`:
+  - channel and consent-type nodes are namespaced (no ID collision, no self-loop);
+  - Order nodes are keyed by `order_id`, so S3 evidence resolves;
+  - S10 evidence gets a Campaign node;
+  - HAS_SESSION edges are emitted;
+  - control rows use HELD_OUT instead of RECEIVED;
+  - the export links IN_ARCHETYPE and drops unused archetype nodes.
+- `nba/kg/paths.py`: the P-SV-01 offer node has no invalid `product:service` `ui_ref`.
+- Ontology, README §5.4, §5.6 and §6.11, and PLAN_KG synced. 12 new regression tests.
+
+**Verified:**
+- `pytest -q`: 37 passed.
+- `scripts/kg_report.py --graph`: 10,784 nodes and 17,989 edges, 0 orphan nodes, 0 dangling edges; RECEIVED 2,022 (= delivered), HELD_OUT 248 (= control), IN_ARCHETYPE 750.
+- Tuple counts unchanged (808 signal / 69 service / 6,343 generic): the fixes change reporting and the K6 alternative, not today's decisions.
+
+**Refuted findings (kept as is):**
+- The "no consented channel" row is not added when an exclusion is already active.
+- No data-quality flag for the `TK-open-complaint` event at T0. It only matters during replay.
+- `portal_sessions.session_start` and `mobile_contracts.min_term_end` stay strings, as README §5.1 specifies; consumers parse them.
+
+**Contract changes:** none in `nba/contracts.py`. Requests to Agent NBA: Q-KG-11 and Q-KG-12.
+
+**Issues / risks:** the shared folder `MAINGAU` still holds the stale pickle from 15:12. The new cache key ignores it automatically, so nothing needs deleting.
+
+**Next session starts with:** event replay (deep dive B) in `nba/kg/events.py`, unless the team re-prioritises. Then review Agent NBA's and Agent CARDS' first deliveries.
+
+
+### Session 4 · 2026-10-26 17:15–17:35 Europe/Berlin · Claude Code (Opus) · branch feat/kg · commits 99242f4..(this commit)
+
+**Goal:** speed up Agent CARDS and Agent NBA in parallel without touching their paths. The user asked for parallel help because CARDS is slow.
+
+**Done:**
+- First plan: take over `nba/profile/` from CARDS. Dropped it, because a directory listing (files not opened) of the CARDS folder showed CARDS had already written 13 files / about 925 lines there at 15:46–15:57, uncommitted. Ownership is unchanged.
+- `nba/kg/bundle.py`: `kg_bundle()` returns every KG output for one customer in one call; also `source_info()` and `COLUMN_SRC` (answers Q-CARDS-12 on the data side).
+- `scripts/export_preview.py`: real-data preview for the UI:
+  - `index.json`: 750 `IndexRow`s with real triage, ranked P1→P5 by score; `chosen_offer` = "PENDING";
+  - `summary.json`: counts, sources, `column_src`, `value_date`;
+  - `kg/<id>.json`: the KG part of each card;
+  - every object is pydantic-validated.
+- README §5.6 and §8, plus both prompts, point to it.
+
+**Verified:**
+- `pytest -q`: 40 passed.
+- Preview for 750 customers in 0.6 s: 20 MB in total (`index.json` 436 KB, about 25 KB per customer file).
+- Top of the worklist: MG-100190, MG-100087, MG-100405 (P1, A4).
+
+**Handoff:**
+- Agent CARDS: run `scripts/export_preview.py --out web/public/data` after merging `origin/main`; mock only valuation, chosen and content.
+- Agent NBA: use `kg_bundle()` and `check_tuple()` in `assemble` and the API.
+
+**Next session starts with:** review `feat/nba` (pushed at 34a9f5c), then event replay.
+
+### Session 5 · 2026-10-26 17:35–17:45 Europe/Berlin · Claude Code (Opus) · branch feat/kg · review only
+
+**Goal:** review Agent NBA's first push (`origin/feat/nba` 34a9f5c), as the reviewer role in PLAN_KG §10.
+
+**Done:**
+- Ran the branch in a detached scratch worktree, outside `MAINGAU-nba`, and removed it afterwards.
+- Read `value.py`, `propensity.py`, `rank.py`, `churn.py` and `config/nba.yaml` against README §6.5–§6.6.
+
+**Verified:**
+- `pytest -q` on 34a9f5c: 43 passed.
+- Correct against the README:
+  - model basis (`clv_now_model`);
+  - one-off margin counted once;
+  - P-EN-02 removes only the 0.10 driver;
+  - P-SV-01 keeps 0.95 for cancellation pending and subtracts €15;
+  - reject penalty only for open complaint or dunning;
+  - backoff L3→L0 with `n_min` 30;
+  - rate mode shrinks with 0.034·30 (raw 3.4% at L0);
+  - uplift uses the offer's own control only when n ≥ 30;
+  - confidence high/medium only at L3;
+  - unknown churn drivers raise instead of guessing.
+
+**Issues / risks:**
+- Q-KG-13: tiers and `ECON-NONPOSITIVE` rows are missing (expected in `assemble`).
+- The branch is based on 30dc4c9. It must merge `origin/main` (f23a28f) to get `kg_bundle`, `check_tuple`, the cache fix and the K6 fix.
+
+**Next session starts with:** event replay (`nba/kg/events.py`, deep dive B).
+

@@ -41,3 +41,18 @@ def test_schema_files_match_contracts():
     for name, model in {"customer_card": CustomerCard, "index_row": IndexRow}.items():
         on_disk = json.loads((root / f"{name}.schema.json").read_text(encoding="utf-8"))
         assert on_disk == model.model_json_schema(), f"run scripts/export_schema.py ({name})"
+
+
+def test_cache_key_includes_parser_fingerprint():
+    from nba.data import DEFAULT_WORKBOOK, _cache_key
+
+    key = _cache_key(DEFAULT_WORKBOOK)
+    assert key.startswith("workbook-") and len(key.split("-")) == 4
+
+
+def test_no_nan_in_typed_tables(tables):
+    import math
+
+    for name, df in tables.items():
+        for col in df.columns:
+            assert not any(isinstance(v, float) and math.isnan(v) for v in df[col]), (name, col)

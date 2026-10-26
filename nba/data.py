@@ -6,9 +6,11 @@ re-implement parsing.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import math
+import os
 import pickle
 import re
 from datetime import datetime
@@ -103,15 +105,21 @@ def _clean_sheet(name: str, df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+def _cache_key(path: Path) -> str:
+    """Workbook identity plus a parser fingerprint, so a changed parser never reads an old pickle."""
+    st = path.stat()
+    parser = hashlib.sha256(Path(__file__).read_bytes() + pd.__version__.encode()).hexdigest()[:12]
+    return f"workbook-{st.st_mtime_ns}-{st.st_size}-{parser}.pkl"
+
+
 def load_workbook(path: str | Path = DEFAULT_WORKBOOK, use_cache: bool = True) -> dict[str, pd.DataFrame]:
     """Every sheet as a DataFrame of Python values (None, bool, int/float, datetime, str).
 
-    Raw rows are kept; guest shop lines get is_guest = True. Parsed tables are cached
-    in out/.cache keyed by the workbook's mtime and size.
+    Raw rows are kept; guest shop lines get is_guest = True. Parsed tables are cached in
+    out/.cache, keyed by the workbook's mtime and size and a fingerprint of this parser.
     """
     path = Path(path)
-    st = path.stat()
-    cache = CACHE_DIR / f"workbook-{st.st_mtime_ns}-{st.st_size}.pkl"
+    cache = CACHE_DIR / _cache_key(path)
     if use_cache and cache.exists():
         with cache.open("rb") as fh:
             return pickle.load(fh)
@@ -119,8 +127,10 @@ def load_workbook(path: str | Path = DEFAULT_WORKBOOK, use_cache: bool = True) -
     tables = {name: _clean_sheet(name, df) for name, df in raw.items()}
     if use_cache:
         CACHE_DIR.mkdir(parents=True, exist_ok=True)
-        with cache.open("wb") as fh:
+        tmp = cache.with_suffix(f".{os.getpid()}.tmp")
+        with tmp.open("wb") as fh:
             pickle.dump(tables, fh)
+        tmp.replace(cache)  # atomic: readers never see a half-written pickle
     return tables
 
 

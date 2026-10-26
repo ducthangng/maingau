@@ -16,8 +16,9 @@ if TYPE_CHECKING:
     from nba.kg.policy import Policy
     from nba.state import CustomerState
 
+# product_catalog.business_line -> Products field of the left card (README §5.4)
 LINE_OF = {"energy": "energy", "mobile": "mobile", "internet": "internet", "smart_living": "smart_living",
-           "shop": "shop", "e_mobility": "autostrom", "service": "service"}
+           "shop": "shop", "e_mobility": "autostrom"}
 
 
 def _node(type_: str, id_: str, label: str | None = None, ui_ref: str | None = None) -> PathStep:
@@ -49,8 +50,8 @@ def explain(state: "CustomerState", candidate: Candidate, policy: "Policy",
     else:
         steps.append(PathStep(kind="edge", type="GENERIC_OFFER", label="non-personalised catalog offer"))
 
-    steps += [_node("Offer", offer.id, offer.name, f"product:{LINE_OF.get(offer.business_line, offer.business_line)}"),
-              _edge("DELIVERED_VIA")]
+    offer_ref = None if offer.action_type == "service" else f"product:{LINE_OF[offer.business_line]}"
+    steps += [_node("Offer", offer.id, offer.name, offer_ref), _edge("DELIVERED_VIA")]
     if candidate.channel == policy.service_channel:
         steps.append(_node("Channel", candidate.channel, "service agent (service contact, no marketing consent needed)"))
         return steps

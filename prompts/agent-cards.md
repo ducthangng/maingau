@@ -147,6 +147,7 @@ Below the alternatives:
 
 - **Vite + React + TypeScript + Tailwind CSS.** Use React Router for routes: `/` (worklist), `/customer/:id`, `/groups`.
 - **Static site deployable on Vercel.** Add a `vercel.json` with an SPA rewrite. There is no backend.
+- **Real data before valuation exists:** Agent KG's `python scripts/export_preview.py --out web/public/data` (run from your folder after `git merge origin/main`) writes `index.json` (750 `IndexRow`s with real triage, ranked; `chosen_offer` is `"PENDING"` and the valuation fields are null), `summary.json` (counts, `sources`, `column_src`, `value_date`) and `kg/<id>.json` (signals, candidates, blocked, consent, channels, exclusions, data_quality). Use it instead of hand-made mocks for those fields; mock only valuation, chosen and content until Agent NBA's export lands.
 - **Data:** read JSON from `public/data/`:
   - `index.json` is an `IndexRow[]`;
   - `summary.json` is a `Summary`;

@@ -8,8 +8,8 @@ node_types:
   SignalType:   {layer: policy, id: "S<n>",            props: [label, strength, purpose]}
   Need:         {layer: policy, id: "N-<NAME>",        props: [label_en, label_de]}
   Offer:        {layer: policy, id: "<product_id>",    props: [product_name, business_line, action_type, generic]}
-  Channel:      {layer: policy, id: "<channel>",       props: [consent, requires_field]}
-  ConsentType:  {layer: policy, id: "<consent_type>",  props: []}
+  Channel:      {layer: policy, id: "channel:<channel>",     props: [consent, requires_field]}
+  ConsentType:  {layer: policy, id: "consent:<consent_type>", props: []}
   ExclusionRule: {layer: policy, id: "EXCL-<NAME>",    props: [label, blocks_action_types]}
   Archetype:    {layer: policy, id: "A<n>",            props: [name]}
   # ---- customer layer
@@ -17,13 +17,14 @@ node_types:
   Contract:     {layer: customer, id: "<contract_id>", subtypes: [Energy, Mobile, Autostrom],
                  source: [energy_contracts, mobile_contracts, autostrom_contracts]}
   Device:       {layer: customer, id: "<device_id>",                   source: hems_devices}
-  Order:        {layer: customer, id: "<order_id>#<line>",             source: shop_orders}
+  Order:        {layer: customer, id: "<order_id>",                    source: shop_orders, note: "order_id is unique per order line"}
   Ticket:       {layer: customer, id: "<ticket_id>",                   source: service_interactions}
   Session:      {layer: customer, id: "<session_id>",                  source: charge_sessions,
                  note: "only sessions cited as signal evidence become nodes"}
   Consent:      {layer: customer, id: "<customer_id>:<consent_type>",  source: consent_status}
   Exclusion:    {layer: customer, id: "<customer_id>:<rule_id>",       source: "rule instance"}
   Action:       {layer: customer, id: "<action_id>",                   source: nba_action_history}
+  Campaign:     {layer: customer, id: "campaign:<campaign_id>",        source: newsletter_campaigns, note: "evidence of S10 clicks"}
   Signal:       {layer: customer, id: "<customer_id>:<signal_id>",     source: "signal instance"}
 
 edge_types:
@@ -38,10 +39,12 @@ edge_types:
   DELIVERED_VIA: {from: Offer, to: Channel}
   REQUIRES:      {from: [Channel, Offer], to: [ConsentType, Consent]}
   BLOCKS:        {from: [ExclusionRule, Exclusion], to: Offer}
-  RECEIVED:      {from: Customer, to: Action}
+  RECEIVED:      {from: Customer, to: Action, note: "delivered actions only"}
+  HELD_OUT:      {from: Customer, to: Action, note: "control-group decisions that were not sent"}
   RESPONDED:     {from: Customer, to: Action, props: [response]}
   # extensions (README §6.11)
   INSTANCE_OF:   {from: [Signal, Exclusion, Consent], to: [SignalType, ExclusionRule, ConsentType]}
-  EVIDENCED_BY:  {from: Signal, to: [Contract, Order, Ticket, Session, Device]}
+  REINFORCES:    {from: [SignalType, Signal], to: Need, note: "S10 adds evidence without creating tuples"}
+  EVIDENCED_BY:  {from: Signal, to: [Contract, Order, Ticket, Session, Device, Campaign]}
   HAS_SESSION:   {from: Contract, to: Session}
   IN_ARCHETYPE:  {from: Customer, to: Archetype}

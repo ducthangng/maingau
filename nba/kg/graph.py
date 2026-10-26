@@ -3,6 +3,11 @@
 `customer_graph` builds a NetworkX MultiDiGraph with the policy layer and one customer's
 instance layer. `export_graph` writes node/edge tables (JSONL) for all customers — the shape a
 Delta table `kg_nodes` / `kg_edges` would have on Databricks.
+
+Node IDs: policy nodes use their policy ID (S1, N-HEAT-PUMP, P-EN-03, EXCL-DUNNING, A2), except
+channels and consent types, which share names and are namespaced (`channel:email`,
+`consent:marketing_email`). Instance nodes use source IDs (contract_id, device_id, order_id,
+ticket_id, session_id, action_id) or `<customer_id>:<rule|signal|consent>`.
 """
 
 from __future__ import annotations
@@ -18,6 +23,14 @@ from nba.kg.signals import extract_signals
 from nba.state import CustomerState
 
 
+def ch_id(channel: str) -> str:
+    return f"channel:{channel}"
+
+
+def consent_id(ctype: str) -> str:
+    return f"consent:{ctype}"
+
+
 def policy_graph(policy: Policy) -> nx.MultiDiGraph:
     g = nx.MultiDiGraph()
     for nid, n in policy.needs.items():
@@ -26,21 +39,21 @@ def policy_graph(policy: Policy) -> nx.MultiDiGraph:
         g.add_node(s.id, type="SignalType", label=s.label, strength=s.strength, purpose=s.purpose)
         for n in s.indicates:
             g.add_edge(s.id, n, type="INDICATES")
+        for n in s.reinforces:
+            g.add_edge(s.id, n, type="REINFORCES")
+    for ctype in sorted(CONSENT_TYPES):
+        g.add_node(consent_id(ctype), type="ConsentType", label=ctype)
+    g.add_node(ch_id(policy.service_channel), type="Channel", label="service agent")
+    for c in policy.channels.values():
+        g.add_node(ch_id(c.id), type="Channel", label=c.id)
+        g.add_edge(ch_id(c.id), consent_id(c.consent), type="REQUIRES")
     for o in policy.offers.values():
         g.add_node(o.id, type="Offer", label=o.name, action_type=o.action_type, generic=o.generic)
         for n in o.addresses:
             g.add_edge(n, o.id, type="ADDRESSED_BY")
-        if o.action_type == "service":
-            g.add_edge(o.id, policy.service_channel, type="DELIVERED_VIA")
-        else:
-            for ch in policy.channels:
-                g.add_edge(o.id, ch, type="DELIVERED_VIA")
-    g.add_node(policy.service_channel, type="Channel", label="service agent")
-    for ctype in sorted(CONSENT_TYPES):
-        g.add_node(ctype, type="ConsentType", label=ctype)
-    for c in policy.channels.values():
-        g.add_node(c.id, type="Channel", label=c.id)
-        g.add_edge(c.id, c.consent, type="REQUIRES")
+        targets = [policy.service_channel] if o.action_type == "service" else list(policy.channels)
+        for ch in targets:
+            g.add_edge(o.id, ch_id(ch), type="DELIVERED_VIA")
     for e in policy.exclusions.values():
         g.add_node(e.id, type="ExclusionRule", label=e.label)
         for o in policy.offers.values():
@@ -62,10 +75,9 @@ def customer_graph(state: CustomerState, policy: Policy, archetype: str | None =
     for r in state.rows["hems_devices"]:
         g.add_node(r["device_id"], type="Device", device_type=r.get("device_type"), status=r.get("connection_status"))
         g.add_edge(cid, r["device_id"], type="OWNS_DEVICE")
-    for i, r in enumerate(state.rows["shop_orders"]):
-        oid = f"{r['order_id']}#{i}"
-        g.add_node(oid, type="Order", product=r.get("product_name"), status=r.get("order_status"))
-        g.add_edge(cid, oid, type="PLACED")
+    for r in state.rows["shop_orders"]:
+        g.add_node(r["order_id"], type="Order", product=r.get("product_name"), status=r.get("order_status"))
+        g.add_edge(cid, r["order_id"], type="PLACED")
     for r in state.rows["service_interactions"]:
         g.add_node(r["ticket_id"], type="Ticket", category=r.get("category"), status=r.get("status"))
         g.add_edge(cid, r["ticket_id"], type="RAISED")
@@ -73,40 +85,56 @@ def customer_graph(state: CustomerState, policy: Policy, archetype: str | None =
         nid = f"{cid}:{ctype}"
         g.add_node(nid, type="Consent", status=ci.effective_status)
         g.add_edge(cid, nid, type="HOLDS")
-        g.add_edge(nid, ctype, type="INSTANCE_OF")
+        g.add_edge(nid, consent_id(ctype), type="INSTANCE_OF")
     for r in state.rows["nba_action_history"]:
         g.add_node(r["action_id"], type="Action", offer=r.get("offer_id"), channel=r.get("channel"))
-        g.add_edge(cid, r["action_id"], type="RECEIVED")
-        if r.get("response") in ("clicked", "viewed") or r.get("converted_within_14d"):
-            g.add_edge(cid, r["action_id"], type="RESPONDED", response=r.get("response"))
+        if r.get("delivery_status") == "delivered":
+            g.add_edge(cid, r["action_id"], type="RECEIVED")
+            if r.get("response") in ("clicked", "viewed") or r.get("converted_within_14d"):
+                g.add_edge(cid, r["action_id"], type="RESPONDED", response=r.get("response"))
+        else:
+            g.add_edge(cid, r["action_id"], type="HELD_OUT")  # control group: decided but not sent
     for rule_id, hit in active_exclusions(state, policy):
         nid = f"{cid}:{rule_id}"
         g.add_node(nid, type="Exclusion", detail=hit.detail)
         g.add_edge(nid, rule_id, type="INSTANCE_OF")
+    sessions = {r["session_id"]: r for r in state.rows["charge_sessions"]}
     for s in extract_signals(state, policy):
         nid = f"{cid}:{s.id}"
         g.add_node(nid, type="Signal", detail=s.detail, date=s.date)
         g.add_edge(cid, nid, type="EMITTED")
         g.add_edge(nid, s.id, type="INSTANCE_OF")
         for n in s.needs:
-            g.add_edge(nid, n, type="INDICATES")
+            g.add_edge(nid, n, type="REINFORCES" if policy.signals[s.id].reinforces else "INDICATES")
         for ref in s.evidence:
-            target = ref.split(":", 1)[1]
-            if ref.startswith("session:"):
-                g.add_node(target, type="Session")
-            if g.has_node(target):
-                g.add_edge(nid, target, type="EVIDENCED_BY")
+            kind, target = ref.split(":", 1)
+            if kind == "session":
+                row = sessions.get(target, {})
+                g.add_node(target, type="Session", status=row.get("session_status"), started_at=row.get("started_at"))
+                if row.get("contract_id") and g.has_node(row["contract_id"]):
+                    g.add_edge(row["contract_id"], target, type="HAS_SESSION")
+            elif kind == "click":
+                target = f"campaign:{target}"
+                g.add_node(target, type="Campaign")
+            g.add_edge(nid, target, type="EVIDENCED_BY")
     if archetype:
         g.add_edge(cid, archetype, type="IN_ARCHETYPE")
     return g
 
 
-def export_graph(states: dict[str, CustomerState], policy: Policy, out_dir: str | Path) -> tuple[int, int]:
-    """Write kg_nodes.jsonl / kg_edges.jsonl: the policy layer once, then each customer's instance layer."""
+def export_graph(states: dict[str, CustomerState], policy: Policy, out_dir: str | Path,
+                 archetypes: dict[str, str] | None = None) -> tuple[int, int]:
+    """Write kg_nodes.jsonl / kg_edges.jsonl: the policy layer once, then each customer's instance layer.
+
+    Pass `archetypes` (customer_id -> A0..A5) to link customers to archetype nodes; without it the
+    archetype nodes are left out so the export has no orphans.
+    """
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     base = policy_graph(policy)
-    policy_ids = set(base.nodes)
+    used = set((archetypes or {}).values())
+    base.remove_nodes_from([a for a in policy.archetypes if a not in used])  # no orphan archetype nodes
+    policy_ids = set(policy_graph(policy).nodes)
     n_nodes = n_edges = 0
     with (out / "kg_nodes.jsonl").open("w", encoding="utf-8") as fn, (out / "kg_edges.jsonl").open("w", encoding="utf-8") as fe:
         def write(g, nodes, edges):
@@ -119,9 +147,11 @@ def export_graph(states: dict[str, CustomerState], policy: Policy, out_dir: str 
                 n_edges += 1
 
         write(base, sorted(base.nodes), base.edges(data=True))
+        seen: set[str] = set()
         for cid in sorted(states):
-            g = customer_graph(states[cid], policy)
-            instance = [n for n in g.nodes if n not in policy_ids]
+            g = customer_graph(states[cid], policy, (archetypes or {}).get(cid))
+            instance = [n for n in g.nodes if n not in policy_ids and n not in seen]
+            seen.update(instance)
             edges = [(u, v, a) for u, v, a in g.edges(data=True) if u not in policy_ids or v not in policy_ids]
             write(g, instance, edges)
     return n_nodes, n_edges

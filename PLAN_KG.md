@@ -98,7 +98,7 @@ The earlier `PLAN_KG.md` assumed deep dive A, rdflib/SPARQL and Streamlit. The t
 
 Exact definitions are in README §6.3 (S1–S13). Implementation notes:
 - **Dates:** `eval_time.date()` is the reference. Windows are (eval − N days, eval].
-- **Evidence refs:** `contract:<id>`, `order:<order_id>#<n>`, `ticket:<id>`, `session:<id>`, `device:<id>`, `click:<campaign_id>`.
+- **Evidence refs:** `contract:<id>`, `order:<order_id>`, `ticket:<id>`, `session:<id>`, `device:<id>`, `click:<campaign_id>`. Every ref resolves to a graph node (`tests/test_kg_graph.py`).
 - **S10 reinforces only:** it attaches to an existing N-HEAT-PUMP / N-ENERGY-MANAGEMENT signal and never creates a tuple.
 - **Counts** (README §6.3, `tests/test_kg_signals.py`): S1 12, S2 2 (MG-100009, MG-100659), S3 16, S4 143, S5 11, S6 80, S7 66, S8 33, S9 48, S10 33, S11 161, S12 29, S13 39.
 

@@ -2,7 +2,7 @@
 
 import re
 
-UI_REF = re.compile(r"^(header|value|product:\w+|consent:\w+|exclusion:[\w-]+|signal:S\d+|timeline:.+|trend:\w+)$")
+UI_REF = re.compile(r"^(header|value|product:(energy|autostrom|mobile|shop|smart_living|internet)|consent:\w+|exclusion:[\w-]+|signal:S\d+|timeline:.+|trend:\w+)$")
 
 
 def test_paths_are_well_formed(kg_all):
