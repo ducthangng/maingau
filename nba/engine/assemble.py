@@ -25,7 +25,11 @@ def value_candidate(candidate, state, cfg, *, p_scale=1.0, margin_scale=1.0):
     p = replace(p, p_accept=min(1.0, max(0.0, p.p_accept * p_scale)))
     valuation = value(candidate, state, p, cfg, margin_scale=margin_scale)
     src = p.source
-    if src.mode == "assumption":
+    if p.baseline_level.startswith("override:"):
+        _, key, case = p.baseline_level.split(":", 2)
+        evidence = (f"Geprüfte Annahme {p.p_accept:.1%} für {key} aus Fix-Fall {case} (Feedback-Schleife); "
+                    f"Evidenz {src.conv_treated}/{src.n_treated} vs Kontrolle {src.conv_control}/{src.n_control}")
+    elif src.mode == "assumption":
         evidence = f"Service-Erfolg: Annahme {p.p_accept:.1%}; keine historischen Beobachtungen"
     else:
         evidence = (f"Annahmequote {src.conv_treated}/{src.n_treated}, Ebene {src.level}, Modus {src.mode}; "

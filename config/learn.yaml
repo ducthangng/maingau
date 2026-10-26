@@ -1,0 +1,31 @@
+# Feedback loop settings (nba/learn). A pattern is judged against its control group, never by
+# raw conversions alone: an offer that converts people who would have bought anyway is not "good".
+learn_version: l-0.1
+
+# Beta priors: treated rows shrink toward the global treated rate, control rows toward the global
+# control rate, each with this pseudo-count. The rates themselves are computed from the history.
+prior_strength: 30
+
+# Traffic light per pattern (offer, offer × channel).
+status:
+  min_treated: 30            # below this a pattern is always "unclear"
+  green_p_positive: 0.90     # P(uplift > 0) at or above: works, record it and continue
+  red_p_positive: 0.15       # P(uplift > 0) at or below: probably harmful or useless, open a fix case
+  red_zero_response_n: 100   # also red: this many sends with zero conversions
+
+# Diagnosis: a subgroup (target signal, channel, tone, content variant) counts as evidence only
+# with this many treated rows, and a split "explains" the failure when the subgroups differ by
+# at least this much in P(uplift > 0).
+diagnosis:
+  min_subgroup: 5
+  min_contrast: 0.30
+
+# Soft signals: shown as evidence, never a trigger on their own (agent pilot, service context).
+harm:
+  min_feedback: 10
+  watch_rate: 0.35           # share of agent suggestions ending in customer_upset or annoyed
+
+# README §9 reference customers. A fix option that changes one of them is flagged in its backtest,
+# because the jury checks these (e.g. MG-100023 is the agreed P-AS-01 case).
+reference_customers: [MG-100051, MG-100060, MG-100096, MG-100186, MG-100068, MG-100023, MG-100112,
+                      MG-100009, MG-100659, MG-100035, MG-100087, MG-100004]

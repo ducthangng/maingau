@@ -82,6 +82,11 @@ def load_config(tables=None, path: str | Path = REPO / "config" / "nba.yaml", *,
     for key in ("p_service_success", "rate_prior_mean"):
         if not 0 <= number(settings.get(key), f"config.nba.{key}") <= 1:
             raise ValueError(f"{key} must be in [0, 1]")
+    for key, o in (settings.get("p_overrides") or {}).items():
+        if not isinstance(o, dict) or not 0 <= number(o.get("p"), f"config.nba.p_overrides.{key}.p") <= 1:
+            raise ValueError(f"p_overrides.{key}.p must be in [0, 1]")
+        if not o.get("case") or not o.get("approved_by"):
+            raise ValueError(f"p_overrides.{key} needs the fix case and the reviewer (approved_by)")
     dates = sorted({r["clv_calc_date"].date().isoformat()
                     for r in tables["customer_value"].to_dict("records") if r.get("clv_calc_date")})
     cfg = EngineConfig(

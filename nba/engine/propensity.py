@@ -36,7 +36,24 @@ class HistoryIndex:
                     self.treated[key][1] += converted
 
 
+def override_for(offer_id, channel, tone, cfg: EngineConfig):
+    """A reviewer-approved p from a feedback-loop fix case (config/nba.yaml p_overrides), most specific first."""
+    overrides = cfg.settings.get("p_overrides") or {}
+    for key in (f"{offer_id}|{channel}|{tone}", f"{offer_id}|*|{tone}", f"{offer_id}|{channel}", offer_id):
+        if key in overrides:
+            return key, overrides[key]
+    return None
+
+
 def p_accept(offer_id, channel, tone, history, cfg: EngineConfig, *, generic=False) -> Propensity:
+    found = override_for(offer_id, channel, tone, cfg)
+    if found:
+        key, o = found
+        p = float(o["p"])
+        return Propensity(p, "low", PSource(mode="assumption", level="assumption", n_treated=int(o.get("n_treated", 0)),
+                                           conv_treated=int(o.get("conv_treated", 0)), n_control=int(o.get("n_control", 0)),
+                                           conv_control=int(o.get("conv_control", 0))),
+                          p, float(o.get("uplift", 0.0)), f"override:{key}:{o.get('case', '')}")
     if offer_id == "P-SV-01":
         p = float(cfg.settings["p_service_success"])
         return Propensity(p, "low", PSource(mode="assumption", level="assumption"), p, 0.0, "assumption")
