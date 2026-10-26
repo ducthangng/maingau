@@ -53,6 +53,11 @@ export function clearDecisions() {
   write([]);
 }
 
+/** Delete one decision (e.g. an override the reviewer takes back); the previous one applies again. */
+export function removeDecision(id: string) {
+  write(read().filter((d) => d.id !== id));
+}
+
 function subscribe(cb: () => void) {
   window.addEventListener(EVENT, cb);
   window.addEventListener("storage", cb);

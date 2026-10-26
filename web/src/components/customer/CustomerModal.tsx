@@ -1,50 +1,38 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { CalendarClock, ExternalLink, Package, User, X, type LucideIcon } from "lucide-react";
+import { CalendarClock, ExternalLink, User, X, type LucideIcon } from "lucide-react";
 import type { CustomerCard, Products } from "../../types/contracts";
 import { loadCard, useLoad } from "../../lib/data";
-import { CHANNEL_LABEL, eur, isMissing, pct } from "../../lib/format";
+import { mockName } from "../../lib/customerMock";
+import { eur } from "../../lib/format";
 import { TIER_LABEL, TierChip } from "../Chips";
 import { FactValue } from "../Source";
-import { RuleChip, toneLabel } from "../nba/ui";
+import { toneLabel } from "../nba/ui";
 import { PRODUCT_META } from "../profile/Products";
 import { num } from "../profile/shared";
-import { CHANNEL_ICON, FLAG_META, FlagIcon, RiskMeter, Signed, ValueBar, dirOf } from "../viz";
-import ActionGraph from "./ActionGraph";
-import { Label, SignalChip } from "./parts";
+import { FLAG_META, FlagIcon } from "../viz";
+import Interaction from "./Interaction";
+import NbaPanel from "./NbaPanel";
+import { Label } from "./parts";
 
-// Action-first pop-up opened from the worklist. Left: only the facts the decision depends on, as
-// icons and meters. Right: the action graph (history → trigger → options → decision, see ActionGraph).
+// Action-first pop-up opened from the worklist. Left: who the customer is and how they have dealt
+// with us. Right: hard rules, then the ranked next best actions (see NbaPanel).
 // Everything else stays on the full customer page. Display only, like the cards.
 
 /* ---------------------------------------------------------------- left: who */
 
-// One-word labels so the icon tiles stay on one line; the full name is in the tooltip.
-const SHORT: Record<string, string> = {
-  newsletter_email: "News",
-  email: "E-mail",
-  portal_popup: "Portal",
-  app_push: "App",
-  sms: "SMS",
-  outbound_call: "Phone",
-  smart_living: "Smart",
-  autostrom: "Auto",
-};
+// One-word labels so the product tiles stay on one line; the full name is in the tooltip.
+const SHORT: Record<string, string> = { smart_living: "Smart", autostrom: "Auto" };
 
-function IconTile({ icon: Icon, label, state, title }: { icon: LucideIcon; label: string; state: "on" | "maybe" | "off"; title?: string }) {
-  const cls =
-    state === "on"
-      ? "bg-neutral-900 text-white"
-      : state === "maybe"
-        ? "bg-white text-accent-600 ring-1 ring-inset ring-accent-500"
-        : "bg-neutral-100 text-neutral-300";
+/** Product tile: green when the customer uses the product, white when not. */
+function IconTile({ icon: Icon, label, state, title }: { icon: LucideIcon; label: string; state: "held" | "free"; title?: string }) {
+  const cls = state === "held" ? "bg-emerald-500 text-white" : "bg-white text-neutral-400 ring-1 ring-inset ring-neutral-200";
   return (
     <span className="flex w-11 flex-col items-center gap-1" title={title ?? label}>
-      <span className={`relative grid size-8 place-items-center rounded-lg ${cls}`}>
+      <span className={`grid size-8 place-items-center rounded-lg ${cls}`}>
         <Icon size={15} aria-hidden />
-        {state === "off" && <span className="absolute h-[1.5px] w-6 rotate-45 rounded bg-neutral-300" aria-hidden />}
       </span>
-      <span className={`w-full truncate text-center text-[10px] ${state === "off" ? "text-neutral-400" : "text-neutral-600"}`}>{label}</span>
+      <span className="w-full truncate text-center text-[10px] text-neutral-600">{label}</span>
     </span>
   );
 }
@@ -54,20 +42,8 @@ function ProfileColumn({ card }: { card: CustomerCard }) {
   const h = card.profile.header;
   const vr = card.profile.value_risk;
   const t = card.triage;
-  const signals = card.signals ?? [];
   const products = card.profile.products;
-  const channels = (card.profile.channels ?? []).filter((c) => c.channel !== "service_agent");
-  const exclusions = (card.profile.exclusions ?? []).filter((e) => e.active);
   const d = h.digital ?? {};
-  const pctl = vr.percentiles?.clv_all;
-  const churn = vr.churn_prob_12m?.v as number | null | undefined;
-  const drivers = vr.churn_drivers ?? [];
-  const driverSum = drivers.reduce((a, x) => a + (x.delta ?? 0), 0);
-  const allowed = channels.filter((c) => c.allowed);
-  const lines = Object.keys(PRODUCT_META) as (keyof Products)[];
-  const held = lines.filter((l) => products[l]?.held).map((l) => PRODUCT_META[l].label);
-  const opps = lines.filter((l) => !products[l]?.held && products[l]?.opportunity).map((l) => PRODUCT_META[l].label);
-  const firstReason = t.urgency_reasons?.[0]?.replace(/\s*\[[A-Z0-9-]+\]/g, "");
 
   return (
     <aside className="flex min-h-0 flex-col bg-neutral-50">
@@ -77,11 +53,11 @@ function ProfileColumn({ card }: { card: CustomerCard }) {
             <User size={28} />
           </div>
           <div className="min-w-0">
-            <h2 id="customer-modal-title" className="text-lg font-semibold tracking-tight tabular-nums">
-              {card.customer_id}
+            <h2 id="customer-modal-title" className="text-lg font-semibold tracking-tight">
+              {mockName(card.customer_id)}
             </h2>
             <p className="truncate text-sm text-neutral-600" title={t.archetype.reason}>
-              {t.archetype.name}
+              {t.archetype.name} <span className="text-neutral-400 tabular-nums">· {card.customer_id}</span>
             </p>
           </div>
         </div>
@@ -104,12 +80,6 @@ function ProfileColumn({ card }: { card: CustomerCard }) {
             {toneLabel(h.tone.value)}
           </span>
         </div>
-        <p className="-mt-3 text-xs leading-relaxed text-neutral-500">
-          {firstReason && firstReason !== "no trigger" ? <>On the list because {firstReason}. </> : <>No urgent trigger. </>}
-          Segment: {t.archetype.reason}. Address as {toneLabel(h.tone.value)}
-          {h.tone.method === "default" ? " (default)" : ` (from ${h.tone.method})`}.
-        </p>
-
         <dl className="grid grid-cols-2 gap-x-5 gap-y-3 rounded-xl bg-white p-4 text-sm ring-1 ring-neutral-200">
           {(
             [
@@ -128,48 +98,6 @@ function ProfileColumn({ card }: { card: CustomerCard }) {
           ))}
         </dl>
 
-        {/* Value and risk as meters with a direction. */}
-        <div className="grid grid-cols-2 gap-5">
-          <div className="space-y-1.5">
-            <Label>CLV</Label>
-            <div className="text-sm font-semibold">
-              {isMissing(pctl) ? (
-                <FactValue fact={vr.clv_eur} sources={s} format={(v: number) => eur(v)} />
-              ) : (
-                <Signed dir={dirOf(pctl, 50)} title={`P${num(pctl)} of all customers (P50 = median)`}>
-                  <FactValue fact={vr.clv_eur} sources={s} format={(v: number) => eur(v)} />
-                </Signed>
-              )}
-            </div>
-            {!isMissing(pctl) && <ValueBar value={pctl} max={100} tone="muted" />}
-            {!isMissing(pctl) && (
-              <p className="text-xs text-neutral-500">
-                {pctl >= 50 ? `Top ${num(100 - pctl)}% of customers` : `Below ${num(100 - pctl)}% of customers`}
-              </p>
-            )}
-          </div>
-          <div className="space-y-1.5">
-            <Label>Churn 12m</Label>
-            <div className="text-sm font-semibold">
-              {drivers.length ? (
-                <Signed
-                  dir={dirOf(driverSum)}
-                  good="down"
-                  title={drivers.map((x) => `${(x.delta ?? 0) > 0 ? "+" : ""}${pct(x.delta, 0)} ${x.label}`).join("\n")}
-                >
-                  <FactValue fact={vr.churn_prob_12m} sources={s} format={(v: number) => pct(v, 0)} />
-                </Signed>
-              ) : (
-                <FactValue fact={vr.churn_prob_12m} sources={s} format={(v: number) => pct(v, 0)} />
-              )}
-            </div>
-            {!isMissing(churn) && <RiskMeter v={churn} />}
-            <p className="text-xs text-neutral-500">
-              {drivers.length ? `Driven by ${drivers.map((x) => x.label).join(", ")}` : "No churn driver found"}
-            </p>
-          </div>
-        </div>
-
         {(t.flags ?? []).length > 0 && (
           <div className="flex flex-wrap gap-x-3 gap-y-1.5">
             {(t.flags ?? []).map((f) => (
@@ -185,71 +113,32 @@ function ProfileColumn({ card }: { card: CustomerCard }) {
           </div>
         )}
 
-        <div className="space-y-2.5">
-          <Label>Why now</Label>
-          {signals.length === 0 ? (
-            <span className="inline-flex items-center gap-1.5 text-sm text-neutral-500">
-              <Package size={14} aria-hidden /> No trigger
-            </span>
-          ) : (
-            <ul className="space-y-2.5">
-              {signals.map((sig) => (
-                <li key={sig.id} className="space-y-1">
-                  <SignalChip sig={sig} />
-                  {sig.detail && <p className="pl-1 text-xs leading-relaxed text-neutral-500">{sig.detail}</p>}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        <div className="space-y-2.5">
-          <Label>Reachable via</Label>
-          <div className="flex flex-wrap gap-1">
-            {channels.map((c) => (
-              <IconTile
-                key={c.channel}
-                icon={CHANNEL_ICON[c.channel]}
-                label={SHORT[c.channel] ?? c.channel}
-                state={c.allowed ? "on" : "off"}
-                title={`${CHANNEL_LABEL[c.channel] ?? c.channel}: ${c.allowed ? "allowed" : "blocked"}\n${c.reason}`}
-              />
-            ))}
-          </div>
-          <p className="text-xs text-neutral-500">
-            {allowed.length === 0
-              ? "No channel allowed for marketing."
-              : `${allowed.length} of ${channels.length} channels allowed by consent. Hover a channel for the reason.`}
-          </p>
-          {exclusions.length > 0 && (
-            <div className="flex flex-wrap gap-1">
-              {exclusions.map((e) => (
-                <RuleChip key={e.rule_id} rule={e.rule_id} title={[e.detail, e.src].filter(Boolean).join("\n")} />
-              ))}
-            </div>
-          )}
-        </div>
+        <Interaction card={card} />
 
         <div className="space-y-2.5">
           <Label>Products</Label>
           <div className="flex flex-wrap gap-1">
             {(Object.keys(PRODUCT_META) as (keyof Products)[]).map((l) => {
               const p = products[l];
-              const state = p?.held ? "on" : p?.opportunity ? "maybe" : "off";
+              const state = p?.held ? "held" : "free";
               return (
                 <IconTile
                   key={l}
                   icon={PRODUCT_META[l].icon}
                   label={SHORT[l] ?? PRODUCT_META[l].label}
                   state={state}
-                  title={`${PRODUCT_META[l].label}: ${p?.held ? "holds" : p?.opportunity ? "opportunity" : p?.held === null ? "unknown" : "not held"}${p?.note ? `\n${p.note}` : ""}`}
+                  title={`${PRODUCT_META[l].label}: ${p?.held ? "in use" : "not used"}${p?.note ? `\n${p.note}` : ""}`}
                 />
               );
             })}
           </div>
-          <p className="text-xs leading-relaxed text-neutral-500">
-            {held.length ? `Holds ${held.join(", ")}.` : "Holds no product we know of."}
-            {opps.length ? ` Open opportunity: ${opps.join(", ")}.` : ""}
+          <p className="flex items-center gap-3 text-xs text-neutral-500">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="size-2 rounded-sm bg-emerald-500" aria-hidden /> in use
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="size-2 rounded-sm bg-white ring-1 ring-neutral-300" aria-hidden /> not used
+            </span>
           </p>
         </div>
       </div>
@@ -325,7 +214,7 @@ export default function CustomerModal({ id, onClose }: { id: string; onClose: ()
         {card.status === "ready" && (
           <>
             <ProfileColumn card={card.data} />
-            <ActionGraph card={card.data} />
+            <NbaPanel card={card.data} />
           </>
         )}
       </div>

@@ -1,10 +1,13 @@
 import { Fragment, useState } from "react";
-import { ArrowRight, Ban, Check, LifeBuoy, Package, Maximize2, X, Zap } from "lucide-react";
+import { ArrowRight, Check, Lock, Maximize2, TrendingUp, TriangleAlert, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { TierChip } from "../Chips";
 import { Sourced } from "../Source";
 import { ChannelIcon, ConfidenceBars, DECISION_META, FlagIcons, Signed, ValueBar, dirOf } from "../viz";
 import { decideRow, type Decision } from "../../lib/decisions";
+import { customerEvent, mockName } from "../../lib/customerMock";
+import { useHardRules, violation, type HardRule } from "../../lib/hardRules";
+import { ruleText } from "../customer/NbaPanel";
 import { CHANNEL_LABEL, eur, isMissing, pct, signedEur, tupleLabel } from "../../lib/format";
 import type { IndexRow, Summary } from "../../types/contracts";
 import { NO_ACTION, OFFER_NAME, asOf, colSrc, isNoAction, type Group } from "./model";
@@ -23,30 +26,30 @@ const TIER_ROW: Record<string, string> = {
 
 const COLS: { label: string; width?: number; align?: "right"; title?: string }[] = [
   { label: "", width: 60 },
-  { label: "Customer · why now" },
+  { label: "Customer · latest action" },
   { label: "Recommended action", width: 200 },
   { label: "Expected value", width: 190, title: "Expected ΔCLV (bars share one scale) and the chance of success vs the median proposal" },
   { label: "", width: 190, align: "right" },
 ];
 
-/** "electricity price guarantee ends … [S4]" → without the bracketed ids (they stay in the tooltip). */
-const plain = (s: string) => s.replace(/\s*\[[A-Z0-9-]+\]/g, "").trim();
-
+/** Why the customer is on the list: their latest action, marked as an upsell chance (green) or a potential issue (red). */
 function WhyCell({ row }: { row: IndexRow }) {
-  const reason = row.top_reason ? plain(row.top_reason) : null;
-  const [Icon, tone, kind] = isNoAction(row)
-    ? [Ban, "bg-neutral-100 text-neutral-500", "Blocked"]
-    : row.service_mode
-      ? [LifeBuoy, "bg-amber-50 text-amber-700", "Service issue"]
-      : (row.triggers?.length ?? 0) > 0 && row.personalised !== false
-        ? [Zap, "bg-accent-50 text-accent-700", "Signal"]
-        : [Package, "bg-neutral-100 text-neutral-500", "Generic catalog offer"];
+  const ev = customerEvent(row);
+  const positive = ev.polarity === "positive";
+  const label = positive ? "Upsell chance" : "Potential issue";
   return (
-    <div className="flex min-w-0 items-center gap-2" title={[kind, row.top_reason].filter(Boolean).join(": ")}>
-      <span className={`grid size-5 shrink-0 place-items-center rounded ${tone}`} aria-label={kind} role="img">
-        <Icon size={12} aria-hidden />
+    <div
+      className="flex min-w-0 items-center gap-2"
+      title={`${label}: ${ev.text}${ev.mock ? " (mock activity)" : ""}${row.top_reason ? `\nEngine: ${row.top_reason}` : ""}`}
+    >
+      <span
+        className={`grid size-5 shrink-0 place-items-center rounded-full ${positive ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}
+        role="img"
+        aria-label={label}
+      >
+        {positive ? <TrendingUp size={12} aria-hidden /> : <TriangleAlert size={12} aria-hidden />}
       </span>
-      <span className="truncate text-xs text-neutral-500">{reason ?? (row.personalised === false ? "No trigger: generic offer" : "–")}</span>
+      <span className="truncate text-xs text-neutral-600">{ev.text}</span>
     </div>
   );
 }
@@ -104,7 +107,17 @@ function ValueCell({ row, max, median, summary }: { row: IndexRow; max: number; 
 const btn = "inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium transition-colors duration-150";
 
 /** Two buttons only: Approve the engine's proposal, or Expand into the pop-up for everything else. */
-function DecisionCell({ row, decision, onOpen }: { row: IndexRow; decision: Decision | undefined; onOpen: () => void }) {
+function DecisionCell({
+  row,
+  decision,
+  lock,
+  onOpen,
+}: {
+  row: IndexRow;
+  decision: Decision | undefined;
+  lock: HardRule | undefined;
+  onOpen: () => void;
+}) {
   const stop = (fn: () => void) => (e: React.MouseEvent) => {
     e.stopPropagation();
     fn();
@@ -124,13 +137,30 @@ function DecisionCell({ row, decision, onOpen }: { row: IndexRow; decision: Deci
     const m = DECISION_META[decision.action];
     const Icon = m.icon ?? Check;
     main = (
-      <span className={`inline-flex items-center gap-1 text-xs font-medium ${m.text}`} title={`${m.label} by ${decision.reviewer}${decision.reason ? `\n${decision.reason}` : ""}`}>
+      <span
+        className={`inline-flex items-center gap-1 text-xs font-medium ${m.text}`}
+        title={`${m.label} by ${decision.reviewer}${decision.reason ? `\n${decision.reason}` : ""}`}
+      >
         <Icon size={14} aria-hidden /> {m.label}
+      </span>
+    );
+  } else if (lock) {
+    main = (
+      <span
+        className="inline-flex items-center gap-1 text-xs text-neutral-500"
+        title={`Locked by hard rule: ${ruleText(lock)}${lock.reason ? `\n${lock.reason}` : ""}`}
+      >
+        <Lock size={13} aria-hidden /> Rule
       </span>
     );
   } else if (!isNoAction(row)) {
     main = (
-      <button type="button" onClick={stop(() => decideRow(row, "approved"))} className={`${btn} bg-accent-600 text-white hover:bg-accent-700`} title="Approve (A)">
+      <button
+        type="button"
+        onClick={stop(() => decideRow(row, "approved"))}
+        className={`${btn} bg-accent-600 text-white hover:bg-accent-700`}
+        title="Approve (A)"
+      >
         <Check size={13} aria-hidden /> Approve
       </button>
     );
@@ -166,7 +196,7 @@ function RejectRow({ row, onDone }: { row: IndexRow; onDone: () => void }) {
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             onKeyDown={(e) => e.key === "Escape" && onDone()}
-            placeholder={`Why reject ${OFFER_NAME[row.chosen_offer] ?? row.chosen_offer} for ${row.customer_id}? (required)`}
+            placeholder={`Why reject ${OFFER_NAME[row.chosen_offer] ?? row.chosen_offer} for ${mockName(row.customer_id)}? (required)`}
             aria-label="Reject reason"
             className="min-w-0 flex-1 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm placeholder:text-neutral-400 focus:border-red-400 focus:ring-2 focus:ring-red-100 focus:outline-none"
           />
@@ -188,11 +218,13 @@ function Row({
   decision,
   highlighted,
   rejecting,
+  lock,
   max,
   median,
   onOpen,
   onReject,
 }: {
+  lock: HardRule | undefined;
   row: IndexRow;
   summary: Summary | null;
   decision: Decision | undefined;
@@ -206,6 +238,7 @@ function Row({
   const outlier = row.outlier === true;
   const tint = decision ? "bg-white opacity-60" : isNoAction(row) ? "bg-neutral-50 text-neutral-500" : TIER_ROW[row.urgency_tier ?? "P5"];
   const context = [
+    row.customer_id,
     row.archetype_name && `${row.archetype} · ${row.archetype_name}`,
     !isMissing(row.clv_eur) && `CLV ${eur(row.clv_eur)}`,
     !isMissing(row.churn) && `churn ${pct(row.churn, 0)}`,
@@ -238,7 +271,7 @@ function Row({
             }}
             className="font-medium text-neutral-900 tabular-nums hover:text-accent-700 hover:underline"
           >
-            {row.customer_id}
+            {mockName(row.customer_id)}
           </Link>
           <span className="ml-1.5 inline-flex align-middle">
             <FlagIcons flags={row.flags ?? []} />
@@ -254,7 +287,7 @@ function Row({
           <ValueCell row={row} max={max} median={median} summary={summary} />
         </td>
         <td className="py-3 pr-4 pl-3">
-          <DecisionCell row={row} decision={decision} onOpen={() => onOpen(row.customer_id)} />
+          <DecisionCell row={row} decision={decision} lock={lock} onOpen={() => onOpen(row.customer_id)} />
         </td>
       </tr>
       {rejecting && !decision && <RejectRow row={row} onDone={() => onReject(null)} />}
@@ -324,8 +357,15 @@ export default function WorklistTable({
   onReject: (id: string | null) => void;
   empty: React.ReactNode;
 }) {
+  const rules = useHardRules();
+  const today = (summary?.eval_time ?? new Date().toISOString()).slice(0, 10);
+  const lockOf = (r: IndexRow) =>
+    isNoAction(r)
+      ? undefined
+      : violation(rules, { customer_id: r.customer_id, archetype: r.archetype }, { offer: r.chosen_offer, channel: r.channel }, today);
   const renderRow = (r: IndexRow) => (
     <Row
+      lock={lockOf(r)}
       key={r.customer_id}
       row={r}
       summary={summary}

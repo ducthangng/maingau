@@ -1,4 +1,5 @@
 import { CHANNEL_LABEL } from "../../lib/format";
+import { mockName } from "../../lib/customerMock";
 import type { IndexRow, Summary } from "../../types/contracts";
 
 // Worklist view model (prompts/agent-cards.md §1.1). Everything here only orders, filters and
@@ -81,7 +82,7 @@ export function fold(s: string): string {
 export function matches(r: IndexRow, f: Filters): boolean {
   if (f.q) {
     const q = fold(f.q);
-    if (!fold(r.customer_id).includes(q) && !fold(r.city ?? "").includes(q)) return false;
+    if (!fold(r.customer_id).includes(q) && !fold(r.city ?? "").includes(q) && !fold(mockName(r.customer_id)).includes(q)) return false;
   }
   if (f.tier && r.urgency_tier !== f.tier) return false;
   if (f.arch && r.archetype !== f.arch) return false;

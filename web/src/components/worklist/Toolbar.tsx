@@ -94,8 +94,8 @@ export default function Toolbar({
             type="search"
             value={filters.q}
             onChange={(e) => onFilter("q", e.target.value)}
-            placeholder="Customer ID or city"
-            aria-label="Search customer ID or city"
+            placeholder="Name, ID or city"
+            aria-label="Search name, customer ID or city"
             className="w-52 rounded-lg border border-neutral-200 bg-white py-1.5 pr-2.5 pl-8 text-sm placeholder:text-neutral-400 transition-colors duration-150 hover:border-neutral-300 focus:border-accent-500 focus:ring-2 focus:ring-accent-100 focus:outline-none"
           />
         </div>
