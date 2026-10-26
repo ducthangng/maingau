@@ -57,6 +57,7 @@ Never edit Agent KG's files: `nba/data.py`, `nba/state.py`, `nba/kg/`, `kg/`, `c
   explain(state, candidate, policy) -> list[PathStep]
   ```
 
+  Simplest: call `nba.kg.bundle.kg_bundle(state, policy, pop, tone)` once per customer; it returns signals, candidates, blocked, triage, consent/channel/exclusion views and data_quality. Use `nba.kg.rules.check_tuple(state, offer_id, channel, policy)` for the override 409 and `legacy_comparison.blocked_now_by`, and `nba.kg.bundle.source_info(tables)` for `sources`.
   `generate_candidates` returns tuples that already passed every hard rule. Each has `origin` (`signal` / `service` / `generic`), `personalised`, `signals`, `checks`, `why` facts and `path`, with `valuation = None`. Until these land, use a small stub that returns hand-written candidates for MG-100068 and MG-100009, and never ship the stub.
 - `infer_tone(state)` comes from Agent CARDS (`nba/profile/`). Until then, default `Tone(value="sie", method="default", ...)`.
 

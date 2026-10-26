@@ -553,6 +553,8 @@ def exclusion_view(state, policy) -> list[ExclusionItem]           # profile.exc
 def data_quality(state) -> list[DataQuality]                       # §6.9; NBA adds it to the checklist
 def check_tuple(state, offer_id, channel, policy) -> list[Blocked] # hard-rule blockers of one tuple; [] = allowed
                                                                    # (override 409, legacy_comparison.blocked_now_by)
+def kg_bundle(state, policy, pop, tone) -> KGBundle                # all of the above for one customer (nba/kg/bundle.py)
+def source_info(tables) -> dict[str, SourceInfo]                   # CustomerCard.sources / Summary.sources
 
 # Agent CARDS — nba/profile/*.py
 def infer_tone(state) -> Tone             # value + method + evidence; NBA imports this
@@ -1127,6 +1129,7 @@ pip install -r requirements.txt
 python -m nba.build --asof 2026-09-30T23:59:59 --out out/          # all customers
 python -m nba.build --customers MG-100068,MG-100009 --out out/    # subset
 python -m nba.build --out out/ --export web/public/data            # refresh the UI data
+python scripts/export_preview.py --out web/public/data             # KG-only preview until nba.build exists
 pytest -q
 uvicorn api.app:app --reload --port 8000
 cd web && npm install && npm run dev

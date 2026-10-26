@@ -170,3 +170,28 @@ These are kept up to date and edited in place. Status values: `open`, `answered`
 
 **Next session starts with:** event replay (deep dive B) in `nba/kg/events.py`, unless the team re-prioritises. Then review Agent NBA's and Agent CARDS' first deliveries.
 
+
+### Session 4 · 2026-10-26 17:15–17:35 Europe/Berlin · Claude Code (Opus) · branch feat/kg · commits 99242f4..(this commit)
+
+**Goal:** speed up Agent CARDS and Agent NBA in parallel without touching their paths. The user asked for parallel help because CARDS is slow.
+
+**Done:**
+- First plan: take over `nba/profile/` from CARDS. Dropped it, because a directory listing (files not opened) of the CARDS folder showed CARDS had already written 13 files / about 925 lines there at 15:46–15:57, uncommitted. Ownership is unchanged.
+- `nba/kg/bundle.py`: `kg_bundle()` returns every KG output for one customer in one call; also `source_info()` and `COLUMN_SRC` (answers Q-CARDS-12 on the data side).
+- `scripts/export_preview.py`: real-data preview for the UI:
+  - `index.json`: 750 `IndexRow`s with real triage, ranked P1→P5 by score; `chosen_offer` = "PENDING";
+  - `summary.json`: counts, sources, `column_src`, `value_date`;
+  - `kg/<id>.json`: the KG part of each card;
+  - every object is pydantic-validated.
+- README §5.6 and §8, plus both prompts, point to it.
+
+**Verified:**
+- `pytest -q`: 40 passed.
+- Preview for 750 customers in 0.6 s: 20 MB in total (`index.json` 436 KB, about 25 KB per customer file).
+- Top of the worklist: MG-100190, MG-100087, MG-100405 (P1, A4).
+
+**Handoff:**
+- Agent CARDS: run `scripts/export_preview.py --out web/public/data` after merging `origin/main`; mock only valuation, chosen and content.
+- Agent NBA: use `kg_bundle()` and `check_tuple()` in `assemble` and the API.
+
+**Next session starts with:** review `feat/nba` (pushed at 34a9f5c), then event replay.
