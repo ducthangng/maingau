@@ -97,9 +97,9 @@ export function FlagIcons({ flags }: { flags: string[] }) {
  * Horizontal magnitude bar on a shared scale (0 → max). Negative values draw in red from the left
  * so a loss never looks like a small gain.
  */
-export function ValueBar({ value, max, className = "", tone = "accent" }: { value: number; max: number; className?: string; tone?: "accent" | "muted" }) {
+export function ValueBar({ value, max, className = "", tone = "accent" }: { value: number; max: number; className?: string; tone?: "accent" | "muted" | "green" }) {
   const w = max > 0 ? Math.min(100, (Math.abs(value) / max) * 100) : 0;
-  const fill = value < 0 ? "bg-red-500" : tone === "accent" ? "bg-accent-500" : "bg-neutral-300";
+  const fill = value < 0 ? "bg-red-500" : tone === "accent" ? "bg-accent-500" : tone === "green" ? "bg-emerald-500" : "bg-neutral-300";
   return (
     <span className={`block h-1.5 w-full overflow-hidden rounded-full bg-neutral-100 ${className}`} aria-hidden>
       <span className={`block h-full rounded-full ${fill}`} style={{ width: `${Math.max(w, value === 0 ? 0 : 3)}%` }} />
