@@ -25,6 +25,7 @@ Every agent reads §0–§6, its own task in §7, then §8–§10.
 2. Shared contracts (§5) change only through a PR that also edits this README, and the other agents must be told.
 3. Start from stubs. Every public function in §5.6 returns fixture data in the first hour, so nobody waits on anyone (§8).
 4. Log every session in your own file under `log/` (§12): what you did, what you verified, open questions and issues. Read all three logs at the start of each session.
+5. Follow the git rules in §13: your own folder and branch, stage only your own paths, never switch branches or force-push.
 
 **Never:**
 
@@ -1112,7 +1113,7 @@ All of it is driven by `kg/policy.yaml`.
 | M2 | ~+6 h | All 750 customers; the 13 test customers in the report; decisions logged through the API |
 | M3 | Remaining time | Overview page, test report, polish, demo script; stretch: event replay and revocation |
 
-**Branches:** `feat/kg`, `feat/cards`, `feat/nba`. Merge small PRs often; contracts first.
+**Branches and folders:** `feat/kg` in `../MAINGAU-kg`, `feat/cards` in `MAINGAU`, `feat/nba` in `../MAINGAU-nba`. Deliver small, tested commits to `main` often; contracts first. Full rules: §13.
 
 **Commands:**
 
@@ -1205,3 +1206,55 @@ Each agent owns one file and writes only there: `log/agent-kg.md`, `log/agent-ca
 - **Answered questions:** when a mentor or the team answers one, write the answer and the date in the table. If the answer changes a default in §10, update §10 in the same PR.
 - **Cross-agent questions:** a question for another agent goes in your own table, with "Ask whom" set to that agent. The other agent answers it in its next entry.
 - **No sensitive content:** never put secrets, tokens or real customer data in a log.
+
+## 13. Git and commit rules (all agents)
+
+**Why:** on 26 Oct two agents shared one checkout. One of them switched branches, and another agent's commit landed on the wrong branch. These rules keep three agents from overwriting each other.
+
+### 13.1 One folder and one branch per agent
+
+| Agent | Folder (git worktree) | Branch |
+|---|---|---|
+| Agent KG (Claude) | `../MAINGAU-kg` | `feat/kg` |
+| Agent CARDS | `MAINGAU` (the original folder) | `feat/cards` |
+| Agent NBA | `../MAINGAU-nba` | `feat/nba` |
+
+- **Work only in your own folder.** Never open, edit, build or run git commands in another agent's folder.
+- **Never switch branches in your folder** (no `git checkout <other branch>` or `git switch`). Your folder stays on your branch for the whole hackathon.
+- **To create a missing worktree**, run this from any folder: `git worktree add ../MAINGAU-<agent> -b feat/<agent> origin/main`. A separate `git clone` also works.
+- **Python:** the virtualenv lives in the original folder. From your own folder, run `/Users/linhngo/Downloads/Work/Hackathon/MAINGAU/.venv/bin/python -m pytest -q`, or create your own `.venv` (it is git-ignored).
+- **Before every git command**, run `git status -sb` and check that the folder and branch are yours. If they are not, stop.
+
+### 13.2 What you may commit
+
+- **Stage only paths you own (§2) plus your own log file.** Use `git add <your paths> log/agent-<you>.md`. **Never** use `git add -A`, `git add .` or `git commit -a`.
+- **Before every commit**, run `git diff --cached --stat`; it must list only your paths. Unstage anything else with `git restore --staged <file>`.
+- **Shared contracts** (`nba/contracts.py`, README §5) are changed only by their owner, Agent NBA. Whoever changes them also runs `scripts/export_schema.py` and commits `docs/schema/` in the same commit. Other agents ask for changes in their log and do not edit the files.
+- **Never commit:**
+  - `.venv/`, `node_modules/`, `web/dist/`;
+  - `out/` (except `out/samples/`), `out/.cache`;
+  - secrets or tokens;
+  - real customer data.
+
+  `web/public/data/` (mock data or the `nba.build` export) is allowed; keep it under about 20 MB.
+- **Commit small and often.** Message format: `<area>: <what changed> (<why>)`, plus a short body. Commit the session's log entry together with the code.
+
+### 13.3 Syncing and delivering to `main`
+
+- **Pick up others' work:** `git fetch origin`, then `git merge origin/main` into your own branch. Rebase only your own branch, only in your own folder, and never after you pushed it for others.
+- **Conflicts:** resolve conflicts in your own paths. If a conflict touches another agent's path, stop and write it in your log (Ask whom: that agent).
+- **Before delivering**, run the checks:
+  - Python: `.venv/bin/python -m pytest -q`;
+  - web: `npm run build`.
+- **Deliver:**
+  1. Push your branch: `git push -u origin feat/<agent>`.
+  2. Then either open a PR to `main`, or fast-forward: `git push origin feat/<agent>:main`. The fast-forward only works when your branch contains the current `origin/main`.
+- **Never** use `--force` on `main` or on another agent's branch. Never `git reset --hard`, `git clean`, or delete branches or worktrees that are not yours.
+- **Do not use bare `git stash`;** the stash stack is shared between worktrees. Use a temporary WIP commit on your branch instead.
+
+### 13.4 When something goes wrong
+
+If a commit lands on the wrong branch, files are staged by mistake, or a push is rejected:
+1. Stop; do not force anything.
+2. Write what happened in your log (`Issues / risks`) with the commands you ran.
+3. Ask Agent KG (Claude) in the open-questions table. Agent KG repairs shared history.

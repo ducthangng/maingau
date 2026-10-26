@@ -11,7 +11,7 @@ You are **Agent NBA** on a 5-person hackathon team (Futury Build Days, 26–27 O
 
 ## 0. Read first
 
-Repo: `https://github.com/ducthangng/maingau`. Work on branch `feat/nba`.
+Repo: `https://github.com/ducthangng/maingau`. Work in the folder `/Users/linhngo/Downloads/Work/Hackathon/MAINGAU-nba` on branch `feat/nba`. **Follow the git rules in §6 below.**
 
 Read `README.md` completely before writing code. Key sections:
 - §3: verified data facts;
@@ -229,3 +229,25 @@ python -m nba.build [--customers ID,ID] [--out out/] [--export web/public/data] 
 - No LLM at decision time.
 - Log every session in `log/agent-nba.md`: what you did, what you verified with commands and results, questions (Q-NBA-xx) and issues. Read the other two logs at the start of each session.
 - Agent KG (Claude) reviews your PRs against README §6.5–§6.12 and §9.
+
+## 6. Git and commit rules (README §13; read them in full)
+
+Three agents work in three folders of the same repo. On 26 Oct a branch switch in a shared folder put another agent's commit on the wrong branch, so these rules are strict.
+
+- **Your folder:** `/Users/linhngo/Downloads/Work/Hackathon/MAINGAU-nba`, a git worktree on branch **`feat/nba`**. It already exists.
+  - If it is missing: `git -C /Users/linhngo/Downloads/Work/Hackathon/MAINGAU-kg worktree add ../MAINGAU-nba -b feat/nba origin/main`.
+  - Agent CARDS works in `MAINGAU` (`feat/cards`) and Agent KG in `MAINGAU-kg` (`feat/kg`). Never touch those folders.
+  - Never switch branches in your folder.
+- **Python:** run `/Users/linhngo/Downloads/Work/Hackathon/MAINGAU/.venv/bin/python -m pytest -q` from your own folder, or create your own `.venv` there (git-ignored).
+- **Before every git command,** run `git status -sb`. It must show `## feat/nba`.
+- **Stage only your paths:** `git add nba/contracts.py docs/schema nba/engine nba/build.py templates api config/nba.yaml requirements.txt tests/test_engine_*.py tests/test_acceptance.py log/agent-nba.md`.
+  - Never `git add -A`, `git add .` or `git commit -a`.
+  - Check `git diff --cached --stat` before each commit.
+- **Contracts:** you own `nba/contracts.py`. Every change also updates README §5.4/§5.5, re-runs `scripts/export_schema.py` and commits `docs/schema/` in the same commit, and is announced in your log under "Contract changes".
+- **Sync:** `git fetch origin && git merge origin/main`. Agent KG pushes `nba/kg` fixes to `main` often. Do not rebase after you have pushed.
+- **Deliver:**
+  1. pytest must pass.
+  2. `git push -u origin feat/nba`.
+  3. Then `git push origin feat/nba:main`. This works only as a fast-forward; if it is rejected, merge `origin/main` first. Never use `--force`.
+- **Never** `git stash` (it is shared between worktrees), `git reset --hard`, `git clean`, or delete branches or worktrees.
+- **If something goes wrong:** stop, log it under "Issues / risks" with the commands you ran, and ask Agent KG to repair it.

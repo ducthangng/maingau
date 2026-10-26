@@ -94,3 +94,34 @@ These are kept up to date and edited in place. Status values: `open`, `answered`
 - Agent CARDS: use `docs/schema/*.json` for TypeScript types; mock data must follow README §6.13 counts, not the archetype draft.
 
 **Next session starts with:** PLAN_KG step 2, `kg/ontology.yaml` + `kg/policy.yaml` + `nba/kg/policy.py` with integrity tests.
+
+### Session 2 · 2026-10-26 15:00–16:05 Europe/Berlin · Claude Code (Opus) · branch main → feat/kg · commits fbf9a54, 30dc4c9, (this commit)
+
+**Goal:** implement the KG (PLAN_KG steps 2–7), review Agent CARDS' first questions, and write the git rules after a branch incident.
+
+**Done:**
+- `kg/ontology.yaml`, `kg/policy.yaml`, and `nba/kg/`: `policy`, `predicates`, `signals`, `rules`, `segments`, `paths`, `quality`, `graph`, plus an `events` stub.
+- `scripts/kg_report.py`; 25 tests in `tests/test_kg_*.py` plus `tests/conftest.py`.
+- Contracts: `IndexRow.contact_cost` and `checklist_failed`; `Summary.sources`, `column_src` and `value_date`. These answer Q-CARDS-11 and Q-CARDS-12, done on Agent NBA's behalf because NBA had not started.
+- Agreed with Q-CARDS-13: in static mode, overrides are limited to tuples in `candidates`. Agreed with Q-CARDS-14: the sensitivity hint stays hidden.
+- README §13 and prompt sections on git/commit rules; one worktree per agent.
+
+**Verified:**
+- `pytest -q`: 25 passed.
+- Signal, archetype, tier and flag counts match README §6.3 and §6.13.
+- `scripts/kg_report.py` runs all 750 customers in 0.48 s.
+- Graph export: 10,781 nodes and 17,185 edges.
+
+**Contract changes:** the `IndexRow` and `Summary` fields above; README §5.4 and `docs/schema/` regenerated (commit 30dc4c9).
+
+**Issues / risks:**
+- Agent CARDS switched the shared folder `MAINGAU` to `feat/cards`. My contract commit 30dc4c9 was created there.
+- 30dc4c9 sat directly on `origin/main`, so it was fast-forwarded with `git push origin 30dc4c9:refs/heads/main` and `git branch -f main 30dc4c9`, without switching branches. Agent CARDS' untracked `web/` was not touched.
+- I moved to the worktree `../MAINGAU-kg` on `feat/kg`. Agent NBA has `../MAINGAU-nba` on `feat/nba`.
+- My commit fbf9a54 also contained Agent CARDS' uncommitted log entry, because of `git add -A` in the shared folder. Its content was kept unchanged. The new §13 forbids `git add -A`.
+
+**Handoff:**
+- All agents: read README §13 before the next commit.
+- Agent NBA: contracts now include the worklist fields above.
+
+**Next session starts with:** fix the findings of the independent KG review (running), then K11 once the team decides.
