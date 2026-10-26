@@ -54,13 +54,15 @@ def policy_graph(policy: Policy) -> nx.MultiDiGraph:
         targets = [policy.service_channel] if o.action_type == "service" else list(policy.channels)
         for ch in targets:
             g.add_edge(o.id, ch_id(ch), type="DELIVERED_VIA")
+    for o in policy.offers.values():  # D1: every need-based (personalised) offer requires profiling consent
+        if o.action_type != "service" and not o.data_missing and o.addresses:
+            g.add_edge(o.id, consent_id("profiling_analytics"), type="REQUIRES")
     for e in policy.exclusions.values():
         g.add_node(e.id, type="ExclusionRule", label=e.label)
         for o in policy.offers.values():
             if o.action_type in e.blocks:
                 g.add_edge(e.id, o.id, type="BLOCKS")
-    for aid, name in policy.archetypes.items():
-        g.add_node(aid, type="Archetype", label=name)
+    # Archetype nodes are added per customer (only the customer's own), so the policy layer has no orphans.
     return g
 
 
@@ -118,6 +120,7 @@ def customer_graph(state: CustomerState, policy: Policy, archetype: str | None =
                 g.add_node(target, type="Campaign")
             g.add_edge(nid, target, type="EVIDENCED_BY")
     if archetype:
+        g.add_node(archetype, type="Archetype", label=policy.archetypes.get(archetype, archetype))
         g.add_edge(cid, archetype, type="IN_ARCHETYPE")
     return g
 
@@ -126,15 +129,13 @@ def export_graph(states: dict[str, CustomerState], policy: Policy, out_dir: str 
                  archetypes: dict[str, str] | None = None) -> tuple[int, int]:
     """Write kg_nodes.jsonl / kg_edges.jsonl: the policy layer once, then each customer's instance layer.
 
-    Pass `archetypes` (customer_id -> A0..A5) to link customers to archetype nodes; without it the
-    archetype nodes are left out so the export has no orphans.
+    Pass `archetypes` (customer_id -> A0..A5) to link customers to archetype nodes; an archetype node is
+    written once, with the first customer in it, so the export has no orphans.
     """
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     base = policy_graph(policy)
-    used = set((archetypes or {}).values())
-    base.remove_nodes_from([a for a in policy.archetypes if a not in used])  # no orphan archetype nodes
-    policy_ids = set(policy_graph(policy).nodes)
+    policy_ids = set(base.nodes)
     n_nodes = n_edges = 0
     with (out / "kg_nodes.jsonl").open("w", encoding="utf-8") as fn, (out / "kg_edges.jsonl").open("w", encoding="utf-8") as fe:
         def write(g, nodes, edges):

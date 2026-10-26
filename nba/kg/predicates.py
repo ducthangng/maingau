@@ -22,7 +22,7 @@ from nba.state import (
     devices,
 )
 
-SIGNALS: dict[str, Callable[[CustomerState], "Hit | None"]] = {}
+SIGNALS: dict[str, Callable[[CustomerState, dict], "Hit | None"]] = {}
 HOLDINGS: dict[str, Callable[[CustomerState], tuple[bool, str]]] = {}
 EXCLUSIONS: dict[str, Callable[[CustomerState], "Hit | None"]] = {}
 
@@ -49,6 +49,13 @@ def _holding(fn):
 def _exclusion(fn):
     EXCLUSIONS[fn.__name__] = fn
     return fn
+
+
+def _param(prm: dict | None, name: str) -> float:
+    """A tunable threshold from kg/policy.yaml `parameters` (README §6.3); required, never guessed."""
+    if not prm or name not in prm:
+        raise KeyError(f"policy parameter {name!r} missing; load it with nba.kg.policy.load_policy()")
+    return prm[name]
 
 
 def _d(dt: datetime | None) -> str:
@@ -80,7 +87,7 @@ def has_profiling(state: CustomerState) -> bool:
 
 
 @_signal
-def gas_meter_deregistered(s: CustomerState) -> Hit | None:
+def gas_meter_deregistered(s: CustomerState, prm: dict | None = None) -> Hit | None:
     rows = [r for r in s.rows["energy_contracts"] if r["commodity"] == "gas" and r.get("meter_deregistered_at")]
     if not rows:
         return None
@@ -95,20 +102,21 @@ def gas_meter_deregistered(s: CustomerState) -> Hit | None:
 
 
 @_signal
-def failed_charges_30d(s: CustomerState) -> Hit | None:
-    start = s.eval_time - timedelta(days=30)
+def failed_charges_30d(s: CustomerState, prm: dict | None = None) -> Hit | None:
+    window, minimum = _param(prm, "failed_charges_window_days"), _param(prm, "failed_charges_min")
+    start = s.eval_time - timedelta(days=window)
     fails = [r for r in s.rows["charge_sessions"]
              if r.get("session_status") == "failed" and r.get("started_at") and start < r["started_at"] <= s.eval_time]
-    if len(fails) < 3:
+    if len(fails) < minimum:
         return None
     reasons = sorted({r.get("failure_reason") or "unknown" for r in fails})
     last = max(r["started_at"] for r in fails)
-    return Hit(f"{len(fails)} failed charging sessions in 30 days ({', '.join(reasons)}), last on {_d(last)}",
+    return Hit(f"{len(fails)} failed charging sessions in {window} days ({', '.join(reasons)}), last on {_d(last)}",
                "charge_sessions.session_status", last, [f"session:{r['session_id']}" for r in sorted(fails, key=lambda x: x["started_at"])])
 
 
 @_signal
-def wallbox_without_autostrom(s: CustomerState) -> Hit | None:
+def wallbox_without_autostrom(s: CustomerState, prm: dict | None = None) -> Hit | None:
     if "autostrom" in active_lines(s):
         return None
     orders = [r for r in s.rows["shop_orders"]
@@ -121,13 +129,13 @@ def wallbox_without_autostrom(s: CustomerState) -> Hit | None:
 
 
 @_signal
-def price_guarantee_ending(s: CustomerState) -> Hit | None:
+def price_guarantee_ending(s: CustomerState, prm: dict | None = None) -> Hit | None:
     hits = []
     for r in _active(s.rows["energy_contracts"]):
         until = r.get("price_guarantee_until")
         if until is not None:
             days = (until.date() - s.eval_time.date()).days
-            if 0 <= days < 90:
+            if 0 <= days < _param(prm, "price_guarantee_window_days"):
                 hits.append((days, r))
     if not hits:
         return None
@@ -137,35 +145,35 @@ def price_guarantee_ending(s: CustomerState) -> Hit | None:
 
 
 @_signal
-def data_limit_repeated(s: CustomerState) -> Hit | None:
+def data_limit_repeated(s: CustomerState, prm: dict | None = None) -> Hit | None:
     for r in _active(s.rows["mobile_contracts"]):
         n = r.get("data_limit_reached_3m") or 0
-        if n >= 2:
+        if n >= _param(prm, "data_limit_min_months"):
             return Hit(f"data limit reached in {n} of the last 3 months ({r.get('plan')}, {r.get('data_volume_gb')} GB)",
                        "mobile_contracts.data_limit_reached_3m", r.get("record_updated_at"), [f"contract:{r['contract_id']}"])
     return None
 
 
 @_signal
-def household_exceeds_sims(s: CustomerState) -> Hit | None:
+def household_exceeds_sims(s: CustomerState, prm: dict | None = None) -> Hit | None:
     hh = _master(s).get("household_size") or 0
     for r in _active(s.rows["mobile_contracts"]):
         sims = r.get("sim_count") or 0
         if hh > sims:
             return Hit(f"household of {hh} with {sims} SIM(s)", "customer_master.household_size",
-                       None, [f"contract:{r['contract_id']}"])
+                       r.get("record_updated_at") or r.get("start_date"), [f"contract:{r['contract_id']}"])
     return None
 
 
 @_signal
-def pv_without_hems(s: CustomerState) -> Hit | None:
+def pv_without_hems(s: CustomerState, prm: dict | None = None) -> Hit | None:
     devs = devices(s)
     if "hems_gateway" in devs:
         return None
     elec = active_electricity(s)
     if elec and elec.get("feed_in_meter"):
         return Hit("has a feed-in meter (PV) but no HEMS gateway", "energy_contracts.feed_in_meter",
-                   None, [f"contract:{elec['contract_id']}"])
+                   elec.get("record_updated_at") or elec.get("start_date"), [f"contract:{elec['contract_id']}"])
     inv = [d for d in s.rows["hems_devices"] if d.get("device_type") == "pv_inverter"]
     if inv:
         return Hit("has a PV inverter but no HEMS gateway", "hems_devices.device_type",
@@ -174,7 +182,7 @@ def pv_without_hems(s: CustomerState) -> Hit | None:
 
 
 @_signal
-def hems_battery_or_wallbox(s: CustomerState) -> Hit | None:
+def hems_battery_or_wallbox(s: CustomerState, prm: dict | None = None) -> Hit | None:
     devs = devices(s)
     if "hems_gateway" not in devs:
         return None
@@ -187,12 +195,14 @@ def hems_battery_or_wallbox(s: CustomerState) -> Hit | None:
         parts.append("wallbox/EV")
     if not needs:
         return None
-    ev = [f"device:{d['device_id']}" for d in s.rows["hems_devices"] if d.get("device_type") in ("hems_gateway", "home_battery", "wallbox")]
-    return Hit(f"HEMS gateway with {' and '.join(parts)}", "hems_devices.device_type", None, ev, needs)
+    cited = [d for d in s.rows["hems_devices"] if d.get("device_type") in ("hems_gateway", "home_battery", "wallbox")]
+    when = max((d["activated_at"] for d in cited if d.get("activated_at")), default=None)
+    return Hit(f"HEMS gateway with {' and '.join(parts)}", "hems_devices.device_type", when,
+               [f"device:{d['device_id']}" for d in cited], needs)
 
 
 @_signal
-def smart_meter_flexible_load(s: CustomerState) -> Hit | None:
+def smart_meter_flexible_load(s: CustomerState, prm: dict | None = None) -> Hit | None:
     elec = active_electricity(s)
     if not elec or elec.get("meter_type") != "smart_meter_imsys":
         return None
@@ -205,11 +215,12 @@ def smart_meter_flexible_load(s: CustomerState) -> Hit | None:
         loads.append("heat pump")
     if not loads:
         return None
-    return Hit(f"smart meter with {', '.join(loads)}", "energy_contracts.meter_type", None, [f"contract:{elec['contract_id']}"])
+    return Hit(f"smart meter with {', '.join(loads)}", "energy_contracts.meter_type",
+               elec.get("record_updated_at") or elec.get("start_date"), [f"contract:{elec['contract_id']}"])
 
 
 @_signal
-def clicked_energy_content(s: CustomerState) -> Hit | None:
+def clicked_energy_content(s: CustomerState, prm: dict | None = None) -> Hit | None:
     targets = {"heat_pump_article", "smart_living_landingpage"}
     clicks = [r for r in s.rows["newsletter_performance"]
               if r.get("clicked_at") and r.get("click_target") in targets and r["clicked_at"] <= s.eval_time]
@@ -221,7 +232,7 @@ def clicked_energy_content(s: CustomerState) -> Hit | None:
 
 
 @_signal
-def autostrom_without_electricity(s: CustomerState) -> Hit | None:
+def autostrom_without_electricity(s: CustomerState, prm: dict | None = None) -> Hit | None:
     lines = active_lines(s)
     if "autostrom" not in lines or "electricity" in lines:
         return None
@@ -238,7 +249,7 @@ def autostrom_without_electricity(s: CustomerState) -> Hit | None:
 
 
 @_signal
-def open_ticket(s: CustomerState) -> Hit | None:
+def open_ticket(s: CustomerState, prm: dict | None = None) -> Hit | None:
     tickets = [r for r in s.rows["service_interactions"] if r.get("status") == "open"]
     if not tickets:
         return None
@@ -248,7 +259,7 @@ def open_ticket(s: CustomerState) -> Hit | None:
 
 
 @_signal
-def dunning_or_cancellation(s: CustomerState) -> Hit | None:
+def dunning_or_cancellation(s: CustomerState, prm: dict | None = None) -> Hit | None:
     for fn in (excl_cancellation, excl_dunning):
         hit = fn(s)
         if hit:

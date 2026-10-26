@@ -11,12 +11,23 @@ import yaml
 from nba.contracts import ArchetypeId, ConsentType
 from nba.data import load_workbook
 from nba.kg import predicates as P
+from nba.state import resolve_eval_time
 
 REPO = Path(__file__).resolve().parents[2]
 POLICY_PATH = REPO / "kg" / "policy.yaml"
 CONFIG_PATH = REPO / "config" / "kg.yaml"
 CONSENT_TYPES = set(ConsentType.__args__)
 ARCHETYPE_IDS = set(ArchetypeId.__args__)
+
+# Every tunable threshold must be present; (min, max) bounds catch typos such as 0.35 → 35.
+PARAMETER_BOUNDS = {
+    "failed_charges_window_days": (1, 365), "failed_charges_min": (1, 100),
+    # S4 cannot widen beyond 90 days: P-EN-02 requires the upstream churn driver "price guarantee ends <90d".
+    "price_guarantee_window_days": (1, 90), "data_limit_min_months": (1, 3),
+    "risk_churn_min": (0.0, 1.0), "p1_dunning_min": (1, 3), "p2_price_guarantee_days": (0, 730),
+    "p3_dereg_recent_days": (1, 730), "top_clv_quantile": (0.5, 0.999), "fatigue_contacts_30d": (1, 30),
+    "fatigue_ignored_90d": (1, 90), "roaming_late_hours": (1, 720), "value_stale_days": (1, 365),
+}
 
 
 class PolicyError(ValueError):
@@ -74,6 +85,7 @@ class Policy:
     exclusions: dict[str, ExclusionDef]
     archetypes: dict[str, str]
     config: dict[str, Any] = field(default_factory=dict)
+    params: dict[str, float] = field(default_factory=dict)
 
     def offers_for_need(self, need: str) -> list[str]:
         return [o.id for o in self.offers.values() if need in o.addresses]
@@ -94,11 +106,23 @@ class Policy:
         return int(cap.get("max_contacts", 2)), int(cap.get("window_days", 30))
 
 
-def load_policy(path: str | Path = POLICY_PATH, config_path: str | Path = CONFIG_PATH, catalog=None) -> Policy:
+def load_policy(path: str | Path = POLICY_PATH, config_path: str | Path = CONFIG_PATH, catalog=None,
+                tables=None) -> Policy:
+    """Parse and validate the policy. `config["eval_time"]` is always a concrete ISO time afterwards
+    ("auto" is resolved from the data), so every consumer reads the same evaluation time."""
     raw = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
-    config = yaml.safe_load(Path(config_path).read_text(encoding="utf-8")) if config_path else {}
+    config = (yaml.safe_load(Path(config_path).read_text(encoding="utf-8")) if config_path else {}) or {}
+    if tables is None and (catalog is None or config.get("eval_time") in (None, "", "auto")):
+        # Same workbook as the catalog the caller passed (nba.data stamps the source path on each table).
+        source = getattr(catalog, "attrs", {}).get("workbook") if catalog is not None else None
+        tables = load_workbook(source) if source else load_workbook()
     if catalog is None:
-        catalog = load_workbook()["product_catalog"]
+        catalog = tables["product_catalog"]
+    if config.get("eval_time") in (None, "", "auto"):
+        config["eval_time"] = resolve_eval_time(tables, "auto").isoformat()
+        config["eval_time_source"] = "auto: end of latest customer_value.clv_calc_date"
+    else:
+        config["eval_time"] = resolve_eval_time(tables or {}, config["eval_time"]).isoformat()
     cat = {r["product_id"]: r for r in catalog.to_dict("records")}
 
     offers = {}
@@ -110,10 +134,15 @@ def load_policy(path: str | Path = POLICY_PATH, config_path: str | Path = CONFIG
             requires=tuple(o.get("requires", [])), not_held=tuple(o.get("not_held", [])),
             generic=bool(o.get("generic")), data_missing=o.get("data_missing"),
         )
+    params = dict(raw.get("parameters") or {})
+    try:  # labels may quote parameters, e.g. "≥ {failed_charges_min} failed charging sessions"
+        labels = {sid: s["label"].format(**params) for sid, s in raw["signals"].items()}
+    except (KeyError, IndexError, ValueError) as exc:
+        raise PolicyError(f"kg/policy.yaml signal label refers to an unknown parameter: {exc}") from exc
     policy = Policy(
         version=raw["version"],
         needs=raw["needs"],
-        signals={sid: SignalDef(id=sid, label=s["label"], predicate=s["predicate"], strength=s["strength"],
+        signals={sid: SignalDef(id=sid, label=labels[sid], predicate=s["predicate"], strength=s["strength"],
                                 purpose=s["purpose"], indicates=tuple(s.get("indicates", [])),
                                 reinforces=tuple(s.get("reinforces", [])))
                  for sid, s in raw["signals"].items()},
@@ -125,7 +154,8 @@ def load_policy(path: str | Path = POLICY_PATH, config_path: str | Path = CONFIG
         exclusions={eid: ExclusionDef(id=eid, label=e["label"], predicate=e["predicate"], blocks=tuple(e["blocks"]))
                     for eid, e in raw["exclusions"].items()},
         archetypes={aid: a["name"] for aid, a in raw["archetypes"].items()},
-        config=config or {},
+        config=config,
+        params=params,
     )
     problems = validate(policy, set(cat))
     if problems:
@@ -165,6 +195,14 @@ def validate(policy: Policy, catalog_ids: set[str]) -> list[str]:
     for e in policy.exclusions.values():
         if e.predicate not in P.EXCLUSIONS:
             out.append(f"{e.id}: predicate {e.predicate!r} not found")
+    for name, (lo, hi) in PARAMETER_BOUNDS.items():
+        v = policy.params.get(name)
+        if not isinstance(v, (int, float)) or isinstance(v, bool):
+            out.append(f"parameter {name} is missing or not a number")
+        elif not lo <= v <= hi:
+            out.append(f"parameter {name} = {v} outside [{lo}, {hi}]")
+    for name in set(policy.params) - set(PARAMETER_BOUNDS):
+        out.append(f"unknown parameter {name}")
     if set(policy.archetypes) != ARCHETYPE_IDS:
         out.append(f"archetypes must be exactly {sorted(ARCHETYPE_IDS)}")
     for sid in policy.config.get("signals", {}).get("enabled", []):

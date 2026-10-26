@@ -66,5 +66,5 @@ def kg_bundle(state: CustomerState, policy: Policy, pop: pd.DataFrame, tone: str
         consent=consent_view(state, policy),
         channels=channel_view(state, policy),
         exclusions=exclusion_view(state, policy),
-        data_quality=data_quality(state),
+        data_quality=data_quality(state, policy.params),
     )

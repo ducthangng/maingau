@@ -22,20 +22,26 @@ OUTLIER_FLAGS = {"service_critical", "no_marketing_channel", "negative_clv", "an
 INCONSISTENT_TICKETS = {"TK-200565", "TK-200640"}  # closed in the snapshot, resolved after the cutoff (README §3)
 
 
-def clv_p90(pop: pd.DataFrame) -> float:
-    """90th percentile of clv_eur, index-based like README §6.13 (cached on the DataFrame)."""
-    if "clv_p90" not in pop.attrs:
+def clv_quantile(pop: pd.DataFrame, q: float) -> float:
+    """clv_eur quantile, index-based like README §6.13 (cached on the DataFrame per q)."""
+    key = f"clv_q{q}"
+    if key not in pop.attrs:
         vals = sorted(float(v) for v in pop["clv_eur"])
-        pop.attrs["clv_p90"] = vals[int(0.9 * len(vals))]
-    return pop.attrs["clv_p90"]
+        pop.attrs[key] = vals[int(q * len(vals))]
+    return pop.attrs[key]
+
+
+def clv_p90(pop: pd.DataFrame) -> float:
+    return clv_quantile(pop, 0.9)
 
 
 def _archetype(state: CustomerState, policy: Policy, has_excl: bool, churn: float) -> Archetype:
+    risk = policy.params["risk_churn_min"]
     lines, devs = active_lines(state), devices(state)
     master = state.one("customer_master") or {}
     mobile = [r for r in state.rows["mobile_contracts"] if r.get("status") == "active"]
-    if has_excl or churn >= 0.35:
-        why = "active exclusion" if has_excl else f"churn probability {churn:.2f} ≥ 0.35"
+    if has_excl or churn >= risk:
+        why = "active exclusion" if has_excl else f"churn probability {churn:.2f} ≥ {risk}"
         return Archetype(id="A4", name=policy.archetypes["A4"], reason=why)
     if "hems_gateway" in devs:
         return Archetype(id="A1", name=policy.archetypes["A1"], reason="has a HEMS gateway")
@@ -64,34 +70,36 @@ def triage(state: CustomerState, signals: list[Signal], policy: Policy, pop: pd.
     complaint = [r for r in open_tickets if r.get("category") == "complaint"]
 
     # price guarantee days and recent gas deregistration
-    pg = P.price_guarantee_ending(state)
+    prm = policy.params
+    pg = P.price_guarantee_ending(state, prm)
     pg_days = (pg.date.date() - state.eval_time.date()).days if pg else None
-    dereg = P.gas_meter_deregistered(state)
-    dereg_recent = bool(dereg and state.eval_time - dereg.date <= timedelta(days=90))
+    dereg = P.gas_meter_deregistered(state, prm)
+    dereg_recent = bool(dereg and state.eval_time - dereg.date <= timedelta(days=prm["p3_dereg_recent_days"]))
+    p1_dun, p2_days, risk = prm["p1_dunning_min"], prm["p2_price_guarantee_days"], prm["risk_churn_min"]
 
     reasons: list[str] = []
     deadline = None
-    if "EXCL-CANCELLATION" in excl or complaint or dunning >= 2 or "S2" in sig:
+    if "EXCL-CANCELLATION" in excl or complaint or dunning >= p1_dun or "S2" in sig:
         tier = "P1"
         if "EXCL-CANCELLATION" in excl:
             reasons.append(f"{excl['EXCL-CANCELLATION'].detail} [EXCL-CANCELLATION]")
         if complaint:
             reasons.append(f"open complaint {complaint[0]['ticket_id']} since {complaint[0]['created_at'].date()} [S12]")
-        if dunning >= 2:
+        if dunning >= p1_dun:
             reasons.append(f"dunning level {dunning} [S13]")
         if "S2" in sig:
             reasons.append(f"{sig['S2'].detail} [S2]")
-    elif open_tickets or dunning == 1 or (pg_days is not None and pg_days <= 30) or churn >= 0.35:
+    elif open_tickets or 0 < dunning < p1_dun or (pg_days is not None and pg_days <= p2_days) or churn >= risk:
         tier = "P2"
         if open_tickets:
             reasons.append(f"open {open_tickets[0]['category']} ticket {open_tickets[0]['ticket_id']} [S12]")
-        if dunning == 1:
-            reasons.append("dunning level 1 [S13]")
-        if pg_days is not None and pg_days <= 30:
+        if 0 < dunning < p1_dun:
+            reasons.append(f"dunning level {dunning} [S13]")
+        if pg_days is not None and pg_days <= p2_days:
             reasons.append(f"{pg.detail} [S4]")
             deadline = pg.date.date().isoformat()
-        if churn >= 0.35:
-            reasons.append(f"churn probability {churn:.2f} ≥ 0.35")
+        if churn >= risk:
+            reasons.append(f"churn probability {churn:.2f} ≥ {risk}")
     elif pg is not None or dereg_recent or "S5" in sig:
         tier = "P3"
         if pg is not None:
@@ -117,7 +125,10 @@ def triage(state: CustomerState, signals: list[Signal], policy: Policy, pop: pd.
     cons = consents(state, policy)
     chans = _channels(state, policy, cons)
     if tier == "P1":
-        flags.append(Flag(id="service_critical", label="Service critical", detail=reasons[0] if reasons else None))
+        p1_src = ("energy_contracts.status" if "EXCL-CANCELLATION" in excl else
+                  "service_interactions.status" if complaint else
+                  "energy_contracts.dunning_level" if dunning >= p1_dun else "charge_sessions.session_status")
+        flags.append(Flag(id="service_critical", label="Service critical", detail=reasons[0] if reasons else None, src=p1_src))
     if not any(c.allowed for c in chans.values()):
         flags.append(Flag(id="no_marketing_channel", label="No marketing channel",
                           detail="; ".join(f"{c.channel}: {c.reason}" for c in chans.values()), src="consent_status.status"))
@@ -126,12 +137,14 @@ def triage(state: CustomerState, signals: list[Signal], policy: Policy, pop: pd.
                           detail="generic, non-personalised offers only", src="consent_status.status"))
     if clv < 0:
         flags.append(Flag(id="negative_clv", label="Negative CLV", detail=f"clv_eur {clv:,.0f}", src="customer_value.clv_eur"))
-    p90 = clv_p90(pop)
-    if clv >= p90:
-        flags.append(Flag(id="top_clv", label="Top 10% CLV", detail=f"clv_eur {clv:,.0f} ≥ p90 {p90:,.0f}", src="customer_value.clv_eur"))
+    q = prm["top_clv_quantile"]
+    top = clv_quantile(pop, q)
+    if clv >= top:
+        flags.append(Flag(id="top_clv", label=f"Top {round((1 - q) * 100)}% CLV",
+                          detail=f"clv_eur {clv:,.0f} ≥ p{round(q * 100)} {top:,.0f}", src="customer_value.clv_eur"))
     n30 = len(contacts(state, 30))
     ignored = sum(1 for r in contacts(state, 90) if r.get("response") in ("ignored", "dismissed"))
-    if n30 >= 2 or ignored >= 3:
+    if n30 >= prm["fatigue_contacts_30d"] or ignored >= prm["fatigue_ignored_90d"]:
         flags.append(Flag(id="contact_fatigue", label="Contact fatigue",
                           detail=f"{n30} contacts in 30 days; {ignored} ignored/dismissed in 90 days", src="nba_action_history.response"))
     fb = [r for r in state.rows["service_nba_feedback"]
@@ -146,7 +159,8 @@ def triage(state: CustomerState, signals: list[Signal], policy: Policy, pop: pd.
     odd_ticket = any(r.get("ticket_id") in INCONSISTENT_TICKETS for r in state.rows["service_interactions"])
     if late_cdr or odd_ticket:
         flags.append(Flag(id="data_inconsistent", label="Snapshot inconsistency",
-                          detail="CDR received after the cutoff" if late_cdr else "ticket closed but resolved after the cutoff"))
+                          detail="CDR received after the cutoff" if late_cdr else "ticket closed but resolved after the cutoff",
+                          src="charge_sessions.cdr_received_at" if late_cdr else "service_interactions.resolved_at"))
 
     return Triage(
         archetype=_archetype(state, policy, bool(excl), churn),
