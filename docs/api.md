@@ -2,7 +2,12 @@
 
 **Implementation and owner:** `api/app.py`, owned by Agent NBA. This document is maintained by Agent KG.
 
-**Version:** API 0.1.0 at `main` e40c526, 26 Oct 2026. Every example below was produced by calling the running API on the mock data.
+**Version:** API 0.1.0 at `main` f8090e8 + `feat/kg`, 26 Oct 2026. Updated for Agent NBA's delivery (Q-NBA-21):
+- the replay preview endpoint;
+- English reasons;
+- the reduced static export.
+
+Every example below was produced by calling the running API on the mock data.
 
 The UI can get the data in two ways. Both return **the same JSON shapes**, defined in [`nba/contracts.py`](../nba/contracts.py) and exported as JSON Schema in [`docs/schema/`](schema/):
 
@@ -18,7 +23,7 @@ The UI can get the data in two ways. Both return **the same JSON shapes**, defin
 ```
 
 - **Base URL:** `http://localhost:8000`. All routes start with `/api`.
-- **Interactive docs:** `http://localhost:8000/docs` (Swagger UI) and `/openapi.json`. A static copy is in [`docs/openapi.json`](openapi.json).
+- **Interactive docs:** `http://localhost:8000/docs` (Swagger UI) and `/openapi.json`. A static copy, including `/api/replay`, is in [`docs/openapi.json`](openapi.json).
 - **Cold start:**
   - the first request loads the workbook and builds all 750 cards, which takes about 2 s;
   - later list calls take under 1 s;
@@ -130,6 +135,10 @@ Each item of `candidates[]` carries what an NBA card needs:
   - `p_accept` and `p_source`: `{mode, level, n_treated, conv_treated, n_control, conv_control, baseline_control}`;
   - `contact_cost`, `delta_clv`, `confidence`.
 
+`why` and `notes` are English (internal text). Customer-facing `chosen.content` stays German. Example from MG-100068:
+- `why`: `"electricity price guarantee ends on 2026-10-08 (in 8 days) [S4]"`, `"Observed conversions 11/99, level offer_channel_tone, mode rate; control group 1/19, baseline used 2.02% (global); descriptive difference 9.09%, not causal uplift"`;
+- `notes`: `"Contact before the price guarantee expires on 2026-10-08; check the proposed date"`.
+
 **Waterfall:** start from `clv_now_model`, not `clv_now_shown`. Starting from the displayed value would turn its rounding error (up to €3.05) into fake gain.
 
 **After a decision**, the card reflects it:
@@ -201,10 +210,70 @@ Also present:
 
 // approve MG-100035, whose chosen is NO_ACTION
 { "detail": { "rule_ids": ["ECON-NONPOSITIVE"],
-              "reasons": ["Keine zulässige Aktion mit positiver erwarteter ΔCLV. Gründe: CONSENT-CHANNEL, DATA-MISSING, ECON-NONPOSITIVE, EXCL-CANCELLATION"] } }
+              "reasons": ["No eligible action with positive expected ΔCLV. Reasons: CONSENT-CHANNEL, DATA-MISSING, ECON-NONPOSITIVE, EXCL-CANCELLATION"] } }
+
+// approve with a tuple that is no longer the current proposal
+{ "detail": { "rule_ids": ["HOLDING-PRECONDITION"],
+              "reasons": ["The proposal has changed; reload it or submit an explicit override"] } }
 ```
 
+Other English refusal texts:
+- `"Without profiling consent only the default Sie tone is allowed"`;
+- `"The KG did not evaluate this tuple: no eligible need path or generic channel"`;
+- `"Expected ΔCLV €… ≤ 0"`;
+- `"Generic fallback is allowed only when no signal or service action has positive expected ΔCLV"`.
+
 **Persistence:** entries are appended to `out/decision_log.jsonl` as `{"customer_id": …, "entry": DecisionLogEntry}`, with file locking. Nothing is ever sent.
+
+### 3.5 `POST /api/replay`: deep-dive B preview (read-only)
+
+This replays the 2026-10-01 event stream (README §6.14) against the current decisions and returns what would change.
+- It **never** changes API state, cards or approvals (`preview_only: true`).
+- Every chosen tuple that is not `NO_ACTION` or rejected is treated as a pending card.
+
+**Query parameter:**
+
+| Parameter | Meaning |
+|---|---|
+| `until` (optional) | Timezone-naive ISO time; events ingested up to and including it are applied. Default: the whole stream, up to 2026-10-03 19:27:39 |
+
+**Response:**
+
+| Field | Content |
+|---|---|
+| `preview_only` | Always `true` |
+| `eval_time` | The cutoff used |
+| `counts` | Events by status: `applied`, `informational`, `orphan`, `stale`, … |
+| `affected` | Customer IDs whose decision facts changed |
+| `pending_revocations` | `{customer_id: transition}` for cards revoked by a hard rule |
+| `transitions[]` | One row per decision-relevant event: `customer_id`, `event_id`, `event_type`, `occurred_at`, `ingested_at`, `delay_hours`, `pending_tuple`, `pending_status` (`valid` / `revoked`), `revoked_by`, `reasons`, `signals_added`, `signals_removed` |
+| `customers[]` | The re-decided `CustomerCard` of every affected customer, with `meta.events_applied_until` set |
+
+**Results on the mock stream:**
+- Full stream: about 3.6 s and 3.6 MB.
+  - Counts: `{"applied": 126, "informational": 508, "orphan": 1}`.
+  - 118 affected customers, 29 pending revocations, 127 transitions.
+- With `until=2026-10-01T12:00:00`: 28 affected, 11 revocations.
+
+The revocation for MG-100125:
+
+```json
+{ "customer_id": "MG-100125", "event_type": "ticket_created",
+  "occurred_at": "2026-10-01T11:31:02", "ingested_at": "2026-10-01T11:31:20", "delay_hours": 0.01,
+  "pending_tuple": "P-AS-01|newsletter_email|sie", "pending_status": "revoked", "revoked_by": ["EXCL-OPEN-TICKET"],
+  "reasons": ["MAINGAU Autostrom blocked: open meter_deregistration ticket TK-201001 since 2026-10-01"],
+  "signals_added": ["S12"], "signals_removed": [] }
+```
+
+**Errors (422):**
+
+| Input | Message |
+|---|---|
+| A timezone offset | `"Use timezone-naive timestamps from the mock event stream"` |
+| A cutoff before the snapshot | `"Replay cutoff must not precede the source snapshot"` |
+| Not a date | FastAPI validation error, `loc = ["query", "until"]` |
+
+The same analysis is available offline as `python scripts/replay_demo.py` (`out/replay_report.md`, `out/replay/timeline.json`). That is the source for a static demo.
 
 ## 4. Errors
 
@@ -214,6 +283,7 @@ Also present:
 | 409 | `{"detail": {"rule_ids": [...], "reasons": [...]}}` | A hard rule or economic rule refuses the decision |
 | 422 | `{"detail": "user must not be empty"}` / `"A rejection requires a reason"` / `"An override requires a tuple"` | Missing required input |
 | 422 | FastAPI validation list, e.g. `detail[0].type = "literal_error"`, `loc = ["body", "action"]` | Body does not match `DecisionRequest` (e.g. `"action": "send"`) |
+| 422 | `{"detail": "Use timezone-naive timestamps …"}` / `"Replay cutoff must not precede the source snapshot"` | Invalid `until` for `/api/replay` |
 
 **Rule IDs in 409 responses**, with suggested UI labels:
 
@@ -236,6 +306,22 @@ Also present:
 | `GET /api/customers/{id}` | `GET /data/customers/{id}.json` |
 | `GET /api/summary` | `GET /data/summary.json` |
 | `POST …/decision` | Not available; keep decisions client-side and only offer tuples present in `candidates` (Q-CARDS-13) |
+| `POST /api/replay` | Not available; use `out/replay/timeline.json` from `scripts/replay_demo.py` |
+
+**The static cards are a reduced view** (`nba/engine/export.py`, Q-KG-14). The API keeps every tuple.
+
+| Part | Static card |
+|---|---|
+| `candidates` | **One per offer**: the chosen tuple for the chosen offer, otherwise the best channel. Re-ranked 1…n |
+| `checks` and `path` | Full for the chosen tuple and the next three; empty (`[]`) for the rest |
+| `alternatives` | Recomputed from the three tuples after the chosen one, with `why_lower` such as `"Lower expected ΔCLV by €3.26"` |
+| `chosen` | Identical to the API |
+| `blocked`, `signals`, `profile` | Identical to the API |
+| JSON format | Compact |
+
+**Static export size:** `customers/` is about 19 MB, `index.json` about 0.5 MB.
+
+A real export removes `manifest.json`, the mock-data marker. MG-100068, for example, has 12 tuples in the API but 4 candidates in the static file.
 
 A minimal client that works in both modes:
 
@@ -267,11 +353,15 @@ export async function decide(id: string, body: DecisionRequest): Promise<Decisio
 
 Each is tracked as a question for Agent NBA in `log/agent-kg.md`:
 
+**Still open:**
 - No CORS middleware. Use the Vite proxy (Q-KG-19).
 - The OpenAPI file has no response models. Use `docs/schema/` for types (Q-KG-19).
-- `NO_ACTION` rows list all six checklist items as failed (Q-KG-19).
-- Some reasons, `why` texts and 409 messages are German (Q-KG-15).
-- The full export is about 41 MB (Q-KG-14).
-- No replay endpoint yet. Deep dive B runs as `python scripts/replay_demo.py`; an API endpoint is optional (Q-KG-17).
+- `NO_ACTION` rows still list all six checklist items as failed; checked again on f8090e8 (Q-KG-19).
+
+**Resolved in f8090e8:**
+- Q-KG-14: reduced static export.
+- Q-KG-15: English internal texts.
+- Q-KG-16: MG-100112 strict test.
+- Q-KG-17: `/api/replay`.
 
 Regenerate `docs/openapi.json` and the JSON Schemas with `.venv/bin/python scripts/export_schema.py` after any API or contract change.

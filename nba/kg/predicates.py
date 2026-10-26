@@ -161,7 +161,7 @@ def household_exceeds_sims(s: CustomerState, prm: dict | None = None) -> Hit | N
         sims = r.get("sim_count") or 0
         if hh > sims:
             return Hit(f"household of {hh} with {sims} SIM(s)", "customer_master.household_size",
-                       None, [f"contract:{r['contract_id']}"])
+                       r.get("record_updated_at") or r.get("start_date"), [f"contract:{r['contract_id']}"])
     return None
 
 
@@ -173,7 +173,7 @@ def pv_without_hems(s: CustomerState, prm: dict | None = None) -> Hit | None:
     elec = active_electricity(s)
     if elec and elec.get("feed_in_meter"):
         return Hit("has a feed-in meter (PV) but no HEMS gateway", "energy_contracts.feed_in_meter",
-                   None, [f"contract:{elec['contract_id']}"])
+                   elec.get("record_updated_at") or elec.get("start_date"), [f"contract:{elec['contract_id']}"])
     inv = [d for d in s.rows["hems_devices"] if d.get("device_type") == "pv_inverter"]
     if inv:
         return Hit("has a PV inverter but no HEMS gateway", "hems_devices.device_type",
@@ -195,8 +195,10 @@ def hems_battery_or_wallbox(s: CustomerState, prm: dict | None = None) -> Hit | 
         parts.append("wallbox/EV")
     if not needs:
         return None
-    ev = [f"device:{d['device_id']}" for d in s.rows["hems_devices"] if d.get("device_type") in ("hems_gateway", "home_battery", "wallbox")]
-    return Hit(f"HEMS gateway with {' and '.join(parts)}", "hems_devices.device_type", None, ev, needs)
+    cited = [d for d in s.rows["hems_devices"] if d.get("device_type") in ("hems_gateway", "home_battery", "wallbox")]
+    when = max((d["activated_at"] for d in cited if d.get("activated_at")), default=None)
+    return Hit(f"HEMS gateway with {' and '.join(parts)}", "hems_devices.device_type", when,
+               [f"device:{d['device_id']}" for d in cited], needs)
 
 
 @_signal
@@ -213,7 +215,8 @@ def smart_meter_flexible_load(s: CustomerState, prm: dict | None = None) -> Hit 
         loads.append("heat pump")
     if not loads:
         return None
-    return Hit(f"smart meter with {', '.join(loads)}", "energy_contracts.meter_type", None, [f"contract:{elec['contract_id']}"])
+    return Hit(f"smart meter with {', '.join(loads)}", "energy_contracts.meter_type",
+               elec.get("record_updated_at") or elec.get("start_date"), [f"contract:{elec['contract_id']}"])
 
 
 @_signal

@@ -580,7 +580,7 @@ def assemble(state, pop, policy, cfg) -> CustomerCard
 
 ### 6.1 Channel → consent map (owner: Agent KG, in `kg/policy.yaml`)
 
-| Channel | Required consent | Extra condition | Contact cost € |
+| Channel | Required consent | Extra condition | Contact cost € (from `value_assumptions`) |
 |---|---|---|---|
 | `newsletter_email` | `newsletter_email = granted` and `double_opt_in_confirmed_at` set | No `unsubscribed = 1` row in `newsletter_performance` (otherwise `effective_status = withdrawn`) | 0.01 |
 | `email` | `marketing_email = granted` | — | 0.01 |
@@ -590,6 +590,8 @@ def assemble(state, pop, policy, cfg) -> CustomerCard
 | `app_push` | `portal_app_personalisation = granted` | `customer_master.app_installed = 1` | 0 |
 | `service_agent` | none for service content; **never carries sales content** | Only for P-SV-01 | 0 (the 15 € resolution cost is in the accept branch) |
 | Any personalised content | `profiling_analytics = granted` | Otherwise generic content and only non-behavioural signals (§6.3) | — |
+
+Contact costs have **one source**: the workbook sheet `value_assumptions` (`contact_cost_*_eur`), read by Agent NBA. They are not duplicated in `kg/policy.yaml` (Q-KG-20, decided 26 Oct).
 
 `not_given` and `withdrawn` are both treated as not allowed. Unknown also counts as not allowed.
 
@@ -673,7 +675,7 @@ List both once per customer in `blocked` with `DATA-MISSING`, reason "not enough
 | P-EN-02 StromGarant | Active electricity; the churn driver "price guarantee ends <90d" is present | — |
 | P-EN-03 StromWärme | — | Tariff StromWärme |
 | P-EN-05 Dynamischer Stromtarif | Active electricity with `smart_meter_imsys` | — |
-| P-MO-01 Mobil S/M/L | Active energy contract | Active mobile |
+| P-MO-01 Mobil S/M/L | — (generic offer: only owned products are removed, D1; Q-KG-21) | Active mobile |
 | P-MO-02 Mobil Upgrade | Active mobile | — |
 | P-MO-03 Zusatz-SIM | Active mobile | — |
 | P-SL-01 HEMS Starter-Set | — | `hems_gateway` |
@@ -891,7 +893,7 @@ These are flags shown as ⚠ in the checklist. **They never block.**
   | Action | history `action_id` |
   | Signal | `customer_id` + Sx |
 
-- **Policy layer.** Static YAML: Need, Offer, Channel, ConsentType, ExclusionRule, SignalType.
+- **Policy layer.** Static YAML: Need, Offer, Channel, ConsentType, ExclusionRule, SignalType, Archetype (A0–A5; a node is added per customer for that customer's archetype).
 - **Edges (spec):**
 
   | Edge | From → To |
@@ -914,6 +916,10 @@ These are flags shown as ⚠ in the checklist. **They never block.**
   - `HAS_SESSION`: Contract → Session.
   - `HELD_OUT`: Customer → Action for control-group rows that were never sent.
   - `REINFORCES`: S10 → Need (evidence only, no tuple).
+  - `INSTANCE_OF`: Signal / Exclusion / Consent instance → SignalType / ExclusionRule / ConsentType.
+  - `IN_ARCHETYPE`: Customer → Archetype.
+  - `GENERIC_OFFER`: Customer → Offer in the explanation path of a generic (non-personalised) tuple (D1).
+  - `REQUIRES` also links every need-based offer to `consent:profiling_analytics` (D1), so the profiling rule is visible in the graph.
   - Channel and consent-type nodes are namespaced in the graph (`channel:email`, `consent:marketing_email`) because they share names.
 - **Division of labour:** rules are declared in YAML and evaluated by named Python predicates. Scoring lives in code. Customer data stays in tables; the graph is built per customer on demand, so there is no graph database.
 

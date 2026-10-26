@@ -125,7 +125,10 @@ def triage(state: CustomerState, signals: list[Signal], policy: Policy, pop: pd.
     cons = consents(state, policy)
     chans = _channels(state, policy, cons)
     if tier == "P1":
-        flags.append(Flag(id="service_critical", label="Service critical", detail=reasons[0] if reasons else None))
+        p1_src = ("energy_contracts.status" if "EXCL-CANCELLATION" in excl else
+                  "service_interactions.status" if complaint else
+                  "energy_contracts.dunning_level" if dunning >= p1_dun else "charge_sessions.session_status")
+        flags.append(Flag(id="service_critical", label="Service critical", detail=reasons[0] if reasons else None, src=p1_src))
     if not any(c.allowed for c in chans.values()):
         flags.append(Flag(id="no_marketing_channel", label="No marketing channel",
                           detail="; ".join(f"{c.channel}: {c.reason}" for c in chans.values()), src="consent_status.status"))
@@ -156,7 +159,8 @@ def triage(state: CustomerState, signals: list[Signal], policy: Policy, pop: pd.
     odd_ticket = any(r.get("ticket_id") in INCONSISTENT_TICKETS for r in state.rows["service_interactions"])
     if late_cdr or odd_ticket:
         flags.append(Flag(id="data_inconsistent", label="Snapshot inconsistency",
-                          detail="CDR received after the cutoff" if late_cdr else "ticket closed but resolved after the cutoff"))
+                          detail="CDR received after the cutoff" if late_cdr else "ticket closed but resolved after the cutoff",
+                          src="charge_sessions.cdr_received_at" if late_cdr else "service_interactions.resolved_at"))
 
     return Triage(
         archetype=_archetype(state, policy, bool(excl), churn),
