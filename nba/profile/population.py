@@ -1,7 +1,7 @@
 """Population features for percentiles and highlights (README §4.1 A2, A5).
 
-`population(tables)` in nba/state.py has the value columns; this adds the per-customer
-features the left card compares against. Pass the result to build_profile as `pop`.
+`population(tables)` in nba/state.py has the value columns; profile_population() repeats them and
+adds the per-customer features the left card compares against. Pass it to build_profile as `pop`.
 """
 
 from __future__ import annotations
@@ -43,8 +43,17 @@ def features(state) -> dict:
     mobile = [r for r in state.rows.get("mobile_contracts", []) if r.get("status") == "active"]
     return {
         "customer_id": state.customer_id,
-        "combo": combo(state),
+        # the columns of nba.state.population(), so this frame can replace it everywhere
+        "birth_year": clean(cm.get("birth_year")),
+        "household_size": clean(cm.get("household_size")),
+        "city": clean(cm.get("city")),
         "clv_eur": clean(cv.get("clv_eur")),
+        "annual_margin_eur": clean(cv.get("annual_margin_eur")),
+        "cost_to_serve_12m_eur": clean(cv.get("cost_to_serve_12m_eur")),
+        "churn_prob_12m": clean(cv.get("churn_prob_12m")),
+        "active_business_lines": clean(cv.get("active_business_lines")),
+        # profile features
+        "combo": combo(state),
         "clv_service_impact_eur": clean(cv.get("clv_service_impact_eur")),
         "tenure_years": (eval_time - since).days / 365.25 if since else None,
         "charge_kwh": kwh,
@@ -58,5 +67,9 @@ def features(state) -> dict:
 
 
 def profile_population(states: dict) -> pd.DataFrame:
-    """One row per customer with the columns build_profile compares against."""
+    """One row per customer: every column of nba.state.population() plus the profile features.
+
+    Pass it as `pop` to build_profile (highlights and the same-combo percentile need the features);
+    it also works wherever population() is expected, e.g. nba.kg.segments.triage.
+    """
     return pd.DataFrame([features(s) for _, s in sorted(states.items())]).set_index("customer_id", drop=False)

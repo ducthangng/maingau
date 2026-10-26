@@ -33,6 +33,15 @@ def test_every_customer_builds_a_valid_profile(states, profiles):
         assert [i.date for i in items] == sorted((i.date for i in items), reverse=True)
 
 
+def test_profile_population_can_replace_state_population(states, ppop, pop, kg_all, policy):
+    """NBA's runtime may pass profile_population() everywhere a population() frame is expected."""
+    from nba.kg.segments import triage
+
+    assert set(pop.columns) <= set(ppop.columns)
+    for cid, (signals, _, _, expected) in kg_all.items():
+        assert triage(states[cid], signals, policy, ppop) == expected
+
+
 def test_profile_is_deterministic(states, ppop):
     s = states["MG-100068"]
     assert build_profile(s, ppop).model_dump_json() == build_profile(s, ppop).model_dump_json()

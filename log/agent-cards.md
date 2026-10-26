@@ -62,6 +62,7 @@ These are kept up to date and edited in place. Status values: `open`, `answered`
 | Q-CARDS-15 | `load_workbook` leaves `portal_sessions.session_start`, `mobile_contracts.min_term_end` and `portal_sessions.offer_banner_shown` as strings (their names do not match the date/bool rules). `nba/profile` parses the two dates itself (`facts.to_datetime`). Add `_start`/`_end` to the date suffixes and `offer_banner_shown` to the bool columns? | Every agent that reads these columns must otherwise parse them again | Agent KG | open | — |
 | Q-CARDS-16 | `customer_value.clv_service_impact_eur` is always ≤ 0 in the data (a cost, e.g. −286). Spec A2 says "Service issues are costing €X"; the card shows it when the value is < 0, as €|X| | The banner would never show with an "if > 0" rule | Team | decided-default | — |
 | Q-CARDS-17 | KG explanation paths for P-SV-01 point to `ui_ref = product:service`, but the product grid has no service cell. Default: the left card anchors `product:service` on the service trend block | Path chips must always land somewhere | Agent KG | decided-default | — |
+| Q-CARDS-18 | `nba/engine/runtime.py` passes `population(tables)` to `assemble` → `build_profile`. That frame lacks the profile features, so in the real export every card has 0 highlights and no same-combo percentile. Please use `pop = nba.profile.profile_population(states)`: it has every `population()` column, and KG's triage is identical with it (test in `tests/test_profile_card.py`) | Highlights A5 and the A2 percentile vanish from all 750 real cards (with the right frame, 321 customers get 1–3 highlights) | Agent NBA | open | — |
 
 ## Session entries
 
@@ -192,3 +193,28 @@ These are kept up to date and edited in place. Status values: `open`, `answered`
   - Run `npm run check:data` after any export.
 
 **Next session starts with:** merge `origin/main`; if Agent NBA's export is there, run `python -m nba.build --export web/public/data`, delete `manifest.json`, run `npm run check:data`, and check the 13 test customers in the browser.
+
+### Session 2b · 2026-10-26 16:40–16:55 Europe/Berlin · Claude Code (Opus 5.5) · branch feat/cards · commits 82f453b..(this commit)
+
+**Goal:** deliver Session 2 to `main` (Agent KG's priority: NBA's assemble needs `nba/profile`) and check how NBA's new export uses it.
+
+**Done:**
+- Committed Session 2 as 82f453b (only my paths, 107 files; `git diff --cached` checked). Merged `origin/main` (NBA delivery ef82704, K11 decision 8ecc8ce) as dde01a2; no overlap with my paths.
+- `git push -u origin feat/cards`, then `git push origin feat/cards:main` (fast-forward 8ecc8ce..dde01a2).
+- `nba/profile/population.py`: `profile_population()` now also has every column of `nba.state.population()`, so NBA can use one frame everywhere (Q-CARDS-18). New test `test_profile_population_can_replace_state_population`.
+
+**Verified:**
+- After the merge: `.venv/bin/python -m pytest -q` → 117 passed, including NBA's engine and acceptance tests with `nba/profile` present. `npm run build` → OK.
+- After the population change: `pytest -q` → 118 passed. KG triage is identical with both frames for all 750 customers. Highlights per customer: `population()` → 0 for all 750; `profile_population()` → 0: 429, 1: 243, 2: 72, 3: 6.
+
+**Not done / carried over:** switching `web/public/data` to NBA's real export (`python -m nba.build --export web/public/data`): first decide the size (750 cards vs the ~20 MB limit in README §13.2) and wait for Q-CARDS-18 so the real cards carry highlights.
+
+**Contract changes:** none.
+
+**Questions to consider:** Q-CARDS-18 (Agent NBA: pass `profile_population(states)` as `pop`).
+
+**Issues / risks:** none new.
+
+**Handoff:** Agent NBA: Q-CARDS-18 is a one-line change in `nba/engine/runtime.py` (`population(tables)` → `profile_population(states)`).
+
+**Next session starts with:** measure the size of NBA's export for 750 customers, then switch the UI data to it.
