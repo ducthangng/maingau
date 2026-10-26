@@ -105,3 +105,26 @@ export function isHoldout(customerId: string, pct = 10): boolean {
 }
 
 export const REVIEWER = "demo-marketer";
+
+/** Approve or reject the engine's proposal straight from a worklist row (same record as the card's DecisionBar). */
+export function decideRow(
+  row: { customer_id: string; chosen_tuple?: string | null; delta_clv?: number | null; p_accept?: number | null },
+  action: "approved" | "rejected",
+  reason: string | null = null,
+) {
+  if (!row.chosen_tuple) return;
+  recordDecisions([
+    {
+      customer_id: row.customer_id,
+      action,
+      tuple_id: row.chosen_tuple,
+      from_tuple: row.chosen_tuple,
+      reason,
+      reviewer: REVIEWER,
+      delta_clv: row.delta_clv ?? null,
+      p_accept: row.p_accept ?? null,
+      group: null,
+      holdout: false,
+    },
+  ]);
+}
