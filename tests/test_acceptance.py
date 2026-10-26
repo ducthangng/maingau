@@ -4,8 +4,8 @@ import pytest
 from nba.contracts import CustomerCard, NO_ACTION
 from nba.engine.assemble import assemble
 from nba.engine.config import load_config
-from nba.kg.rules import _channels, active_exclusions, check_tuple, consents, is_profiled
-from nba.state import contacts, owns
+from nba.kg.rules import _channels, active_exclusions, check_tuple, consents, contact_cap_status, is_profiled
+from nba.state import owns
 
 
 @pytest.fixture(scope='module', params=['rate', 'uplift'])
@@ -32,14 +32,19 @@ def test_strict_reference_customers(cards):
         card = all_cards[cid]
         assert card.profile.header.tone.value == 'sie' and card.profile.header.tone.method == 'default'
         assert all(not c.personalised and c.origin != 'signal' for c in card.candidates)
-        assert card.chosen.content and not card.chosen.content.personalised
+        if card.chosen.tuple_id != NO_ACTION:  # MG-100112 has no action under uplift (B-08)
+            assert card.chosen.content and not card.chosen.content.personalised
     generic_call = all_cards['MG-100112']
-    assert generic_call.chosen.tuple_id == 'P-EN-01|outbound_call|sie', mode
-    selected = next(c for c in generic_call.candidates if c.tuple_id == generic_call.chosen.tuple_id)
-    assert selected.origin == 'generic' and not selected.personalised
-    assert not generic_call.chosen.content.personalised
     assert any(b.rule_id == 'CONSENT-PROFILING' and b.offer_id == 'P-AS-01' and 'S3' in b.reason
                for b in generic_call.blocked)
+    if mode == 'uplift':  # B-08: the call is worth less than €10 under uplift, so nothing is proposed
+        assert generic_call.chosen.tuple_id == NO_ACTION
+        assert any(b.rule_center_id == 'B-08' and b.offer_id == 'P-EN-01' for b in generic_call.blocked)
+        return
+    assert generic_call.chosen.tuple_id == 'P-EN-01|outbound_call|sie', mode  # K11, and ΔCLV ≥ €10 (B-08)
+    selected = next(c for c in generic_call.candidates if c.tuple_id == generic_call.chosen.tuple_id)
+    assert selected.origin == 'generic' and not selected.personalised and selected.valuation.delta_clv >= 10
+    assert not generic_call.chosen.content.personalised
 
 
 @pytest.mark.acceptance
@@ -49,7 +54,11 @@ def test_report_cases_keep_signal_evidence(cards):
         card = all_cards[cid]
         assert 'S1' in {s.id for s in card.signals}
         assert 'P-EN-03' in {c.offer_id for c in card.candidates} | {b.offer_id for b in card.blocked}
-    assert {c.offer_id for c in all_cards['MG-100112'].candidates} == ({'P-EN-01', 'P-MO-01', 'P-SL-01'} if cards[0] == 'rate' else {'P-EN-01'})
+    # B-08 drops calls worth less than €10 (positive ΔCLV only; ΔCLV ≤ 0 stays ECON-NONPOSITIVE)
+    rate = cards[0] == 'rate'
+    assert {c.offer_id for c in all_cards['MG-100112'].candidates} == ({'P-EN-01'} if rate else set())
+    b08 = {b.offer_id for b in all_cards['MG-100112'].blocked if b.rule_center_id == 'B-08'}
+    assert b08 == ({'P-MO-01', 'P-SL-01'} if rate else {'P-EN-01'})
 
 
 @pytest.mark.acceptance
@@ -62,16 +71,23 @@ def test_all_750_invariants(cards, states, policy):
         channels = _channels(state, policy, consents(state, policy))
         profiled, excluded = is_profiled(state, policy), bool(active_exclusions(state, policy))
         assert card.triage.archetype.id and card.triage.urgency_reasons
-        assert len(card.checklist) == 6
+        assert len(card.checklist) == (0 if card.chosen.tuple_id == NO_ACTION else 6)  # Q-KG-19
         assert all(f.src for f in [card.profile.header.age_band, card.profile.header.city,
                                   card.profile.value_risk.clv_eur, card.profile.value_risk.churn_prob_12m])
+        cap = contact_cap_status(state, policy)
         for c in card.candidates:
-            assert not check_tuple(state, c.offer_id, c.channel, policy), (mode, cid, c.tuple_id)
+            # a held-back tuple (DEFER_UNTIL) may only be blocked by the contact cap, and waits until it frees up
+            blockers = {b.rule_id for b in check_tuple(state, c.offer_id, c.channel, policy)}
+            assert blockers <= ({'CONTACT-CAP'} if c.deferred_until else set()), (mode, cid, c.tuple_id, blockers)
+            if 'CONTACT-CAP' in blockers:
+                assert c.deferred_until >= cap.free_at.isoformat(), (mode, cid, c.tuple_id)
             assert c.valuation.delta_clv > 0, (mode, cid, c.tuple_id)
             assert not owns(state, c.offer_id)
             if c.action_type != 'service':
                 assert channels[c.channel].allowed and not excluded
-                assert len(contacts(state, 30)) < policy.contact_cap[0]
+                assert not cap.hit or c.deferred_until, (mode, cid, c.tuple_id)
+            if c.deferred_until:
+                assert card.chosen.deferred_until and c.deferred_until > state.eval_time.isoformat()
             if not profiled:
                 assert not c.personalised and c.origin != 'signal' and c.tone == 'sie'
         if card.chosen.tuple_id == NO_ACTION:

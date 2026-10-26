@@ -8,9 +8,10 @@ from typing import Any
 
 import yaml
 
-from nba.contracts import ArchetypeId, ConsentType
+from nba.contracts import ArchetypeId, ConsentType, RuleId
 from nba.data import load_workbook
 from nba.kg import predicates as P
+from nba.kg.contacts import SOURCES as CONTACT_SOURCES
 from nba.state import resolve_eval_time
 
 REPO = Path(__file__).resolve().parents[2]
@@ -18,6 +19,7 @@ POLICY_PATH = REPO / "kg" / "policy.yaml"
 CONFIG_PATH = REPO / "config" / "kg.yaml"
 CONSENT_TYPES = set(ConsentType.__args__)
 ARCHETYPE_IDS = set(ArchetypeId.__args__)
+RULE_IDS = set(RuleId.__args__)
 
 # Every tunable threshold must be present; (min, max) bounds catch typos such as 0.35 → 35.
 PARAMETER_BOUNDS = {
@@ -86,6 +88,7 @@ class Policy:
     archetypes: dict[str, str]
     config: dict[str, Any] = field(default_factory=dict)
     params: dict[str, float] = field(default_factory=dict)
+    compliance: dict[str, dict[str, Any]] = field(default_factory=dict)  # Rule Center tier 1, C-01..C-09
 
     def offers_for_need(self, need: str) -> list[str]:
         return [o.id for o in self.offers.values() if need in o.addresses]
@@ -104,6 +107,11 @@ class Policy:
     def contact_cap(self) -> tuple[int, int]:
         cap = self.config.get("contact_cap", {})
         return int(cap.get("max_contacts", 2)), int(cap.get("window_days", 30))
+
+    @property
+    def contact_cap_sources(self) -> tuple[str, ...]:
+        """Which contacts count toward the cap (nba.kg.contacts.SOURCES); the history alone by default."""
+        return tuple(self.config.get("contact_cap", {}).get("sources") or ("nba_history",))
 
 
 def load_policy(path: str | Path = POLICY_PATH, config_path: str | Path = CONFIG_PATH, catalog=None,
@@ -156,6 +164,7 @@ def load_policy(path: str | Path = POLICY_PATH, config_path: str | Path = CONFIG
         archetypes={aid: a["name"] for aid, a in raw["archetypes"].items()},
         config=config,
         params=params,
+        compliance={cid: dict(c) for cid, c in (raw.get("compliance") or {}).items()},
     )
     problems = validate(policy, set(cat))
     if problems:
@@ -211,4 +220,18 @@ def validate(policy: Policy, catalog_ids: set[str]) -> list[str]:
     for oid in policy.config.get("generic", {}).get("offers", []):
         if oid not in policy.offers or not policy.offers[oid].generic:
             out.append(f"config lists {oid} as generic but policy does not allow it")
+    cap_max, window = policy.contact_cap
+    if cap_max < 1 or window < 1:
+        out.append("contact_cap: max_contacts and window_days must be at least 1")
+    unknown = sorted(set(policy.contact_cap_sources) - set(CONTACT_SOURCES))
+    if unknown:
+        out.append(f"contact_cap: unknown source(s) {unknown}; use {list(CONTACT_SOURCES)}")
+    if sorted(policy.compliance) != [f"C-0{i}" for i in range(1, 10)]:
+        out.append("compliance must list exactly C-01 … C-09 (docs/rule-center.md §2)")
+    for cid, c in policy.compliance.items():
+        if not c.get("label") or not (c.get("kg_rules") or c.get("enforced_by")):
+            out.append(f"compliance {cid}: needs a label and kg_rules or enforced_by")
+        for rule in c.get("kg_rules") or []:
+            if rule not in RULE_IDS:
+                out.append(f"compliance {cid}: unknown KG rule {rule}")
     return out

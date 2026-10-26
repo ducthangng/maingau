@@ -91,10 +91,15 @@ def build_states(
     for cid in tables["customer_master"]["customer_id"]:
         if wanted is None or cid in wanted:
             grouped[cid] = {s: [] for s in CUSTOMER_SHEETS}
+    # newsletter_campaigns is global; its send time is copied onto each delivery row (nba.kg.contacts)
+    campaigns = tables.get("newsletter_campaigns")
+    sent_at = dict(zip(campaigns["campaign_id"], campaigns["sent_at"])) if campaigns is not None else {}
     for sheet in CUSTOMER_SHEETS:
         for rec in tables[sheet].to_dict("records"):
             cid = rec.get("customer_id")
             if cid in grouped:
+                if sheet == "newsletter_performance":
+                    rec["campaign_sent_at"] = sent_at.get(rec.get("campaign_id"))
                 grouped[cid][sheet].append(rec)
     return {
         cid: CustomerState(cid, eval_time, snapshot_mode, rows, [], _revision(rows, []))

@@ -209,9 +209,11 @@ def apply_event(rows: dict[str, list[dict]], cid: str, ev: dict, clocks: _Clocks
         return "applied", [f"shop_orders: {p.get('product_name')} placed (not yet owned)"], ""
 
     if t == "newsletter_clicked":
+        sent = next((r.get("campaign_sent_at") for r in rows["newsletter_performance"]
+                     if r.get("campaign_id") == p.get("campaign_id")), None)
         rows["newsletter_performance"].append({
             "campaign_id": p.get("campaign_id"), "customer_id": cid, "clicked_at": occ,
-            "click_target": p.get("click_target"), "delivered": True,
+            "click_target": p.get("click_target"), "delivered": True, "campaign_sent_at": sent,
         })
         return "applied", [f"newsletter_performance: click on {p.get('click_target')}"], ""
 

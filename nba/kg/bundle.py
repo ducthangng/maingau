@@ -54,10 +54,12 @@ class KGBundle:
     data_quality: list[DataQuality]
 
 
-def kg_bundle(state: CustomerState, policy: Policy, pop: pd.DataFrame, tone: str = "sie") -> KGBundle:
-    """Signals, gated candidates (valuation None), blocked rows, triage, views and data-quality flags."""
+def kg_bundle(state: CustomerState, policy: Policy, pop: pd.DataFrame, tone: str = "sie", *,
+              apply_cap: bool = True) -> KGBundle:
+    """Signals, gated candidates (valuation None), blocked rows, triage, views and data-quality flags.
+    `apply_cap=False`: see generate_candidates (Agent NBA defers capped tuples instead of dropping them)."""
     signals = extract_signals(state, policy)
-    candidates, blocked = generate_candidates(state, signals, policy, tone)
+    candidates, blocked = generate_candidates(state, signals, policy, tone, apply_cap=apply_cap)
     return KGBundle(
         signals=signals,
         candidates=candidates,

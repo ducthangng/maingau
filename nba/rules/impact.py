@@ -39,6 +39,12 @@ def runtime_from(sections: dict[str, dict], tables) -> Runtime:
     return attach(Runtime(tables, states, profile_population(states), policy, cfg), sections["learn"])
 
 
+def decision(card) -> str:
+    """The chosen tuple, plus "@<date>" while a Rule Center rule holds it back (DEFER_UNTIL)."""
+    wait = card.chosen.deferred_until
+    return f"{card.chosen.tuple_id}@{wait[:10]}" if wait else card.chosen.tuple_id
+
+
 def offer_of(tuple_id: str) -> str:
     return tuple_id.split("|")[0] if tuple_id != NO_ACTION else NO_ACTION
 
@@ -80,8 +86,8 @@ def impact(base_sections: dict, edited_sections: dict, *, customer_ids=None, wor
     reference = set(edited_sections["learn"].get("reference_customers") or [])
     changed, flows = [], Counter()
     for b, a in zip(before, after):
-        if b.chosen.tuple_id != a.chosen.tuple_id:
-            row = {"customer_id": b.customer_id, "before": b.chosen.tuple_id, "after": a.chosen.tuple_id,
+        if decision(b) != decision(a):
+            row = {"customer_id": b.customer_id, "before": decision(b), "after": decision(a),
                    "delta_before": chosen_value(b), "delta_after": chosen_value(a), "reason_after": a.chosen.reason_line}
             changed.append(row)
             flows[(offer_of(row["before"]), offer_of(row["after"]))] += 1
@@ -90,7 +96,9 @@ def impact(base_sections: dict, edited_sections: dict, *, customer_ids=None, wor
     held = edited_sections if hold_to_edited else base_sections
     base_policy, base_kg = held["policy"], held["kg"]
     cap = (int(base_kg["contact_cap"]["max_contacts"]), int(base_kg["contact_cap"]["window_days"]))
-    rules = raw_rules(tables, base_policy["channels"], datetime.fromisoformat(base_kg["eval_time"]), cap)
+    # config/kg.yaml may say `eval_time: auto`; the runtime holds the resolved time
+    rules = raw_rules(tables, base_policy["channels"], next(iter(before_rt.states.values())).eval_time, cap,
+                      tuple(base_kg["contact_cap"].get("sources") or ("nba_history",)))
     loop_before = {p.key: p for p in patterns(Evidence.from_runtime(before_rt, base_sections["learn"]))}
     loop_after = {p.key: p for p in patterns(Evidence.from_runtime(after_rt, edited_sections["learn"]))}
     loop_changes = [{"pattern": k, "before": loop_before[k].status if k in loop_before else None,

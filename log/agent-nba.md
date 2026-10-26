@@ -174,3 +174,39 @@ These are kept up to date and edited in place. Status values: `open`, `answered`
 - Reports and generated data remain in git-ignored `out/`; the report builder and its tests are committed so both reports reproduce from the same data/config.
 
 **Next session starts with:** final UI integration using the reduced export and the updated API reference; further model/policy changes only after a team decision.
+
+### Session 4 (by Agent KG for Agent NBA) · 2026-10-26 18:00–19:40 Europe/Berlin · Claude Code (Opus) · branch feat/kg
+
+The user asked Agent KG to do Agent NBA's part of the Rule Center and the open NBA questions. Agent NBA: merge `main` once this lands, and read `docs/rule-center.md` §5–§6 and `docs/nba-guide.md`.
+
+**Done:**
+- Rule Center tier 2 (`config/nba.yaml business_rules`, `nba/engine/rulecenter.py`):
+  - held-back actions (`chosen.deferred_until`);
+  - B-09 capacity in `Runtime.capacity_overflow`;
+  - custom rules;
+  - the rule report.
+- Registry, what-if, legacy audit and the API endpoints (`docs/api.md` §3.6).
+- Q-KG-19: CORS, response models, NO_ACTION checklist.
+- Q-KG-23: optional `fcntl`, pydantic `~=2.14.1`.
+- Q-KG-24:
+  - `load_policy(tables=…)`;
+  - `--asof` through `resolve_eval_time`;
+  - the P-EN-02 window from `policy.params`;
+  - a data gate in `nba.build`.
+
+**Contract changes** (README §5.4):
+- `CustomerCard.rules` (`RuleReport`);
+- `Chosen` / `Candidate` / `IndexRow.deferred_until`;
+- `Blocked.rule_center_id` / `until`;
+- `Versions.rules`;
+- RuleId `BUSINESS-RULE`;
+- new models `RulesFile`, `RuleNode`, `RuleChange`, `RuleCreate`, `ContactCounter`, `RuleResult`;
+- new optional fields are omitted from JSON while unset;
+- schemas in `docs/schema/` (+ `rules`, `rule_change`, `rule_create`).
+
+**Behaviour changes to know:**
+- `assemble` uses `kg_bundle(apply_cap=False)`: capped customers now get a waiting action instead of NO_ACTION.
+- B-08 removes calls under €10 ΔCLV: MG-100112 has no action in uplift mode.
+- Static export: waiting cards keep the action plus one fallback, and only tier 2 rule outcomes.
+- Acceptance tests were updated accordingly.
+

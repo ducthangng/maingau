@@ -22,6 +22,7 @@ exclusions:
 consent:
   unsubscribe_withdraws: [newsletter_email]   # K9
 
-contact_cap:
+contact_cap:                       # = Rule Center B-02 (docs/rule-center.md)
   max_contacts: 2                  # K5
   window_days: 30
+  sources: [nba_history, service_feedback]   # nba.kg.contacts; add `newsletter` to count broadcasts too (R1)

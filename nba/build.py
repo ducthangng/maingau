@@ -8,11 +8,12 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from nba.contracts import CustomerCard, IndexRow, Summary
+from nba.contracts import CustomerCard, IndexRow, RulesFile, Summary
 from nba.data import DEFAULT_WORKBOOK
 from nba.engine.export import export_card
 from nba.engine.impact import impact_report
 from nba.engine.report import test_report
+from nba.engine.rule_registry import rules_file
 from nba.engine.runtime import Runtime, index_rows, summary
 
 
@@ -29,7 +30,8 @@ def build(runtime: Runtime, out_dir, customer_ids=None, *, export_dir=None, repo
         raise ValueError("Unknown customers: " + ", ".join(unknown))
     if not ids:
         raise ValueError("Select at least one customer")
-    cards = [export_card(card) for card in runtime.cards(ids)]
+    full = runtime.cards(ids)
+    cards = [export_card(card) for card in full]
     rows = index_rows(cards, runtime.states)
     totals = summary(cards, runtime.cfg, runtime.states[ids[0]].eval_time)
     out = Path(out_dir)
@@ -42,7 +44,17 @@ def build(runtime: Runtime, out_dir, customer_ids=None, *, export_dir=None, repo
         files.append(path)
     (out / "index.json").write_text(json_text([IndexRow.model_validate(r).model_dump(mode="json") for r in rows]), encoding="utf-8")
     (out / "summary.json").write_text(json_text(Summary.model_validate(totals)), encoding="utf-8")
-    files += [out / "index.json", out / "summary.json"]
+    eval_time = runtime.states[ids[0]].eval_time.isoformat()
+    rules = rules_file(runtime.cfg.settings, runtime.policy, runtime.tables, eval_time)
+    (out / "rules.json").write_text(json_text(RulesFile.model_validate(rules)), encoding="utf-8")
+    files += [out / "index.json", out / "summary.json", out / "rules.json"]
+    # Rule Center log (docs/rule-center.md §6): every rule's result per customer for this run; not exported
+    with (out / "rule_log.jsonl").open("w", encoding="utf-8") as log:
+        for card in full:
+            log.write(json_text({"customer_id": card.customer_id, "eval_time": eval_time,
+                                 "rule_set_version": card.rules.rule_set_version,
+                                 "final_action": card.chosen.tuple_id, "deferred_until": card.chosen.deferred_until,
+                                 "results": [r.model_dump(mode="json") for r in card.rules.results]}))
     if report:
         (out / "test_report.md").write_text(test_report(runtime.states, runtime.pop, runtime.policy, runtime.cfg), encoding="utf-8")
         (out / "impact_report.md").write_text(impact_report(cards, runtime.states, runtime.pop, runtime.policy, runtime.cfg), encoding="utf-8")
@@ -67,9 +79,17 @@ def main(argv=None):
     parser.add_argument("--asof", type=datetime.fromisoformat)
     parser.add_argument("--workbook", type=Path, default=DEFAULT_WORKBOOK)
     parser.add_argument("--no-report", action="store_true", help="Skip regenerating the reference and impact reports")
+    parser.add_argument("--skip-validation", action="store_true", help="Build even if the data contract reports an ERROR")
     args = parser.parse_args(argv)
     start = time.perf_counter()
     ids = [x.strip() for x in args.customers.split(",") if x.strip()] if args.customers is not None else None
+    if not args.skip_validation:  # README §6.15: a new workbook must pass kg/data_contract.yaml first (Q-KG-24)
+        from nba.kg.intake import validate_workbook
+
+        errors = [i for i in validate_workbook(args.workbook) if i.level == "ERROR"]
+        if errors:
+            parser.error(f"{len(errors)} data contract error(s), e.g. {errors[0].code} {errors[0].where}: {errors[0].detail}; "
+                         "run scripts/validate_data.py, or pass --skip-validation")
     try:
         runtime = Runtime.load(args.workbook, p_mode=args.p_mode, eval_time=args.asof)
         cards, _, _ = build(runtime, args.out, ids, export_dir=args.export_dir, report=not args.no_report)

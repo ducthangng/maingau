@@ -15,6 +15,12 @@ from nba.data import REPO, load_workbook
 from nba.kg.bundle import source_info
 
 
+def rule_set_version(settings, policy) -> str:
+    from nba.engine.rulecenter import rule_set_version as version
+
+    return version(settings, policy)
+
+
 class MissingDataError(ValueError):
     """A required input is absent or not numeric."""
 
@@ -48,6 +54,16 @@ class EngineConfig:
     _history_index: Any = field(default=None, repr=False)
     lookalike: Any = field(default=None, repr=False)  # nba.learn.lookalike.Lookalike, attached by Runtime.load
     _versions: Any = field(default=None, repr=False)
+    _rules: Any = field(default=None, repr=False)
+
+    @property
+    def rules(self) -> list:
+        """Rule Center tier 2 rules (business_rules + custom_rules), parsed once."""
+        if self._rules is None:
+            from nba.engine.rulecenter import load_rules
+
+            self._rules = load_rules(self.settings)
+        return self._rules
 
     @property
     def p_mode(self) -> str:
@@ -59,7 +75,13 @@ class EngineConfig:
     def with_mode(self, mode: str) -> EngineConfig:
         if mode not in {"rate", "uplift"}:
             raise ValueError("p_mode must be rate or uplift")
-        return replace(self, settings={**self.settings, "p_mode": mode}, _history_index=self._history_index, _versions=None)
+        return replace(self, settings={**self.settings, "p_mode": mode}, _history_index=self._history_index, _versions=None,
+                       _rules=self._rules)
+
+    def with_settings(self, **changes) -> EngineConfig:
+        """A copy with some settings replaced (Rule Center edits and what-if); rules and versions are re-derived."""
+        return replace(self, settings={**self.settings, **changes}, _history_index=self._history_index,
+                       _versions=None, _rules=None)
 
     def versions(self, policy) -> Versions:
         if self._versions is None:
@@ -68,6 +90,7 @@ class EngineConfig:
                 value_model=f"{self.settings['value_model']}:{fingerprint([self.assumptions, self.offers])}",
                 propensity=f"{self.settings['propensity_version']}:{self.p_mode}:{fingerprint([self.settings, self.history, self.lookalike and self.lookalike.version])}",
                 templates=f"{self.settings['templates_version']}:{fingerprint([(p.name, p.read_text(encoding='utf-8')) for p in sorted(self.template_dir.glob('*.yaml'))])}",
+                rules=rule_set_version(self.settings, policy),
             )
         return self._versions.model_copy(deep=True)
 
@@ -83,6 +106,9 @@ def load_config(tables=None, path: str | Path = REPO / "config" / "nba.yaml", *,
     for key in ("p_service_success", "rate_prior_mean"):
         if not 0 <= number(settings.get(key), f"config.nba.{key}") <= 1:
             raise ValueError(f"{key} must be in [0, 1]")
+    from nba.engine.rulecenter import load_rules
+
+    load_rules(settings)  # a bad Rule Center rule stops loading (ValueError), like a bad policy
     for key, o in (settings.get("p_overrides") or {}).items():
         if not isinstance(o, dict) or not 0 <= number(o.get("p"), f"config.nba.p_overrides.{key}.p") <= 1:
             raise ValueError(f"p_overrides.{key}.p must be in [0, 1]")

@@ -1,0 +1,124 @@
+{
+  "$defs": {
+    "Condition": {
+      "additionalProperties": false,
+      "properties": {
+        "column": {
+          "title": "Column",
+          "type": "string"
+        },
+        "entity": {
+          "title": "Entity",
+          "type": "string"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "op": {
+          "enum": [
+            "=",
+            "!=",
+            ">=",
+            "<=",
+            "within_days"
+          ],
+          "title": "Op",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value"
+        }
+      },
+      "required": [
+        "entity",
+        "column",
+        "op",
+        "value"
+      ],
+      "title": "Condition",
+      "type": "object"
+    },
+    "RuleCreate": {
+      "additionalProperties": false,
+      "description": "POST /api/rules: a customized or hard rule from the Rule Center popup (sub-rules narrow the parent).",
+      "properties": {
+        "active": {
+          "default": true,
+          "title": "Active",
+          "type": "boolean"
+        },
+        "by": {
+          "default": "",
+          "title": "By",
+          "type": "string"
+        },
+        "children": {
+          "items": {
+            "$ref": "#/$defs/RuleCreate"
+          },
+          "title": "Children",
+          "type": "array"
+        },
+        "condition": {
+          "$ref": "#/$defs/Condition"
+        },
+        "effect": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Effect"
+        },
+        "hard": {
+          "default": false,
+          "title": "Hard",
+          "type": "boolean"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "parent": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent"
+        }
+      },
+      "required": [
+        "condition"
+      ],
+      "title": "RuleCreate",
+      "type": "object"
+    }
+  },
+  "$ref": "#/$defs/RuleCreate"
+}

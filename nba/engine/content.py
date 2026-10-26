@@ -15,7 +15,18 @@ def _template(path: str, mtime_ns: int):
     return yaml.safe_load(Path(path).read_text(encoding="utf-8"))
 
 
-def render_content(chosen, tone, personalised: bool, *, state=None, template_dir=None) -> Content:
+GUARANTEE_WINDOW_DAYS = 90  # kg/policy.yaml parameters.price_guarantee_window_days (S4) when no policy is given
+
+
+def guarantee_dates(state, window_days: int | None = None) -> list:
+    """Active price guarantees ending within the S4 window (P-EN-02 date in the note and the letter)."""
+    days = int(window_days or GUARANTEE_WINDOW_DAYS)
+    return sorted(r["price_guarantee_until"] for r in state.rows.get("energy_contracts", [])
+                  if r.get("status") == "active" and r.get("price_guarantee_until")
+                  and 0 <= (r["price_guarantee_until"].date() - state.eval_time.date()).days < days)
+
+
+def render_content(chosen, tone, personalised: bool, *, state=None, template_dir=None, window_days=None) -> Content:
     tone = getattr(tone, "value", tone)
     path = Path(template_dir or REPO / "templates" / "de") / f"{chosen.offer_id}.yaml"
     template = _template(str(path), path.stat().st_mtime_ns)
@@ -23,9 +34,7 @@ def render_content(chosen, tone, personalised: bool, *, state=None, template_dir
     text = template[tone][variant]
     body = text["body"]
     if personalised and chosen.offer_id == "P-EN-02" and state is not None:
-        dates = sorted(r["price_guarantee_until"] for r in state.rows.get("energy_contracts", [])
-                       if r.get("status") == "active" and r.get("price_guarantee_until")
-                       and 0 <= (r["price_guarantee_until"].date() - state.eval_time.date()).days < 90)
+        dates = guarantee_dates(state, window_days)
         if dates:
             intro = "Deine Preisgarantie endet am" if tone == "du" else "Ihre Preisgarantie endet am"
             body = f"{intro} {dates[0]:%d.%m.%Y}. {text['dated_body']}"

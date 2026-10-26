@@ -101,6 +101,18 @@
           "title": "Reason",
           "type": "string"
         },
+        "rule_center_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rule Center Id"
+        },
         "rule_id": {
           "enum": [
             "CONSENT-CHANNEL",
@@ -113,7 +125,8 @@
             "HOLDING-PRECONDITION",
             "CONTACT-CAP",
             "ECON-NONPOSITIVE",
-            "DATA-MISSING"
+            "DATA-MISSING",
+            "BUSINESS-RULE"
           ],
           "title": "Rule Id",
           "type": "string"
@@ -129,6 +142,18 @@
           ],
           "default": null,
           "title": "Src"
+        },
+        "until": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Until"
         }
       },
       "required": [
@@ -172,6 +197,18 @@
           },
           "title": "Checks",
           "type": "array"
+        },
+        "deferred_until": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Deferred Until"
         },
         "need": {
           "anyOf": [
@@ -362,7 +399,8 @@
             "HOLDING-PRECONDITION",
             "CONTACT-CAP",
             "ECON-NONPOSITIVE",
-            "DATA-MISSING"
+            "DATA-MISSING",
+            "BUSINESS-RULE"
           ],
           "title": "Rule Id",
           "type": "string"
@@ -463,6 +501,18 @@
             }
           ],
           "default": null
+        },
+        "deferred_until": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Deferred Until"
         },
         "reason_line": {
           "title": "Reason Line",
@@ -623,6 +673,40 @@
         "effective_status"
       ],
       "title": "ConsentItem",
+      "type": "object"
+    },
+    "ContactCounter": {
+      "additionalProperties": false,
+      "properties": {
+        "count": {
+          "title": "Count",
+          "type": "integer"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "limit": {
+          "title": "Limit",
+          "type": "integer"
+        },
+        "rule_id": {
+          "title": "Rule Id",
+          "type": "string"
+        },
+        "window_days": {
+          "title": "Window Days",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "rule_id",
+        "label",
+        "count",
+        "limit",
+        "window_days"
+      ],
+      "title": "ContactCounter",
       "type": "object"
     },
     "Content": {
@@ -840,7 +924,8 @@
             "HOLDING-PRECONDITION",
             "CONTACT-CAP",
             "ECON-NONPOSITIVE",
-            "DATA-MISSING"
+            "DATA-MISSING",
+            "BUSINESS-RULE"
           ],
           "title": "Rule Id",
           "type": "string"
@@ -1502,6 +1587,115 @@
       "title": "Profile",
       "type": "object"
     },
+    "RuleReport": {
+      "additionalProperties": false,
+      "properties": {
+        "counter_line": {
+          "default": "",
+          "title": "Counter Line",
+          "type": "string"
+        },
+        "counters": {
+          "items": {
+            "$ref": "#/$defs/ContactCounter"
+          },
+          "title": "Counters",
+          "type": "array"
+        },
+        "results": {
+          "items": {
+            "$ref": "#/$defs/RuleResult"
+          },
+          "title": "Results",
+          "type": "array"
+        },
+        "rule_set_version": {
+          "title": "Rule Set Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "rule_set_version"
+      ],
+      "title": "RuleReport",
+      "type": "object"
+    },
+    "RuleResult": {
+      "additionalProperties": false,
+      "description": "One Rule Center rule for one customer and run (docs/rule-center.md §4, §6).",
+      "properties": {
+        "detail": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Detail"
+        },
+        "measured": {
+          "additionalProperties": true,
+          "title": "Measured",
+          "type": "object"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "result": {
+          "enum": [
+            "pass",
+            "block",
+            "defer",
+            "off",
+            "n/a"
+          ],
+          "title": "Result",
+          "type": "string"
+        },
+        "rule_id": {
+          "title": "Rule Id",
+          "type": "string"
+        },
+        "tier": {
+          "enum": [
+            "compliance",
+            "business",
+            "custom"
+          ],
+          "title": "Tier",
+          "type": "string"
+        },
+        "tuples": {
+          "default": 0,
+          "title": "Tuples",
+          "type": "integer"
+        },
+        "until": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Until"
+        }
+      },
+      "required": [
+        "rule_id",
+        "tier",
+        "name",
+        "result"
+      ],
+      "title": "RuleResult",
+      "type": "object"
+    },
     "Signal": {
       "additionalProperties": false,
       "properties": {
@@ -2018,6 +2212,18 @@
           "title": "Propensity",
           "type": "string"
         },
+        "rules": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rules"
+        },
         "templates": {
           "title": "Templates",
           "type": "string"
@@ -2111,6 +2317,17 @@
     },
     "profile": {
       "$ref": "#/$defs/Profile"
+    },
+    "rules": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/RuleReport"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     },
     "schema_version": {
       "default": "1.0",

@@ -58,5 +58,8 @@ def test_all_exports_validate_and_are_byte_identical(tmp_path, tables, states, p
 
 def test_all_four_schema_files_match_the_models():
     root = Path(__file__).resolve().parents[1] / 'docs' / 'schema'
-    for name, model in [('customer_card', CustomerCard), ('index_row', IndexRow), ('summary', Summary), ('decision_request', DecisionRequest)]:
+    from nba.contracts import RuleChange, RuleCreate, RulesFile
+
+    for name, model in [('customer_card', CustomerCard), ('index_row', IndexRow), ('summary', Summary), ('decision_request', DecisionRequest),
+                        ('rules', RulesFile), ('rule_change', RuleChange), ('rule_create', RuleCreate)]:
         assert json.loads((root / f'{name}.schema.json').read_text()) == model.model_json_schema()

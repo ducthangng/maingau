@@ -13,11 +13,13 @@ def as_bool(series: pd.Series) -> pd.Series:
     return series.map(lambda v: str(v).strip().lower() in {"1", "true", "yes"})
 
 
-def raw_rules(x: dict, channels: dict, eval_time, cap: tuple[int, int]) -> dict:
+def raw_rules(x: dict, channels: dict, eval_time, cap: tuple[int, int], cap_sources=("nba_history",)) -> dict:
     """Per customer: allowed marketing channels, active exclusion, profiling, contact cap reached.
 
     `channels` is the channel -> consent map the check holds the engine to (the committed one, so an
-    edit to that map is checked against the rule it replaces). `cap` is (max contacts, window days)."""
+    edit to that map is checked against the rule it replaces). `cap` is (max contacts, window days);
+    `cap_sources` are config/kg.yaml contact_cap.sources (`service_feedback` adds offers a service agent
+    mentioned). `capped` maps each capped customer to the time the cap frees up."""
     consent = x["consent_status"]
     granted = consent[consent["status"] == "granted"]
     by_type = {t: set(g["customer_id"]) for t, g in granted.groupby("consent_type")}
@@ -35,7 +37,18 @@ def raw_rules(x: dict, channels: dict, eval_time, cap: tuple[int, int]) -> dict:
     t = pd.Timestamp(eval_time)
     window = h[(h["delivery_status"] == "delivered") & ~as_bool(h["control_group"])
                & (h["decided_at"] > t - pd.Timedelta(days=cap[1])) & (h["decided_at"] <= t)]
-    capped = set(window.groupby("customer_id").size().loc[lambda s: s >= cap[0]].index)
+    contacts = window[["customer_id", "channel", "decided_at"]].rename(columns={"decided_at": "ts"})
+    if "service_feedback" in cap_sources:
+        fb = x["service_nba_feedback"].copy()
+        fb["ts"] = pd.to_datetime(fb["shown_at"])
+        fb = fb[as_bool(fb["offer_mentioned_to_customer"]) & (fb["ts"] > t - pd.Timedelta(days=cap[1])) & (fb["ts"] <= t)]
+        contacts = pd.concat([contacts, fb.assign(channel="outbound_call")[["customer_id", "channel", "ts"]]])
+    contacts = contacts.drop_duplicates()
+    capped = {}
+    for cid, g in contacts.groupby("customer_id"):
+        times = sorted(g["ts"])
+        if len(times) >= cap[0]:  # frees up when the oldest surplus contact leaves the window
+            capped[cid] = times[len(times) - cap[0]] + pd.Timedelta(days=cap[1])
     allowed: dict[str, set[str]] = {}
     for cid in master.index:
         ok = set()
@@ -67,7 +80,9 @@ def violations(cards, rules) -> list[str]:
             out.append(f"{cid} {chosen}: sales action during an exclusion")
         if (c.personalised or c.tone == "du") and cid not in rules["profiled"]:
             out.append(f"{cid} {chosen}: personalised without profiling consent")
-        if cid in rules.get("capped", set()):
+        free_at = rules.get("capped", {}).get(cid) if isinstance(rules.get("capped"), dict) else None
+        waits = card.chosen.deferred_until and free_at is not None and pd.Timestamp(card.chosen.deferred_until) >= free_at
+        if cid in rules.get("capped", set()) and not waits:  # a deferred action may go out once the cap frees up
             out.append(f"{cid} {chosen}: contact cap reached")
         if c.valuation.delta_clv <= 0:
             out.append(f"{cid} {chosen}: ΔCLV {c.valuation.delta_clv:.2f} ≤ 0")

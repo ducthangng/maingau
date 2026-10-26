@@ -13,7 +13,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
-from nba.contracts import CustomerCard, DecisionRequest, IndexRow, Summary  # noqa: E402
+from nba.contracts import CustomerCard, DecisionRequest, IndexRow, RuleChange, RuleCreate, RulesFile, Summary  # noqa: E402
 
 OUT = REPO / "docs" / "schema"
 MODELS = {
@@ -21,6 +21,9 @@ MODELS = {
     "index_row": IndexRow,
     "summary": Summary,
     "decision_request": DecisionRequest,
+    "rules": RulesFile,  # web/public/data/rules.json and GET /api/rules (Rule Center)
+    "rule_change": RuleChange,
+    "rule_create": RuleCreate,
 }
 
 

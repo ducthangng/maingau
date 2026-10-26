@@ -63,14 +63,14 @@ These are kept up to date and edited in place. Status values: `open`, `answered`
 | Q-KG-16 | Agent NBA: K11 is decided. Make MG-100112 strict in `tests/test_acceptance.py` under both p modes (chosen `P-EN-01|outbound_call|sie`, `origin = generic`, content not personalised, S3 blocked by CONSENT-PROFILING), and close Q-NBA-11 in your log | README §9 strict list | Agent NBA | closed | Resolved by Agent NBA in f8090e8 (MG-100112 strict) |
 | Q-KG-17 | Agent NBA (optional stretch): `POST /api/replay?until=` can call `nba.kg.events.replay(runtime.states, load_events(), policy, pop, until, pending=<chosen tuples>)` and then `assemble()` on the affected customers, as in `scripts/replay_demo.py` | Live deep-dive B demo in the API | Agent NBA | closed | Resolved by Agent NBA in f8090e8 (POST /api/replay, preview only) |
 | Q-KG-18 | Agent CARDS (optional): show deep dive B in the UI from `out/replay/timeline.json` (copy into `web/public/data/replay/`): a "What changed since 30.09" panel with event, delay, KG effect and pending card status (REVOKED + rule). Demo customers MG-100125 (card revoked by a new ticket), MG-100465 (cancellation 16.9 h late → P1), MG-100009 (ticket + annoyed flag), MG-100003 (consent withdrawn) | Deep dive B is the challenge's chosen deep dive | Agent CARDS | open | — |
-| Q-KG-19 | Agent NBA (API, from writing docs/api.md): (a) no CORS middleware, so a browser UI on another origin cannot call it; add `CORSMiddleware` for the Vite dev origin, or document the proxy (docs/api.md uses the proxy); (b) the routes have no `response_model`, so `docs/openapi.json` does not describe responses; (c) `NO_ACTION` cards report all 6 checklist items as failed, which the worklist shows as 6 failures; report an empty `checklist_failed` or a dedicated NO_ACTION state | UI integration | Agent NBA | open | — |
+| Q-KG-19 | Agent NBA (API, from writing docs/api.md): (a) no CORS middleware, so a browser UI on another origin cannot call it; add `CORSMiddleware` for the Vite dev origin, or document the proxy (docs/api.md uses the proxy); (b) the routes have no `response_model`, so `docs/openapi.json` does not describe responses; (c) `NO_ACTION` cards report all 6 checklist items as failed, which the worklist shows as 6 failures; report an empty `checklist_failed` or a dedicated NO_ACTION state | UI integration | Agent NBA | closed | Done by Agent KG at the user's request (26 Oct): CORS (MAINGAU_CORS_ORIGINS), response models, NO_ACTION has an empty checklist |
 | Q-KG-20 | README §6.1 puts a contact-cost column in `kg/policy.yaml` (owner Agent KG), but the policy has no cost; costs come from the workbook `value_assumptions` (read by Agent NBA) and match §6.7. Either add `contact_cost_eur` to the policy channels or change §6.1 to name `value_assumptions` as the source | One source of truth for contact cost (audit test `test_policy_channels_carry_contact_cost`) | Team (README owner) | answered | Decided 26 Oct: value_assumptions is the single source; README §6.1 updated; audit test now checks there is no duplicate |
 | Q-KG-21 | README §6.4 says P-MO-01 requires an active energy contract, but P-MO-01 is generic-only and D1/§6.12 say a generic tuple only drops owned products. So the requirement never applies, and the policy leaves it out. Drop it from §6.4, or apply it to generic P-MO-01 too (it would remove P-MO-01 for Autostrom-only customers) | P-MO-01 audience; `check_tuple` overrides | Team | answered | Decided 26 Oct: P-MO-01 has no requirement (generic, D1); README §6.4 + audit oracle updated |
 | Q-KG-22 | README §6.11 does not list the ontology's `Archetype` node and `INSTANCE_OF` / `IN_ARCHETYPE` edges, nor the `GENERIC_OFFER` edge used in generic explanation paths. Document them in §6.11 (and add `GENERIC_OFFER` to `kg/ontology.yaml`) or remove them | Ontology = README contract (audit tests `test_ontology_*`, `test_path_edges_are_ontology_edge_types`) | Agent KG | closed | README §6.11 + ontology document Archetype, INSTANCE_OF, IN_ARCHETYPE, GENERIC_OFFER (26 Oct) |
-| Q-KG-23 | Agent NBA: on Windows with fresh installs, (a) `api/app.py` imports `fcntl` (POSIX only), so `tests/test_engine_api.py` cannot be collected; (b) `tests/test_engine_build.py::test_all_four_schema_files_match_the_models` fails with pydantic 2.14.1 (`requirements.txt` has `pydantic>=2.5`): pin pydantic or regenerate `docs/schema/` | Whole-suite `pytest -q` for every team member | Agent NBA | open | — |
-| Q-KG-24 | Agent NBA (from the A–D review): (a) `nba/engine/runtime.py` should call `load_policy(tables=tables)` (KG now infers the workbook from the catalog, but explicit is safer) and send `--asof` through `nba.state.resolve_eval_time` (timezone offsets); (b) `content.py` / `assemble.py` hard-code `< 90` days for the P-EN-02 date and note: use the S4 hit (`P.price_guarantee_ending(state, policy.params)`) or `policy.params['price_guarantee_window_days']`; (c) optionally gate `nba.build` with `nba.kg.intake.validate_workbook` (exit on ERROR) | New snapshots and tunable thresholds (README §6.15) | Agent NBA | open | — |
-| Q-KG-25 | Rule Center R1: do newsletters count toward B-02 (2 contacts / 30 days)? As in the spec: 336 of 549 marketing decisions deferred (204 until 03.10), including test customers MG-100023/100001/100267/100102/100051. Recommended: newsletters only in B-01, with a per-rule `sources` setting | docs/rule-center.md §9 | User / mentor | open | — |
-| Q-KG-26 | Rule Center R2–R5: C-07 stricter scope (recommended: keep, same result today); B-05 test MG-100051 (block ended 23.09; test at 2026-09-01); who builds the page (`web/` = CARDS, busy); B-08 €10 drops 9 of 12 chosen calls | docs/rule-center.md §9 | User / mentor | open | — |
+| Q-KG-23 | Agent NBA: on Windows with fresh installs, (a) `api/app.py` imports `fcntl` (POSIX only), so `tests/test_engine_api.py` cannot be collected; (b) `tests/test_engine_build.py::test_all_four_schema_files_match_the_models` fails with pydantic 2.14.1 (`requirements.txt` has `pydantic>=2.5`): pin pydantic or regenerate `docs/schema/` | Whole-suite `pytest -q` for every team member | Agent NBA | closed | Done by Agent KG at the user's request (26 Oct): fcntl optional (Windows), pydantic ~=2.14.1 |
+| Q-KG-24 | Agent NBA (from the A–D review): (a) `nba/engine/runtime.py` should call `load_policy(tables=tables)` (KG now infers the workbook from the catalog, but explicit is safer) and send `--asof` through `nba.state.resolve_eval_time` (timezone offsets); (b) `content.py` / `assemble.py` hard-code `< 90` days for the P-EN-02 date and note: use the S4 hit (`P.price_guarantee_ending(state, policy.params)`) or `policy.params['price_guarantee_window_days']`; (c) optionally gate `nba.build` with `nba.kg.intake.validate_workbook` (exit on ERROR) | New snapshots and tunable thresholds (README §6.15) | Agent NBA | closed | Done by Agent KG at the user's request (26 Oct): load_policy(tables=…), --asof via resolve_eval_time, P-EN-02 window from policy.params, nba.build data gate (--skip-validation) |
+| Q-KG-25 | Rule Center R1: do newsletters count toward B-02 (2 contacts / 30 days)? As in the spec: 336 of 549 marketing decisions deferred (204 until 03.10), including test customers MG-100023/100001/100267/100102/100051. Recommended: newsletters only in B-01, with a per-rule `sources` setting | docs/rule-center.md §9 | User / mentor | answered | User: build with defaults (26 Oct). R1 = newsletters only in B-01; switch: config/kg.yaml contact_cap.sources (+newsletter changes 328 decisions) |
+| Q-KG-26 | Rule Center R2–R5: C-07 stricter scope (recommended: keep, same result today); B-05 test MG-100051 (block ended 23.09; test at 2026-09-01); who builds the page (`web/` = CARDS, busy); B-08 €10 drops 9 of 12 chosen calls | docs/rule-center.md §9 | User / mentor | answered | Defaults applied (26 Oct): C-07 stays stricter; B-05 tested at 01.09; page on temporary branch feat/rule-card; B-08 €10 |
 
 ## Session entries
 
@@ -536,4 +536,85 @@ Claude Code (Opus) on Windows, in the user's checkout `E:\Projects\maingau`. On 
 **Questions:** Q-KG-25 and Q-KG-26 (R1–R5) for the user and mentor.
 
 **Next session starts with:** after R1–R5, build `nba/kg/contacts.py` (shared counter with per-rule `sources`), switch the old contact cap to it, and add the C-xx IDs to the tier 1 checks; then hand over to Agent NBA.
+
+### Session 12 · 2026-10-26 18:00–19:40 Europe/Berlin · Claude Code (Opus) · branch feat/kg · commits 062196c..(this commit)
+
+**Goal (user):** "thực hiện phần KG trước và phần Agent NBA": build the Rule Center (KG part, then Agent NBA's part) and close the NBA questions Q-KG-19/23/24. The Rule CARD page is on a separate temporary branch (`feat/rule-card`, b5228a9), not in Agent CARDS' folder.
+
+**Done (KG):**
+- `nba/kg/contacts.py`: one shared contact counter.
+  - Sources: nba_history, newsletter, service_feedback (text booleans read correctly).
+  - Dedupe by channel + time; window `(t − W, t]`; `free_from`.
+  - `build_states` copies `newsletter_campaigns.sent_at` onto each newsletter row.
+- The contact cap (B-02) uses the counter; `config/kg.yaml contact_cap.sources` = history + service feedback.
+- `generate_candidates(apply_cap=False)` keeps capped tuples for deferral.
+- `kg/policy.yaml compliance` C-01…C-09 (validated). Blocked rows carry `rule_center_id` (C-02 / C-03 per channel) and `until`.
+- The audit oracle counts service-feedback mentions in the cap.
+
+**Done (Agent NBA's part, at the user's request):**
+- `config/nba.yaml business_rules` B-01, B-03…B-06, B-08, B-09; `nba/engine/rulecenter.py`:
+  - per-tuple block or hold-back (DEFER_UNTIL);
+  - waiting actions (`chosen.deferred_until`, send time after it);
+  - B-09 capacity as a global pass in Runtime;
+  - custom condition trees;
+  - the rule report on every card.
+- `rule_registry.py`: rule tree, Field / Operator catalog, append-only edits. Also `rule_whatif.py` and `rule_audit.py`.
+- API: `/api/rules` (GET/PUT/POST/DELETE), whatif, versions, audit; approvals refuse held-back or tier 2 blocked tuples; CORS; response models; portable lock.
+- Build: `rules.json` and `rule_log.jsonl`; data gate; export trimmed to 19.7 MB.
+- Contracts:
+  - new: `RuleReport`, `RuleResult`, `ContactCounter`, `RulesFile`, `RuleNode`, `RuleChange`, `RuleCreate`;
+  - new fields: `deferred_until`, `Blocked.rule_center_id` / `until`, `Versions.rules`;
+  - the `BUSINESS-RULE` rule ID.
+- Schemas and OpenAPI regenerated.
+- Integration fixes in Vinh's rulebook (`nba/rules/*`):
+  - `eval_time: auto`;
+  - check uses the same cap sources and accepts waiting actions;
+  - the diff shows waiting dates;
+  - new section "Pauses and limits per channel" and "newsletters count" (hard).
+
+**Docs:** `docs/rule-center.md` (built, engine numbers), `docs/nba-guide.md` (how it works and how to run it), `docs/api.md` §3.6, README §5.4 / §6.7 / §6.16.
+
+**Verified on the mock data:**
+- B-01 basis 673 / median 4 / 328 (492 at 3) reproduced by the counter.
+- Decisions: 519 act now, 146 waiting, 85 no action.
+- Audit: C-01 829, app push without app 114.
+- What-if B-01 5 → 3: 328 → 492 customers.
+- Build: 750 cards in 5 s.
+- API smoke test over uvicorn: all endpoints 200.
+- Tests: full suite green before this commit; 17 new Rule Center tests and 8 KG counter tests.
+
+**Open (adversarial review, 4 lenses + verification: 37 of 39 findings confirmed):** fixed before this goes to `main`.
+- **High:**
+  - a held-back P-EN-02 can be scheduled after its price guarantee ends;
+  - custom-rule params (`days`, `channels`, `name`) and day windows have no type or upper-bound check, so a bad edit is logged and then every card returns 500;
+  - a failed replay of `rule_versions.jsonl` at start-up silently serves the unedited rules.
+- **Medium:**
+  - the rule report says "defer" when a counter is at its limit but no tuple was held;
+  - sub-rules on the same entity do not narrow the same row;
+  - B-09 is a single pass;
+  - B-09 ignores approved overrides;
+  - two concurrent creates can get the same ID;
+  - sub-rule effect / hard flag is shown but ignored;
+  - conditions are not checked against the catalog;
+  - children of built-in rules are independent rules;
+  - REQUIRE_APPROVAL / CANCEL_PENDING are accepted but do nothing;
+  - replay revokes waiting cards on CONTACT-CAP;
+  - `policy_diff` ignores waiting;
+  - the static `summary` / `n_blocked` are computed after trimming;
+  - the audit uses Autostrom `cancelled_at` wrongly;
+  - the §3 counts in `docs/rule-center.md` are inflated.
+- **Low:**
+  - B-05 has no lookback window (103 pairs vs the spec's 7);
+  - `within_days` uses `abs`;
+  - the NO_ACTION reason hides B-xx;
+  - a torn JSONL line;
+  - multi-worker replay;
+  - the propensity version changes on rule edits;
+  - CORS whitespace;
+  - response models for replay / whatif / audit / versions;
+  - a null condition value gives 500;
+  - the audit C-07 ignores the tightening.
+- **For Agent CARDS (`web/`, not touched):** regenerate `web/src/types/contracts.ts` (`npm run types`, add `RulesFile`); show "waits until" and disable one-click Approve when `deferred_until` is set (the API already refuses with 409).
+
+**Next session starts with:** fixing the confirmed review findings, then fast-forward `main`; afterwards wire the Rule CARD page (`feat/rule-card`) to `/api/rules`.
 

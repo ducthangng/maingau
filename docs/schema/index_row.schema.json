@@ -150,6 +150,18 @@
       "title": "Customer Id",
       "type": "string"
     },
+    "deferred_until": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Deferred Until"
+    },
     "delta_clv": {
       "anyOf": [
         {

@@ -288,7 +288,16 @@ class Oracle:
                 and r.get("decided_at") and start < _ts(r["decided_at"]) <= at}
 
     def capped(self, c: str) -> bool:
-        return len(self.contacts(c, CAP_DAYS)) >= CAP_MAX
+        # B-02 (docs/rule-center.md §4, config/kg.yaml contact_cap.sources): delivered NBA actions plus
+        # offers a service agent mentioned to the customer (service_nba_feedback), one per channel + time.
+        start = EVAL - timedelta(days=CAP_DAYS)
+        seen = {(r["channel"], _ts(r["decided_at"])) for r in self.history[c]
+                if r["delivery_status"] == "delivered" and not _flag(r["control_group"])
+                and r.get("decided_at") and start < _ts(r["decided_at"]) <= EVAL}
+        seen |= {("outbound_call", _ts(r["shown_at"])) for r in self.feedback[c]
+                 if _flag(r.get("offer_mentioned_to_customer")) and r.get("shown_at")
+                 and start < _ts(r["shown_at"]) <= EVAL}
+        return len(seen) >= CAP_MAX
 
     # ---- signals (§6.3)
 

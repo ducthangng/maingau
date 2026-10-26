@@ -34,7 +34,7 @@ BOOK = Path("rules.technical.yaml")  # the marketer rulebook is rules.yaml (nba/
 # Hard rules from the challenge brief. An edit under one of these paths is allowed but flagged, and
 # the hard-rule check keeps holding the engine to the committed version. "*" matches any key.
 HARD = [
-    ("policy", "channels"), ("policy", "service_channel"), ("policy", "exclusions"),
+    ("policy", "channels"), ("policy", "service_channel"), ("policy", "exclusions"), ("policy", "compliance"),
     ("policy", "offers", "*", "not_held"),
     ("kg", "profiling_off"), ("kg", "consent"), ("kg", "exclusions"), ("kg", "contact_cap"),
 ]

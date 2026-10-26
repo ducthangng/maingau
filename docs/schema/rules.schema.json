@@ -1,0 +1,252 @@
+{
+  "$defs": {
+    "Condition": {
+      "additionalProperties": false,
+      "properties": {
+        "column": {
+          "title": "Column",
+          "type": "string"
+        },
+        "entity": {
+          "title": "Entity",
+          "type": "string"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "op": {
+          "enum": [
+            "=",
+            "!=",
+            ">=",
+            "<=",
+            "within_days"
+          ],
+          "title": "Op",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value"
+        }
+      },
+      "required": [
+        "entity",
+        "column",
+        "op",
+        "value"
+      ],
+      "title": "Condition",
+      "type": "object"
+    },
+    "Entity": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "operators": {
+          "items": {
+            "$ref": "#/$defs/OperatorOption"
+          },
+          "title": "Operators",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "label"
+      ],
+      "title": "Entity",
+      "type": "object"
+    },
+    "OperatorOption": {
+      "additionalProperties": false,
+      "properties": {
+        "column": {
+          "title": "Column",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "op": {
+          "enum": [
+            "=",
+            "!=",
+            ">=",
+            "<=",
+            "within_days"
+          ],
+          "title": "Op",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value"
+        }
+      },
+      "required": [
+        "id",
+        "column",
+        "op",
+        "value",
+        "label"
+      ],
+      "title": "OperatorOption",
+      "type": "object"
+    },
+    "RuleNode": {
+      "additionalProperties": false,
+      "description": "One rule in the Rule Center tree; also the shape of web/public/data/rules.json.",
+      "properties": {
+        "active": {
+          "default": true,
+          "title": "Active",
+          "type": "boolean"
+        },
+        "children": {
+          "items": {
+            "$ref": "#/$defs/RuleNode"
+          },
+          "title": "Children",
+          "type": "array"
+        },
+        "condition": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Condition"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "effect": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Effect"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Kind"
+        },
+        "locked": {
+          "default": false,
+          "title": "Locked",
+          "type": "boolean"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "params": {
+          "additionalProperties": true,
+          "title": "Params",
+          "type": "object"
+        },
+        "target": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target"
+        },
+        "tier": {
+          "enum": [
+            "hard",
+            "custom"
+          ],
+          "title": "Tier",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "tier"
+      ],
+      "title": "RuleNode",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "entities": {
+      "items": {
+        "$ref": "#/$defs/Entity"
+      },
+      "title": "Entities",
+      "type": "array"
+    },
+    "generated_at": {
+      "title": "Generated At",
+      "type": "string"
+    },
+    "rule_set_version": {
+      "title": "Rule Set Version",
+      "type": "string"
+    },
+    "rules": {
+      "items": {
+        "$ref": "#/$defs/RuleNode"
+      },
+      "title": "Rules",
+      "type": "array"
+    },
+    "version": {
+      "default": 1,
+      "title": "Version",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "generated_at",
+    "rule_set_version",
+    "rules"
+  ],
+  "title": "RulesFile",
+  "type": "object"
+}

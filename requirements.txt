@@ -2,7 +2,7 @@ pandas>=2.1
 openpyxl>=3.1
 networkx>=3.2
 PyYAML>=6.0
-pydantic>=2.5
+pydantic~=2.14.1                # docs/schema is generated with it; exclude_if needs >= 2.11 (Q-KG-23)
 fastapi>=0.110
 uvicorn>=0.27
 httpx>=0.27

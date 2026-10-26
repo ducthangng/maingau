@@ -40,9 +40,9 @@ def test_no_profiling_never_calls_the_tone_inference(monkeypatch, states, tables
 def test_assemble_calls_the_public_kg_bundle_once(monkeypatch, states, tables, pop, policy):
     module = importlib.import_module('nba.engine.assemble')
     original, calls = module.kg_bundle, []
-    def counted(*args):
+    def counted(*args, **kwargs):
         calls.append(args[0].customer_id)
-        return original(*args)
+        return original(*args, **kwargs)
     monkeypatch.setattr(module, 'kg_bundle', counted)
     card = assemble(states['MG-100068'], pop, policy, load_config(tables))
     assert calls == ['MG-100068']

@@ -10,9 +10,10 @@ from nba.contracts import IndexRow, NO_ACTION, Summary
 from nba.data import DEFAULT_WORKBOOK, load_workbook
 from nba.engine.assemble import assemble
 from nba.engine.config import EngineConfig, load_config
+from nba.engine.rulecenter import capacity_limits, plan_capacity
 from nba.kg.bundle import COLUMN_SRC
 from nba.kg.policy import load_policy
-from nba.state import build_states
+from nba.state import build_states, resolve_eval_time
 from nba.profile import profile_population
 
 COLUMN_SOURCES = {
@@ -32,12 +33,15 @@ class Runtime:
     policy: object
     cfg: EngineConfig
     _cards: dict = field(default_factory=dict, repr=False)
+    _base: dict = field(default_factory=dict, repr=False)  # cards before the B-09 capacity pass
+    _overflow: dict | None = field(default=None, repr=False)
 
     @classmethod
     def load(cls, workbook=DEFAULT_WORKBOOK, *, p_mode=None, eval_time=None):
         tables = load_workbook(workbook)
-        policy = load_policy(catalog=tables["product_catalog"])
-        t = eval_time or datetime.fromisoformat(policy.config["eval_time"])
+        policy = load_policy(catalog=tables["product_catalog"], tables=tables)
+        # --asof: offsets and plain dates are normalised like config/kg.yaml eval_time (README §6.15)
+        t = resolve_eval_time(tables, eval_time) if eval_time else datetime.fromisoformat(policy.config["eval_time"])
         states = build_states(tables, t, snapshot_mode=policy.config["snapshot_mode"])
         cfg = load_config(tables, p_mode=p_mode)
         # A propensity estimate must never use action outcomes recorded after evaluation.
@@ -46,12 +50,34 @@ class Runtime:
         from nba.learn.lookalike import attach
         return attach(cls(tables, states, profile_population(states), policy, cfg), load_settings())
 
+    def _base_card(self, customer_id):
+        state = self.states[customer_id]
+        key = (customer_id, state.revision)
+        if key not in self._base:
+            self._base[key] = assemble(state, self.pop, self.policy, self.cfg)
+        return self._base[key]
+
+    def capacity_overflow(self) -> dict:
+        """B-09: customers whose chosen action overflows a channel's weekly capacity -> {channel: wait until}.
+        Needs every customer's decision once; with no active capacity rule it costs nothing."""
+        if self._overflow is None:
+            limits = capacity_limits(self.cfg.rules)
+            self._overflow = plan_capacity([self._base_card(cid) for cid in sorted(self.states)], limits) if limits else {}
+        return self._overflow
+
     def card(self, customer_id):
         state = self.states[customer_id]
         key = (customer_id, state.revision)
         if key not in self._cards:
-            self._cards[key] = assemble(state, self.pop, self.policy, self.cfg)
+            wait = self.capacity_overflow().get(customer_id)
+            self._cards[key] = (assemble(state, self.pop, self.policy, self.cfg, capacity=wait) if wait
+                                else self._base_card(customer_id))
         return self._cards[key].model_copy(deep=True)
+
+    def with_rules(self, *, settings=None, policy=None) -> Runtime:
+        """A copy with edited Rule Center settings (config/nba.yaml) and/or KG policy (contact cap); caches reset."""
+        cfg = self.cfg.with_settings(**settings) if settings else self.cfg
+        return Runtime(self.tables, self.states, self.pop, policy or self.policy, cfg)
 
     def cards(self, customer_ids=None):
         return [self.card(cid) for cid in sorted(self.states if customer_ids is None else customer_ids)]
@@ -75,7 +101,7 @@ def index_row(card, state) -> IndexRow:
         delta_clv=v.delta_clv if v else None, p_accept=v.p_accept if v else None, contact_cost=v.contact_cost if v else None,
         confidence=v.confidence if v else None, service_mode=card.chosen.service_mode,
         personalised=selected.personalised if selected else None,
-        checklist_failed=[c.item for c in card.checklist if not c.passed],
+        checklist_failed=[c.item for c in card.checklist if not c.passed], deferred_until=card.chosen.deferred_until,
         n_signals=len(card.signals), n_candidates=len(card.candidates), n_blocked=len(card.blocked),
         exclusions=[e.rule_id for e in card.profile.exclusions if e.active],
     )

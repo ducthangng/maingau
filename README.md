@@ -2,6 +2,8 @@
 
 Futury Build Days, 26–27 Oct 2026. This file is the single source of truth for the build.
 
+**To see how the engine decides and how to run it** (build, API, UI, rules, tests), read [docs/nba-guide.md](docs/nba-guide.md).
+
 - **Requirements:** §4 is the spec agreed with MAINGAU, adopted in full (English translation of the consulted spec).
 - **Gaps and conflicts:** where the spec is silent, or conflicts with the data, this file sets the default (§6, §10). Do not invent other behaviour.
 - **Other files:** `Hackathon_slides_for_MAINGAU.pdf` is the original challenge brief; `references/` holds German background slides on grid fees. Both are read-only context. If anything else disagrees with this README, this README wins.
@@ -386,7 +388,16 @@ Refresh and latency are not repeated in every fact. The card JSON carries them o
 
 ### 5.4 The `CustomerCard` JSON (one file per customer: `out/customers/<customer_id>.json`)
 
-The values below are illustrative, **not expected results**. `nba/contracts.py` holds pydantic models that mirror this exactly. Top-level keys follow the spec; the extra keys are `meta`, `sources`, `alternatives`, `legacy_comparison`, `checklist` and `data_quality`.
+The values below are illustrative, **not expected results**. `nba/contracts.py` holds pydantic models that mirror this exactly. Top-level keys follow the spec; the extra keys are `meta`, `sources`, `alternatives`, `legacy_comparison`, `checklist`, `data_quality` and `rules`.
+
+**Rule Center fields (26 Oct; docs/rule-center.md §6):**
+- `rules`: the `RuleReport`, with `rule_set_version`, `results[]` (`rule_id`, `tier`, `name`, `result` = pass | block | defer | off | n/a, `detail`, `measured`, `until`, `tuples`), `counters[]` and `counter_line`;
+- `chosen.deferred_until`, `candidates[].deferred_until` and `IndexRow.deferred_until` for held-back actions;
+- `blocked[].rule_center_id` (C-xx / B-xx / U-xx) and `blocked[].until`;
+- `meta.versions.rules` (the `rule_set_version`);
+- the rule ID `BUSINESS-RULE` for tier 2 blocks.
+
+The new optional fields are left out of the JSON while unset. A NO_ACTION card has an empty `checklist` (Q-KG-19).
 
 ```json
 {
@@ -833,7 +844,10 @@ Only 20 of the 50 offer × channel cells have n ≥ 30.
 | `portal_popup`, `app_push`, `service_agent` | 0 |
 | `outbound_call` | 6 |
 
-**Contact cap.** `N = 2` delivered marketing contacts per rolling 30 days, via `contacts(state, 30)`. Service actions are exempt. Configurable; open question K5.
+**Contact cap (Rule Center B-02).** `N = 2` marketing contacts per rolling 30 days, `(t − 30 d, t]`, counted by the shared counter `nba.kg.contacts`:
+- sources are set in `config/kg.yaml contact_cap.sources`: delivered NBA history plus offers a service agent mentioned; newsletters count only in B-01 (R1);
+- service actions are exempt;
+- a capped customer's tuples are **held back** until the cap frees up (DEFER_UNTIL), not dropped (docs/rule-center.md §5).
 
 **Suggested send time:**
 
@@ -1035,13 +1049,17 @@ The KG is **not a stored graph**. Customer nodes and edges are rebuilt from the 
 
 On the current workbook it reports 0 errors and 7 warnings, including the known snapshot inconsistencies of §3.
 
-### 6.16 Rule Center (mentor spec, 26 Oct; owner: Agent NBA, with Agent KG)
+### 6.16 Rule Center (mentor spec, 26 Oct; built; owner: Agent NBA, with Agent KG)
 
 Marketing sets rules that block or limit actions before ranking. The rules come in two tiers:
-- tier 1 (C-01…C-09): compliance rules that can only be tightened; they are the existing KG gates;
-- tier 2 (B-01…B-09): business rules with defaults, which marketing edits.
+- **Tier 1 (C-01…C-09):** compliance rules that can only be tightened. They are the KG gates, listed in `kg/policy.yaml → compliance`.
+- **Tier 2:** business rules. B-01, B-03…B-06, B-08 and B-09 are in `config/nba.yaml → business_rules`, B-02 is the contact cap and B-07 the holdings gate. Rules marketing adds are in `custom_rules`.
 
-The full spec, data checks, ownership and open decisions R1–R5 are in **`docs/rule-center.md`**. Do not build on R1–R5 until they are answered. Agent KG provides the shared contact counter (`nba/kg/contacts.py`); Agent NBA must not build a second one.
+They are checked per offer × channel after valuation:
+- a **blocked** tuple is dropped;
+- a **held-back** tuple waits; the card shows `chosen.deferred_until`.
+
+Every card carries `rules` (per-rule result and the contact counter line). Edits go through the API (`docs/api.md` §3.6) or the rulebook (`python -m nba.rules`). The full spec, data checks, numbers and the defaults for R1–R5 are in **`docs/rule-center.md`**. There is one contact counter, `nba/kg/contacts.py`; do not build a second one.
 
 ## 7. Tasks: three agents in parallel
 

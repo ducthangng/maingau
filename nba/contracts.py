@@ -46,6 +46,7 @@ RuleId = Literal[
     "CONTACT-CAP",
     "ECON-NONPOSITIVE",
     "DATA-MISSING",
+    "BUSINESS-RULE",  # a Rule Center tier 2 rule; the B-xx / custom ID is in rule_center_id
 ]
 # p_accept backoff levels (README §6.6): L3 offer_channel_tone, L2 offer_channel, L1 offer, L0 global.
 PLevel = Literal["offer_channel_tone", "offer_channel", "offer", "global", "assumption"]
@@ -56,6 +57,16 @@ ChecklistKey = Literal[
 
 class Model(BaseModel):
     model_config = ConfigDict(extra="forbid")
+
+
+def _unset(v) -> bool:
+    return v is None or v == {} or v == 0
+
+
+# Rule Center fields (docs/rule-center.md) are left out of the JSON while unset, so the static export
+# stays within its size budget; consumers read a missing key as null.
+def omit_unset():
+    return Field(default=None, exclude_if=_unset)
 
 
 # ---------------------------------------------------------------- provenance (§5.3)
@@ -83,6 +94,7 @@ class Versions(Model):
     value_model: str
     propensity: str
     templates: str
+    rules: Optional[str] = None  # rule_set_version of the Rule Center (docs/rule-center.md §6)
 
 
 class Meta(Model):
@@ -263,6 +275,8 @@ class Blocked(Model):
     reason: str
     src: Optional[str] = None
     counterfactual_delta_clv: Optional[float] = None  # set by NBA for the "why blocked" view
+    rule_center_id: Optional[str] = omit_unset()  # C-xx / B-xx
+    until: Optional[str] = omit_unset()  # set when the block is temporary (DEFER_UNTIL): earliest allowed time
 
 
 ArchetypeId = Literal["A1", "A2", "A3", "A4", "A5", "A0"]
@@ -339,6 +353,7 @@ class Candidate(Model):
     checks: list[Check] = Field(default_factory=list)
     valuation: Optional[Valuation] = None  # None until Agent NBA values it
     rank: Optional[int] = None
+    deferred_until: Optional[str] = omit_unset()  # set when a temporary rule (frequency / cooldown / capacity) holds it back
     why: list[str] = Field(default_factory=list)  # plain-language reasons this fits (KG path facts + NBA evidence)
     notes: list[str] = Field(default_factory=list)  # caveats: low confidence, assumptions, data-quality flags
     path: list[PathStep] = Field(default_factory=list)
@@ -357,6 +372,7 @@ class Chosen(Model):
     tuple_id: str  # NO_ACTION when nothing qualifies
     status: DecisionStatus = "proposed"
     send_at: Optional[str] = None
+    deferred_until: Optional[str] = omit_unset()  # DEFER_UNTIL: every eligible tuple is held back until this time
     reason_line: str
     service_mode: bool = False
     agent_script: Optional[str] = None
@@ -383,6 +399,38 @@ class ChecklistItem(Model):
     passed: bool
     detail: Optional[str] = None
     src: Optional[str] = None
+
+
+RuleTier = Literal["compliance", "business", "custom"]
+RuleResultValue = Literal["pass", "block", "defer", "off", "n/a"]
+
+
+class RuleResult(Model):
+    """One Rule Center rule for one customer and run (docs/rule-center.md §4, §6)."""
+
+    rule_id: str  # C-01..C-09, B-01..B-09, U-<n>
+    tier: RuleTier
+    name: str
+    result: RuleResultValue
+    detail: Optional[str] = omit_unset()  # the reason_template sentence shown on the card
+    measured: dict[str, Any] = Field(default_factory=dict, exclude_if=_unset)  # e.g. {"count": 6, "limit": 5, "window_days": 90}
+    until: Optional[str] = omit_unset()  # earliest allowed time for "defer"
+    tuples: int = Field(default=0, exclude_if=_unset)  # offer × channel tuples it blocked or deferred
+
+
+class ContactCounter(Model):
+    rule_id: str
+    label: str  # "Email", "Total", "Call", "SMS"
+    count: int
+    limit: int
+    window_days: int
+
+
+class RuleReport(Model):
+    rule_set_version: str
+    results: list[RuleResult] = Field(default_factory=list)
+    counters: list[ContactCounter] = Field(default_factory=list)
+    counter_line: str = ""  # "Email 3/5 (90 d) · Total 1/2 (30 d) · Call 0/1 (90 d)"
 
 
 class DataQuality(Model):
@@ -423,6 +471,7 @@ class CustomerCard(Model):
     checklist: list[ChecklistItem] = Field(default_factory=list)
     data_quality: list[DataQuality] = Field(default_factory=list)
     decision_log: list[DecisionLogEntry] = Field(default_factory=list)
+    rules: Optional[RuleReport] = None  # Rule Center: every rule's result for this customer
 
 
 # ---------------------------------------------------------------- overview + API
@@ -452,6 +501,7 @@ class IndexRow(Model):
     contact_cost: Optional[float] = None
     confidence: Optional[Confidence] = None
     checklist_failed: list[ChecklistKey] = Field(default_factory=list)  # bulk approval refuses these rows
+    deferred_until: Optional[str] = omit_unset()  # chosen action held back by a temporary rule until this time
     service_mode: bool = False
     personalised: Optional[bool] = None
     n_signals: int = 0
@@ -486,6 +536,80 @@ class DecisionRequest(Model):
     user: str
     reason: Optional[str] = None
     tuple: Optional[TupleRef] = None  # required for "override"
+
+
+# ---------------------------------------------------------------- Rule Center (docs/rule-center.md §6)
+
+ConditionOp = Literal["=", "!=", ">=", "<=", "within_days"]
+
+
+class Condition(Model):
+    entity: str  # sheet name, e.g. energy_contracts; product_catalog = the offer itself
+    column: str
+    op: ConditionOp
+    value: Any  # consent_status uses "<consent_type>:<status>"
+    label: Optional[str] = None
+
+
+class RuleNode(Model):
+    """One rule in the Rule Center tree; also the shape of web/public/data/rules.json."""
+
+    id: str  # C-01.., B-01.., U-<n>
+    name: str
+    tier: Literal["hard", "custom"]  # the card section: hard rules (C-xx, user hard rules) or customized
+    active: bool = True
+    locked: bool = False  # C-01..C-09: always on (tier 1 can only be tightened)
+    target: Optional[str] = None
+    kind: Optional[str] = None  # engine kind (channel_frequency, ..., condition); None for KG gates
+    effect: Optional[str] = None
+    params: dict[str, Any] = Field(default_factory=dict)
+    condition: Optional[Condition] = None
+    children: list[RuleNode] = Field(default_factory=list)
+
+
+class OperatorOption(Model):
+    id: str  # "<column>|<op>|<value>"
+    column: str
+    op: ConditionOp
+    value: Any
+    label: str
+
+
+class Entity(Model):
+    id: str
+    label: str
+    operators: list[OperatorOption] = Field(default_factory=list)
+
+
+class RulesFile(Model):
+    version: int = 1
+    generated_at: str
+    rule_set_version: str
+    rules: list[RuleNode]
+    entities: list[Entity] = Field(default_factory=list)
+
+
+class RuleChange(Model):
+    """PUT /api/rules/{id}: switch a rule or change its numbers (rule_id comes from the path; what-if needs it)."""
+
+    rule_id: Optional[str] = None
+    by: str = ""
+    reason: Optional[str] = None
+    active: Optional[bool] = None
+    params: dict[str, Any] = Field(default_factory=dict)
+
+
+class RuleCreate(Model):
+    """POST /api/rules: a customized or hard rule from the Rule Center popup (sub-rules narrow the parent)."""
+
+    by: str = ""
+    name: Optional[str] = None
+    hard: bool = False
+    active: bool = True
+    condition: Condition
+    effect: Optional[str] = None  # default: block the matching offers, or all sales of matching customers
+    children: list[RuleCreate] = Field(default_factory=list)
+    parent: Optional[str] = None  # add as a sub-rule of an existing custom rule
 
 
 def tuple_id(offer_id: str, channel: str, tone: str) -> str:

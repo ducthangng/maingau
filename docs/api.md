@@ -2,10 +2,15 @@
 
 **Implementation and owner:** `api/app.py`, owned by Agent NBA. This document is maintained by Agent KG.
 
-**Version:** API 0.1.0 at `main` f8090e8 + `feat/kg`, 26 Oct 2026. Updated for Agent NBA's delivery (Q-NBA-21):
-- the replay preview endpoint;
-- English reasons;
-- the reduced static export.
+**Version:** API 0.2.0, 26 Oct 2026. Changes since 0.1.0:
+- the Rule Center endpoints (§3.6; docs/rule-center.md);
+- held-back actions: `chosen.deferred_until` and `card.rules`;
+- CORS;
+- response models in `docs/openapi.json`;
+- an empty checklist for NO_ACTION;
+- a portable file lock.
+
+Earlier (Q-NBA-21): the replay preview endpoint, English reasons and the reduced static export.
 
 Every example below was produced by calling the running API on the mock data.
 
@@ -275,6 +280,40 @@ The revocation for MG-100125:
 
 The same analysis is available offline as `python scripts/replay_demo.py` (`out/replay_report.md`, `out/replay/timeline.json`). That is the source for a static demo.
 
+### 3.6 Rule Center: `/api/rules`
+
+Rules that block or limit actions (docs/rule-center.md). Every edit is appended to `out/rule_versions.jsonl` (version, time, `by`, `reason`, operation, `rule_set_version`) and replayed when the API starts. A decision stores `versions.rules`, so approvals made under older rules stop applying.
+
+| Method and path | Body / query | Returns |
+|---|---|---|
+| `GET /api/rules` | — | `RulesFile` (`docs/schema/rules.schema.json`): `rule_set_version`, `rules` (tree: C-xx locked, B-xx, U-xx with `children`), `entities` (Field / Operator catalog from the workbook columns) |
+| `PUT /api/rules/{id}` | `RuleChange`: `{"by": "Name", "reason": "...", "active": false, "params": {"max": 3}}` | the new `RulesFile` |
+| `POST /api/rules` | `RuleCreate`: `{"by", "hard", "active", "condition": {"entity", "column", "op", "value"}, "children": [...], "parent"?}` | the new `RulesFile`; IDs `U-<n>` are never reused, sub-rules `U-<n>.<k>` |
+| `DELETE /api/rules/{id}?by=Name&reason=...` | — | the new `RulesFile`. Only rules added here can be removed |
+| `POST /api/rules/whatif` | a list of `RuleChange` (with `rule_id`) and `RuleCreate`. Nothing is saved | `customers`, `changed`, `examples` (10), `rule_set_version` before/after, `before` / `after` totals: act now, waiting, no action, ΔCLV, held tuples by channel / offer, customers per rule |
+| `GET /api/rules/versions` | — | the edit log |
+| `GET /api/rules/audit` | — | legacy audit over `nba_action_history`: `sends`, `would_be_stopped`, `by_rule`, `by_channel`, `examples`, `notes` |
+
+**Examples on the mock data:**
+- What-if `[{"rule_id": "B-01", "params": {"max": 3}}]`: B-01 customers 328 → 492, 90 decisions change, ΔCLV now €8,897 → €8,617 (about 6 s for 2 × 750 decisions).
+- Hard rule *Customer · app installed is no* with sub-rule *Offer · business line is mobile*: blocks P-MO-01 for MG-100001 (`blocked[].rule_center_id = "U-1"`).
+- Audit: 2,022 sends, 1,496 would be stopped, C-01 829, app push without app 114.
+
+**Refusals:**
+
+| Status | When |
+|---|---|
+| 403 | Switching off or loosening a compliance rule (C-xx) or B-07; deleting a built-in rule |
+| 404 | Unknown rule or parent |
+| 422 | Invalid value (e.g. `max: 0`, an unknown channel or source), switching off B-02 (raise its limit instead), an empty `by` |
+
+**Approvals and held-back actions:**
+- `approve` / `override` also check tier 2 rules.
+- A tuple blocked by B-08 or a custom rule, or held back (B-01…B-06, B-09, B-02), returns **409** with the rule IDs (e.g. `["B-08"]`) and reasons like `"held back until 2026-12-02 09:00: E-mail paused: 8/5 e-mails in 90 days"`.
+- A held-back card shows `chosen.deferred_until`, `send_at` after it, the reason starting "Held back until …" and a failed `contact_cap` checklist item.
+
+**CORS:** the API allows `http://localhost:5173` and `http://127.0.0.1:5173`. Set `MAINGAU_CORS_ORIGINS` (comma-separated) for others.
+
 ## 4. Errors
 
 | Status | Body | When |
@@ -294,7 +333,8 @@ The same analysis is available offline as `python scripts/replay_demo.py` (`out/
 | `CONSENT-PROFILING` | No profiling consent: only non-personalised offers, tone Sie |
 | `EXCL-DUNNING`, `EXCL-CANCELLATION`, `EXCL-OPEN-TICKET`, `EXCL-AUTOSTROM-CANCELLED` | Sales blocked (dunning / cancellation / open ticket / Autostrom cancelled); service only |
 | `HOLDING-PRECONDITION` | Customer already has it, a prerequisite is missing, or a generic offer is not allowed while a need-based offer exists |
-| `CONTACT-CAP` | Contact limit reached (2 per 30 days) |
+| `CONTACT-CAP` | Contact limit reached (B-02: 2 per 30 days); the action waits until it frees up |
+| `B-01` … `B-09`, `U-<n>` | A Rule Center rule blocks or holds back this tuple (§3.6) |
 | `ECON-NONPOSITIVE` | Expected ΔCLV ≤ 0 |
 | `DATA-MISSING` | Not enough data, or a combination the engine did not evaluate |
 
@@ -319,7 +359,12 @@ The same analysis is available offline as `python scripts/replay_demo.py` (`out/
 | `blocked`, `signals`, `profile` | Identical to the API |
 | JSON format | Compact |
 
-**Static export size:** `customers/` is about 19 MB, `index.json` about 0.5 MB.
+**Static export size:** `customers/` is about 19.2 MB, `index.json` about 0.5 MB and `rules.json` (the Rule Center tree and the Field / Operator catalog) about 41 KB; the total stays under 20 MB.
+
+**Rule Center data in static mode:**
+- each card keeps only tier 2 outcomes in `rules.results` (block / defer / off), plus `counter_line`;
+- a waiting card keeps the planned action and one fallback;
+- the API keeps everything.
 
 A real export removes `manifest.json`, the mock-data marker. MG-100068, for example, has 12 tuples in the API but 4 candidates in the static file.
 
@@ -349,14 +394,16 @@ export async function decide(id: string, body: DecisionRequest): Promise<Decisio
 }
 ```
 
-## 6. Known limitations (as of e40c526)
+## 6. Known limitations
 
-Each is tracked as a question for Agent NBA in `log/agent-kg.md`:
+**Resolved on 26 Oct (Rule Center delivery):**
+- Q-KG-19: CORS; response models; NO_ACTION has an empty `checklist` and `checklist_failed`.
+- Q-KG-23: the file lock works without `fcntl` (Windows); pydantic is pinned to `~=2.14.1`.
+- Q-KG-24: `eval_time` and `--asof` are resolved by `nba.state.resolve_eval_time`; the P-EN-02 window comes from `policy.params`; `nba.build` refuses a workbook with data-contract errors (`--skip-validation` overrides).
 
-**Still open:**
-- No CORS middleware. Use the Vite proxy (Q-KG-19).
-- The OpenAPI file has no response models. Use `docs/schema/` for types (Q-KG-19).
-- `NO_ACTION` rows still list all six checklist items as failed; checked again on f8090e8 (Q-KG-19).
+**Notes:**
+- B-09 capacity needs every customer's decision. The first single-card request computes them once (about 3 s).
+- What-if decides every customer twice (about 6 s).
 
 **Resolved in f8090e8:**
 - Q-KG-14: reduced static export.

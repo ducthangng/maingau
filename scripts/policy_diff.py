@@ -81,16 +81,23 @@ def _from_git(ref: str, rel: str, tmp: Path) -> Path:
     return path
 
 
+FILLED_BLOCKS = ("parameters", "compliance")  # policy blocks added after older commits
+
+
 def _fill_missing_parameters(base_path: Path, candidate_path: Path, tmp: Path) -> tuple[Path, str | None]:
-    """A base that predates `parameters` gets the candidate's values, so only rule changes are compared."""
+    """A base that predates a block (`parameters`, `compliance`) gets the candidate's copy, so only rule
+    changes are compared."""
     base_raw = yaml.safe_load(base_path.read_text(encoding="utf-8")) or {}
-    if "parameters" in base_raw:
+    missing = [b for b in FILLED_BLOCKS if b not in base_raw]
+    if not missing:
         return base_path, None
     cand_raw = yaml.safe_load(candidate_path.read_text(encoding="utf-8")) or {}
-    base_raw["parameters"] = cand_raw.get("parameters") or {}
+    for block in missing:
+        base_raw[block] = cand_raw.get(block) or {}
     filled = tmp / "base_policy_filled.yaml"
     filled.write_text(yaml.safe_dump(base_raw, allow_unicode=True, sort_keys=False), encoding="utf-8")
-    return filled, "the base policy has no `parameters` block (it predates them); the candidate's values were used for it"
+    names = " and ".join(f"`{b}`" for b in missing)
+    return filled, f"the base policy has no {names} block (it predates them); the candidate's copy was used for it"
 
 
 def _md(tuple_id: str) -> str:

@@ -70,9 +70,11 @@ class Names:
     def tuple(self, tuple_id: str) -> str:
         if tuple_id in (None, "NO_ACTION"):
             return "No action"
+        tuple_id, _, wait = tuple_id.partition("@")  # "@<date>": held back by a Rule Center rule until then
         offer, channel, tone = (tuple_id.split("|") + ["", ""])[:3]
-        return " · ".join(x for x in (self.offer.get(offer, offer), CHANNEL_NAMES.get(channel, channel),
+        name = " · ".join(x for x in (self.offer.get(offer, offer), CHANNEL_NAMES.get(channel, channel),
                                       TONE_NAMES.get(tone, tone)) if x)
+        return f"{name} (waits until {wait})" if wait else name
 
     def pattern(self, key: str) -> str:
         offer, _, channel = key.partition("|")
@@ -110,6 +112,17 @@ def _set_enabled(s: dict, sid: str, on: bool) -> None:
     current = set(_enabled(s))
     current = current | {sid} if on else current - {sid}
     s["kg"]["signals"]["enabled"] = [x for x in s["policy"]["signals"] if x in current]
+
+
+def _set_cap_source(s: dict, source: str, on: bool) -> None:
+    current = list(s["kg"]["contact_cap"].get("sources") or ["nba_history"])
+    current = current + [source] if on and source not in current else [x for x in current if on or x != source]
+    s["kg"]["contact_cap"]["sources"] = current
+
+
+BUSINESS_TITLES = {"B-01": "E-mails per customer", "B-03": "Calls per customer", "B-04": "SMS per customer",
+                   "B-05": "Pause an offer after dismissals", "B-06": "No sales right after a ticket",
+                   "B-08": "Minimum value for a call", "B-09": "Calls per week"}
 
 
 def _set_generic(s: dict, oid: str, on: bool) -> None:
@@ -244,8 +257,10 @@ def build(sections: dict, names: Names, stats: dict | None, by: str = "preview")
     ])
     g1, p1 = _path("kg", "contact_cap", "max_contacts")
     g2, p2 = _path("kg", "contact_cap", "window_days")
-    cap = Card("Marketing contact limit", ["Service contacts never count."],
-               [Field("max contacts", g1, p1, "int", hard=True), Field("within days", g2, p2, "int", hard=True)])
+    cap = Card("Marketing contact limit", ["Service contacts never count. Offers a service agent mentioned count as a call."],
+               [Field("max contacts", g1, p1, "int", hard=True), Field("within days", g2, p2, "int", hard=True),
+                Field("newsletters count", lambda x: "newsletter" in (x["kg"]["contact_cap"].get("sources") or []),
+                      lambda x, v: _set_cap_source(x, "newsletter", v), hard=True)])
     g, p = _mapped(*_path("kg", "exclusions", "autostrom_cancelled_scope"),
                    {"all sales offers": "all_sales", "only e-mobility offers": "e_mobility"})
     auto = Card("After an Autostrom contract was cancelled", [],
@@ -256,6 +271,24 @@ def build(sections: dict, names: Names, stats: dict | None, by: str = "preview")
                  [Field("stops", g, p, "choice", ("newsletter only", "newsletter and email marketing"), hard=True)])
     lim.cards += [cap, auto, unsub]
     out.append(lim)
+
+    # 3b. Rule Center business rules (docs/rule-center.md tier 2)
+    biz = Section("Pauses and limits per channel", [
+        "Checked for every offer and channel. A paused action waits for its first allowed day; a blocked one is dropped.",
+    ])
+    for rid, r in (sections["nba"].get("business_rules") or {}).items():
+        card = Card(BUSINESS_TITLES.get(rid, r.get("name", rid)))
+        card.fields.append(Field("active", *_path("nba", "business_rules", rid, "active")))
+        for key, label in (("max", "at most"), ("window_days", "within days"), ("min_responses", "after dismissals"),
+                           ("cooldown_days", "pause days")):
+            if key in r:
+                card.fields.append(Field(label, *_path("nba", "business_rules", rid, key), "int"))
+        for ch in r.get("min_eur") or {}:
+            card.fields.append(Field(f"minimum € by {CHANNEL_NAMES[ch]}", *_path("nba", "business_rules", rid, "min_eur", ch), "int"))
+        for ch in r.get("per_week") or {}:
+            card.fields.append(Field(f"{CHANNEL_NAMES[ch]} per week", *_path("nba", "business_rules", rid, "per_week", ch), "int"))
+        biz.cards.append(card)
+    out.append(biz)
 
     # 4. how offers compete
     val = Section("How offers compete", ["The engine ranks allowed offers by expected gain in customer value (€)."])

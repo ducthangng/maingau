@@ -21,3 +21,29 @@ send_time:
   call_window: "10:00-16:00"
 
 sensitivity_pct: 20
+
+# Rule Center tier 2 (docs/rule-center.md §3), checked per offer × channel after valuation; service is exempt.
+# B-02 (contact cap) is config/kg.yaml contact_cap and B-07 (never offer what they own) is a KG gate.
+# Contact sources: nba_history | newsletter | service_feedback (nba.kg.contacts).
+rule_set_version: rs-1
+business_rules:
+  B-01: {name: "Max {max} e-mails in {window_days} days", active: true, kind: channel_frequency, effect: DEFER_UNTIL,
+         channels: [newsletter_email, email], max: 5, window_days: 90, sources: [nba_history, newsletter],
+         reason: "E-mail paused: {count}/{max} e-mails in {window_days} days"}
+  B-03: {name: "Max {max} call(s) in {window_days} days", active: true, kind: channel_frequency, effect: DEFER_UNTIL,
+         channels: [outbound_call], max: 1, window_days: 90, sources: [nba_history, service_feedback],
+         reason: "Phone paused: {count}/{max} calls in {window_days} days"}
+  B-04: {name: "Max {max} SMS in {window_days} days", active: true, kind: channel_frequency, effect: DEFER_UNTIL,
+         channels: [sms], max: 1, window_days: 90, sources: [nba_history],
+         reason: "SMS paused: {count}/{max} SMS in {window_days} days"}
+  B-05: {name: "Pause an offer {cooldown_days} days after {min_responses} dismissals", active: true, kind: offer_cooldown, effect: DEFER_UNTIL,
+         responses: [dismissed, ignored], min_responses: 2, cooldown_days: 60,
+         reason: "Offer paused: dismissed or ignored {count} times, last on {last}"}
+  B-06: {name: "No sales {cooldown_days} days after a ticket", active: true, kind: post_ticket_cooldown, effect: DEFER_UNTIL,
+         cooldown_days: 14, reason: "Sales paused: ticket {ticket} resolved on {resolved}"}
+  B-08: {name: "Calls only if ΔCLV ≥ €{min_eur}", active: true, kind: min_delta_clv, effect: BLOCK_CHANNEL,
+         min_eur: {outbound_call: 10}, reason: "{channel} needs ΔCLV ≥ €{min}; this one is €{value}"}
+  B-09: {name: "Max {per_week} calls per week", active: true, kind: channel_capacity, effect: DEFER_UNTIL,
+         per_week: {outbound_call: 50}, reason: "{channel} capacity full this week ({limit}); ranked {position} by ΔCLV"}
+# Rules added by marketing (Rule Center page / POST /api/rules). Same shape as rules.json RuleNode with a condition.
+custom_rules: []

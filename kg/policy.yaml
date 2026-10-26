@@ -91,6 +91,19 @@ exclusions:
   EXCL-OPEN-TICKET:         {label: "Open service ticket",   predicate: excl_open_ticket,         blocks: [sales, upsell, retention, one_off]}
   EXCL-AUTOSTROM-CANCELLED: {label: "Autostrom cancelled",   predicate: excl_autostrom_cancelled, blocks: [sales, upsell, retention, one_off]}
 
+# Rule Center tier 1 (docs/rule-center.md §2): compliance rules, always on, may only be tightened.
+# kg_rules = the KG checks that enforce each one; checks and blocked rows carry the C-xx ID (rule_center_id).
+compliance:
+  C-01: {label: "A channel needs its consent granted",          effect: BLOCK_CHANNEL,  kg_rules: [CONSENT-CHANNEL, CHANNEL-AVAILABLE]}
+  C-02: {label: "Newsletter needs double opt-in",               effect: BLOCK_CHANNEL,  kg_rules: [CONSENT-CHANNEL]}
+  C-03: {label: "Unsubscribe withdraws the newsletter at once", effect: BLOCK_CHANNEL,  kg_rules: [CONSENT-CHANNEL]}
+  C-04: {label: "Withdrawn consent cancels pending actions",    effect: CANCEL_PENDING, enforced_by: "nba.kg.events: replay revokes pending cards"}
+  C-05: {label: "No profiling consent: no personalisation",     effect: DOWNGRADE_TO_NON_PERSONALISED, kg_rules: [CONSENT-PROFILING]}
+  C-06: {label: "Dunning: service only",                        effect: BLOCK_ALL_SALES, kg_rules: [EXCL-DUNNING]}
+  C-07: {label: "Open complaint: no sales (tightened: any open ticket)", effect: BLOCK_ALL_SALES, kg_rules: [EXCL-OPEN-TICKET]}
+  C-08: {label: "Cancellation in progress: no sales",           effect: BLOCK_ALL_SALES, kg_rules: [EXCL-CANCELLATION, EXCL-AUTOSTROM-CANCELLED]}
+  C-09: {label: "Payment data only to exclude",                 effect: NONE,           enforced_by: "design rule: dunning is read only by EXCL-DUNNING and S13 (README §6.2)"}
+
 archetypes:
   A4: {name: "Retention risk (do no harm)"}
   A1: {name: "Smart eco-system adopter"}

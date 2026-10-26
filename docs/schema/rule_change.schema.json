@@ -1,0 +1,54 @@
+{
+  "additionalProperties": false,
+  "description": "PUT /api/rules/{id}: switch a rule or change its numbers (rule_id comes from the path; what-if needs it).",
+  "properties": {
+    "active": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Active"
+    },
+    "by": {
+      "default": "",
+      "title": "By",
+      "type": "string"
+    },
+    "params": {
+      "additionalProperties": true,
+      "title": "Params",
+      "type": "object"
+    },
+    "reason": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Reason"
+    },
+    "rule_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Rule Id"
+    }
+  },
+  "title": "RuleChange",
+  "type": "object"
+}

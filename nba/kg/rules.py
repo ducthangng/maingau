@@ -9,18 +9,64 @@ the profile card never re-implements a rule.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
+from typing import Iterable
 
 from nba.contracts import (
     Blocked, Candidate, ChannelItem, Check, ConsentItem, ExclusionItem, Signal, tuple_id,
 )
 from nba.kg import predicates as P
+from nba.kg.contacts import contact_events, free_from, source_text, window
 from nba.kg.paths import explain
 from nba.kg.policy import OfferDef, Policy
-from nba.state import CustomerState, contacts
+from nba.state import CustomerState
 
 CONSENT_ORDER = ["newsletter_email", "marketing_email", "marketing_phone", "marketing_sms",
                  "portal_app_personalisation", "profiling_analytics"]
 SERVICE_OFFER = "P-SV-01"
+# Rule Center tier 2 rules that the KG gates enforce themselves (docs/rule-center.md §3).
+KG_BUSINESS_RULES = {"CONTACT-CAP": "B-02", "HOLDING-PRECONDITION": "B-07"}
+
+
+def rule_center_ids(policy: Policy) -> dict[str, str]:
+    """KG rule ID -> Rule Center ID (the first C-xx that lists it, or the B-xx it implements)."""
+    out: dict[str, str] = {}
+    for cid in sorted(policy.compliance):
+        for rule in policy.compliance[cid].get("kg_rules") or []:
+            out.setdefault(rule, cid)
+    return {**out, **KG_BUSINESS_RULES}
+
+
+def _tag(items: Iterable[Blocked], policy: Policy) -> None:
+    ids = rule_center_ids(policy)
+    for item in items:
+        if item.rule_center_id is None:
+            item.rule_center_id = ids.get(item.rule_id)
+
+
+# ---------------------------------------------------------------- contact cap (B-02)
+
+
+@dataclass(frozen=True)
+class CapStatus:
+    count: int
+    limit: int
+    days: int
+    free_at: datetime | None  # earliest time the cap allows marketing again; None = allowed now
+    src: str
+
+    @property
+    def hit(self) -> bool:
+        return self.count >= self.limit
+
+
+def contact_cap_status(state: CustomerState, policy: Policy) -> CapStatus:
+    """Marketing contacts in the cap window, counted by the shared counter (nba.kg.contacts)."""
+    limit, days = policy.contact_cap
+    sources = policy.contact_cap_sources
+    events = [e for e in contact_events(state, sources) if e.channel != policy.service_channel]
+    return CapStatus(len(window(events, days, state.eval_time)), limit, days,
+                     free_from(events, days, limit, state.eval_time), source_text(sources))
 
 
 def _d(dt) -> str | None:
@@ -70,11 +116,14 @@ class _Chan:
     reason: str
     consent: str
     src: str
+    rc: str = "C-01"  # Rule Center ID: C-02 missing double opt-in, C-03 unsubscribe override
 
 
 def _channels(state: CustomerState, policy: Policy, cons: dict[str, ConsentItem]) -> dict[str, _Chan]:
     master = state.one("customer_master") or {}
     raw = {r["consent_type"]: r for r in state.rows["consent_status"]}
+    withdraws = set(policy.config.get("consent", {}).get("unsubscribe_withdraws", ["newsletter_email"]))
+    unsubscribed = any(r.get("unsubscribed") for r in state.rows["newsletter_performance"])
     out: dict[str, _Chan] = {}
     for c in policy.channels.values():
         ci = cons[c.consent]
@@ -82,10 +131,11 @@ def _channels(state: CustomerState, policy: Policy, cons: dict[str, ConsentItem]
         if ci.effective_status != "granted":
             when = f" on {ci.updated_at}" if ci.updated_at else ""
             why = ci.override_reason or f"{c.consent} {ci.effective_status}{when}"
-            out[c.id] = _Chan(c.id, False, "CONSENT-CHANNEL", why, c.consent, src)
+            rc = "C-03" if unsubscribed and c.consent in withdraws else "C-01"
+            out[c.id] = _Chan(c.id, False, "CONSENT-CHANNEL", why, c.consent, src, rc)
         elif c.needs_doi and not ci.doi:
             out[c.id] = _Chan(c.id, False, "CONSENT-CHANNEL", f"{c.consent} granted without double opt-in", c.consent,
-                              "consent_status.double_opt_in_confirmed_at")
+                              "consent_status.double_opt_in_confirmed_at", "C-02")
         elif c.requires_field and not master.get(c.requires_field):
             out[c.id] = _Chan(c.id, False, "CHANNEL-AVAILABLE", f"no {c.requires_field.replace('_', ' ')}", c.consent,
                               f"customer_master.{c.requires_field}")
@@ -188,9 +238,16 @@ def _exclusion_checks(excl: list[tuple[str, P.Hit]], offer: OfferDef, policy: Po
 # ---------------------------------------------------------------- candidates (§6.12)
 
 
+def cap_reason(cap: CapStatus) -> str:
+    until = f"; allowed again from {cap.free_at:%Y-%m-%d %H:%M}" if cap.free_at else ""
+    return f"{cap.count} marketing contacts in the last {cap.days} days (cap {cap.limit}){until}"
+
+
 def generate_candidates(
-    state: CustomerState, signals: list[Signal], policy: Policy, tone: str = "sie"
+    state: CustomerState, signals: list[Signal], policy: Policy, tone: str = "sie", *, apply_cap: bool = True
 ) -> tuple[list[Candidate], list[Blocked]]:
+    """`apply_cap=False` keeps the marketing tuples of a capped customer (their CONTACT-CAP check fails), so
+    Agent NBA can defer them until the cap frees up (DEFER_UNTIL, docs/rule-center.md §5)."""
     cons = consents(state, policy)
     profiled = cons["profiling_analytics"].effective_status == "granted"
     tone_used = tone if profiled else "sie"
@@ -198,9 +255,8 @@ def generate_candidates(
     marketing_channels = list(policy.channels)
     allowed_channels = [ch for ch in marketing_channels if chans[ch].allowed]
     excl = active_exclusions(state, policy)
-    cap_max, window = policy.contact_cap
-    n_contacts = len(contacts(state, window))
-    cap_hit = n_contacts >= cap_max
+    cap = contact_cap_status(state, policy)
+    cap_hit = cap.hit and apply_cap
     blocked: list[Blocked] = []
     cands: dict[str, Candidate] = {}
 
@@ -214,18 +270,19 @@ def generate_candidates(
     for rule_id, hit in excl:
         blocked.append(Blocked(offer_id="*", rule_id=rule_id, src=hit.src, reason=f"{_scope_text(rule_id, policy)}: {hit.detail}"))
     if cap_hit:
-        blocked.append(Blocked(offer_id="*", rule_id="CONTACT-CAP", src="nba_action_history.decided_at",
-                               reason=f"{n_contacts} marketing contacts in the last {window} days (cap {cap_max}); marketing paused"))
+        blocked.append(Blocked(offer_id="*", rule_id="CONTACT-CAP", src=cap.src, reason=f"{cap_reason(cap)}; marketing paused",
+                               until=cap.free_at.isoformat() if cap.free_at else None))
     for ch in marketing_channels:
         if not chans[ch].allowed:
             blocked.append(Blocked(offer_id="*", channel=ch, rule_id=chans[ch].rule, src=chans[ch].src,
-                                   reason=f"{ch.replace('_', ' ')} not allowed for any offer: {chans[ch].reason}"))
+                                   reason=f"{ch.replace('_', ' ')} not allowed for any offer: {chans[ch].reason}",
+                                   rule_center_id=chans[ch].rc))
     if not allowed_channels:
         blocked.append(Blocked(offer_id="*", rule_id="CONSENT-CHANNEL", src="consent_status.status",
                                reason="No consented marketing channel: only service contact is possible"))
 
-    cap_check = Check(rule_id="CONTACT-CAP", passed=True, detail=f"{n_contacts}/{cap_max} marketing contacts in {window} days",
-                      src="nba_action_history.decided_at")
+    cap_check = Check(rule_id="CONTACT-CAP", passed=not cap.hit, src=cap.src,
+                      detail=f"{cap.count}/{cap.limit} marketing contacts in {cap.days} days")
     prof = cons["profiling_analytics"]
 
     # 1. service tuples (S2, S12, S13 -> P-SV-01); never blocked by exclusions, consent or the cap
@@ -322,6 +379,7 @@ def generate_candidates(
     out = []
     for c in sorted(cands.values(), key=lambda x: ({"service": 0, "signal": 1, "generic": 2}[x.origin], x.offer_id, x.channel)):
         out.append(c.model_copy(update={"path": explain(state, c, policy, signals)}))
+    _tag(blocked, policy)  # the card's rule report summarises the passed checks (docs/rule-center.md §7)
     return out, blocked
 
 
@@ -344,6 +402,7 @@ def check_tuple(state: CustomerState, offer_id: str, channel: str, policy: Polic
         if channel != policy.service_channel:
             out.append(Blocked(offer_id=o.id, channel=None, rule_id="CONSENT-CHANNEL",
                                reason=f"service is delivered by the {policy.service_channel.replace('_', ' ')} only"))
+        _tag(out, policy)
         return out
     for rule_id, hit in active_exclusions(state, policy):
         if blocks_offer(rule_id, o, policy):
@@ -362,10 +421,11 @@ def check_tuple(state: CustomerState, offer_id: str, channel: str, policy: Polic
     else:
         ch = _channels(state, policy, cons)[channel]
         if not ch.allowed:
-            out.append(Blocked(offer_id=o.id, channel=channel, rule_id=ch.rule, src=ch.src, reason=ch.reason))
-    cap_max, window = policy.contact_cap
-    n = len(contacts(state, window))
-    if n >= cap_max:
-        out.append(Blocked(offer_id=o.id, rule_id="CONTACT-CAP", src="nba_action_history.decided_at",
-                           reason=f"{n} marketing contacts in the last {window} days (cap {cap_max})"))
+            out.append(Blocked(offer_id=o.id, channel=channel, rule_id=ch.rule, src=ch.src, reason=ch.reason,
+                               rule_center_id=ch.rc))
+    cap = contact_cap_status(state, policy)
+    if cap.hit:
+        out.append(Blocked(offer_id=o.id, rule_id="CONTACT-CAP", src=cap.src, reason=cap_reason(cap),
+                           until=cap.free_at.isoformat() if cap.free_at else None))
+    _tag(out, policy)
     return out

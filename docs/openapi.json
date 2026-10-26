@@ -1,6 +1,1043 @@
 {
   "components": {
     "schemas": {
+      "Alternative": {
+        "additionalProperties": false,
+        "properties": {
+          "delta_clv": {
+            "title": "Delta Clv",
+            "type": "number"
+          },
+          "tuple_id": {
+            "title": "Tuple Id",
+            "type": "string"
+          },
+          "why_lower": {
+            "title": "Why Lower",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tuple_id",
+          "delta_clv",
+          "why_lower"
+        ],
+        "title": "Alternative",
+        "type": "object"
+      },
+      "Archetype": {
+        "additionalProperties": false,
+        "description": "Rule-based segment (README §6.13); never ML clustering, never payment data or age.",
+        "properties": {
+          "id": {
+            "enum": [
+              "A1",
+              "A2",
+              "A3",
+              "A4",
+              "A5",
+              "A0"
+            ],
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "reason"
+        ],
+        "title": "Archetype",
+        "type": "object"
+      },
+      "Blocked": {
+        "additionalProperties": false,
+        "properties": {
+          "channel": {
+            "anyOf": [
+              {
+                "enum": [
+                  "newsletter_email",
+                  "email",
+                  "portal_popup",
+                  "app_push",
+                  "sms",
+                  "outbound_call",
+                  "service_agent"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Channel"
+          },
+          "counterfactual_delta_clv": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Counterfactual Delta Clv"
+          },
+          "offer_id": {
+            "title": "Offer Id",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "rule_center_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rule Center Id"
+          },
+          "rule_id": {
+            "enum": [
+              "CONSENT-CHANNEL",
+              "CONSENT-PROFILING",
+              "CHANNEL-AVAILABLE",
+              "EXCL-DUNNING",
+              "EXCL-CANCELLATION",
+              "EXCL-OPEN-TICKET",
+              "EXCL-AUTOSTROM-CANCELLED",
+              "HOLDING-PRECONDITION",
+              "CONTACT-CAP",
+              "ECON-NONPOSITIVE",
+              "DATA-MISSING",
+              "BUSINESS-RULE"
+            ],
+            "title": "Rule Id",
+            "type": "string"
+          },
+          "src": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Src"
+          },
+          "until": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Until"
+          }
+        },
+        "required": [
+          "offer_id",
+          "rule_id",
+          "reason"
+        ],
+        "title": "Blocked",
+        "type": "object"
+      },
+      "Candidate": {
+        "additionalProperties": false,
+        "properties": {
+          "action_type": {
+            "enum": [
+              "sales",
+              "upsell",
+              "retention",
+              "one_off",
+              "service"
+            ],
+            "title": "Action Type",
+            "type": "string"
+          },
+          "channel": {
+            "enum": [
+              "newsletter_email",
+              "email",
+              "portal_popup",
+              "app_push",
+              "sms",
+              "outbound_call",
+              "service_agent"
+            ],
+            "title": "Channel",
+            "type": "string"
+          },
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/Check"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
+          "deferred_until": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deferred Until"
+          },
+          "need": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Need"
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Notes",
+            "type": "array"
+          },
+          "offer_id": {
+            "title": "Offer Id",
+            "type": "string"
+          },
+          "offer_name": {
+            "title": "Offer Name",
+            "type": "string"
+          },
+          "origin": {
+            "default": "signal",
+            "enum": [
+              "signal",
+              "service",
+              "generic"
+            ],
+            "title": "Origin",
+            "type": "string"
+          },
+          "path": {
+            "items": {
+              "$ref": "#/components/schemas/PathStep"
+            },
+            "title": "Path",
+            "type": "array"
+          },
+          "personalised": {
+            "default": true,
+            "title": "Personalised",
+            "type": "boolean"
+          },
+          "rank": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rank"
+          },
+          "signals": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Signals",
+            "type": "array"
+          },
+          "tone": {
+            "enum": [
+              "du",
+              "sie"
+            ],
+            "title": "Tone",
+            "type": "string"
+          },
+          "tuple_id": {
+            "title": "Tuple Id",
+            "type": "string"
+          },
+          "valuation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Valuation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "why": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Why",
+            "type": "array"
+          }
+        },
+        "required": [
+          "tuple_id",
+          "offer_id",
+          "offer_name",
+          "action_type",
+          "channel",
+          "tone"
+        ],
+        "title": "Candidate",
+        "type": "object"
+      },
+      "ChannelItem": {
+        "additionalProperties": false,
+        "properties": {
+          "allowed": {
+            "title": "Allowed",
+            "type": "boolean"
+          },
+          "channel": {
+            "enum": [
+              "newsletter_email",
+              "email",
+              "portal_popup",
+              "app_push",
+              "sms",
+              "outbound_call",
+              "service_agent"
+            ],
+            "title": "Channel",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "requires": {
+            "items": {
+              "enum": [
+                "newsletter_email",
+                "marketing_email",
+                "marketing_phone",
+                "marketing_sms",
+                "portal_app_personalisation",
+                "profiling_analytics"
+              ],
+              "type": "string"
+            },
+            "title": "Requires",
+            "type": "array"
+          }
+        },
+        "required": [
+          "channel",
+          "allowed",
+          "reason"
+        ],
+        "title": "ChannelItem",
+        "type": "object"
+      },
+      "Check": {
+        "additionalProperties": false,
+        "properties": {
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "passed": {
+            "title": "Passed",
+            "type": "boolean"
+          },
+          "rule_id": {
+            "enum": [
+              "CONSENT-CHANNEL",
+              "CONSENT-PROFILING",
+              "CHANNEL-AVAILABLE",
+              "EXCL-DUNNING",
+              "EXCL-CANCELLATION",
+              "EXCL-OPEN-TICKET",
+              "EXCL-AUTOSTROM-CANCELLED",
+              "HOLDING-PRECONDITION",
+              "CONTACT-CAP",
+              "ECON-NONPOSITIVE",
+              "DATA-MISSING",
+              "BUSINESS-RULE"
+            ],
+            "title": "Rule Id",
+            "type": "string"
+          },
+          "src": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Src"
+          }
+        },
+        "required": [
+          "rule_id",
+          "passed"
+        ],
+        "title": "Check",
+        "type": "object"
+      },
+      "ChecklistItem": {
+        "additionalProperties": false,
+        "properties": {
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "item": {
+            "enum": [
+              "consent_for_channel",
+              "profiling_consent",
+              "no_exclusion",
+              "not_owned",
+              "contact_cap",
+              "data_fresh"
+            ],
+            "title": "Item",
+            "type": "string"
+          },
+          "passed": {
+            "title": "Passed",
+            "type": "boolean"
+          },
+          "src": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Src"
+          }
+        },
+        "required": [
+          "item",
+          "passed"
+        ],
+        "title": "ChecklistItem",
+        "type": "object"
+      },
+      "Chosen": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_script": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agent Script"
+          },
+          "content": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Content"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "deferred_until": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deferred Until"
+          },
+          "reason_line": {
+            "title": "Reason Line",
+            "type": "string"
+          },
+          "send_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Send At"
+          },
+          "service_mode": {
+            "default": false,
+            "title": "Service Mode",
+            "type": "boolean"
+          },
+          "status": {
+            "default": "proposed",
+            "enum": [
+              "proposed",
+              "approved",
+              "overridden",
+              "rejected",
+              "revoked"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "tuple_id": {
+            "title": "Tuple Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tuple_id",
+          "reason_line"
+        ],
+        "title": "Chosen",
+        "type": "object"
+      },
+      "ChurnDriver": {
+        "additionalProperties": false,
+        "properties": {
+          "delta": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delta"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label"
+        ],
+        "title": "ChurnDriver",
+        "type": "object"
+      },
+      "Condition": {
+        "additionalProperties": false,
+        "properties": {
+          "column": {
+            "title": "Column",
+            "type": "string"
+          },
+          "entity": {
+            "title": "Entity",
+            "type": "string"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "op": {
+            "enum": [
+              "=",
+              "!=",
+              ">=",
+              "<=",
+              "within_days"
+            ],
+            "title": "Op",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value"
+          }
+        },
+        "required": [
+          "entity",
+          "column",
+          "op",
+          "value"
+        ],
+        "title": "Condition",
+        "type": "object"
+      },
+      "ConsentItem": {
+        "additionalProperties": false,
+        "properties": {
+          "doi": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Doi"
+          },
+          "effective_status": {
+            "enum": [
+              "granted",
+              "not_given",
+              "withdrawn"
+            ],
+            "title": "Effective Status",
+            "type": "string"
+          },
+          "override_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Override Reason"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "status": {
+            "enum": [
+              "granted",
+              "not_given",
+              "withdrawn"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "newsletter_email",
+              "marketing_email",
+              "marketing_phone",
+              "marketing_sms",
+              "portal_app_personalisation",
+              "profiling_analytics"
+            ],
+            "title": "Type",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "type",
+          "status",
+          "effective_status"
+        ],
+        "title": "ConsentItem",
+        "type": "object"
+      },
+      "ContactCounter": {
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "rule_id": {
+            "title": "Rule Id",
+            "type": "string"
+          },
+          "window_days": {
+            "title": "Window Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "rule_id",
+          "label",
+          "count",
+          "limit",
+          "window_days"
+        ],
+        "title": "ContactCounter",
+        "type": "object"
+      },
+      "Content": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "language": {
+            "const": "de",
+            "default": "de",
+            "title": "Language",
+            "type": "string"
+          },
+          "personalised": {
+            "title": "Personalised",
+            "type": "boolean"
+          },
+          "subject": {
+            "title": "Subject",
+            "type": "string"
+          },
+          "template_id": {
+            "title": "Template Id",
+            "type": "string"
+          },
+          "tone": {
+            "enum": [
+              "du",
+              "sie"
+            ],
+            "title": "Tone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tone",
+          "personalised",
+          "template_id",
+          "subject",
+          "body"
+        ],
+        "title": "Content",
+        "type": "object"
+      },
+      "CustomerCard": {
+        "additionalProperties": false,
+        "properties": {
+          "alternatives": {
+            "items": {
+              "$ref": "#/components/schemas/Alternative"
+            },
+            "title": "Alternatives",
+            "type": "array"
+          },
+          "blocked": {
+            "items": {
+              "$ref": "#/components/schemas/Blocked"
+            },
+            "title": "Blocked",
+            "type": "array"
+          },
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/Candidate"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "checklist": {
+            "items": {
+              "$ref": "#/components/schemas/ChecklistItem"
+            },
+            "title": "Checklist",
+            "type": "array"
+          },
+          "chosen": {
+            "$ref": "#/components/schemas/Chosen"
+          },
+          "customer_id": {
+            "title": "Customer Id",
+            "type": "string"
+          },
+          "data_quality": {
+            "items": {
+              "$ref": "#/components/schemas/DataQuality"
+            },
+            "title": "Data Quality",
+            "type": "array"
+          },
+          "decision_log": {
+            "items": {
+              "$ref": "#/components/schemas/DecisionLogEntry"
+            },
+            "title": "Decision Log",
+            "type": "array"
+          },
+          "explanation_path": {
+            "items": {
+              "$ref": "#/components/schemas/PathStep"
+            },
+            "title": "Explanation Path",
+            "type": "array"
+          },
+          "legacy_comparison": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LegacyComparison"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          },
+          "profile": {
+            "$ref": "#/components/schemas/Profile"
+          },
+          "rules": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RuleReport"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "schema_version": {
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "signals": {
+            "items": {
+              "$ref": "#/components/schemas/Signal"
+            },
+            "title": "Signals",
+            "type": "array"
+          },
+          "sources": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/SourceInfo"
+            },
+            "title": "Sources",
+            "type": "object"
+          },
+          "timeline": {
+            "items": {
+              "$ref": "#/components/schemas/TimelineItem"
+            },
+            "title": "Timeline",
+            "type": "array"
+          },
+          "triage": {
+            "$ref": "#/components/schemas/Triage"
+          }
+        },
+        "required": [
+          "customer_id",
+          "meta",
+          "triage",
+          "profile",
+          "chosen"
+        ],
+        "title": "CustomerCard",
+        "type": "object"
+      },
+      "DataQuality": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "level": {
+            "enum": [
+              "info",
+              "warn"
+            ],
+            "title": "Level",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "level",
+          "detail"
+        ],
+        "title": "DataQuality",
+        "type": "object"
+      },
+      "DecisionLogEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "proposed",
+              "approved",
+              "overridden",
+              "rejected",
+              "revoked"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "actor": {
+            "title": "Actor",
+            "type": "string"
+          },
+          "from_tuple": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Tuple"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "rules_applied": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Rules Applied",
+            "type": "array"
+          },
+          "scores": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Scores",
+            "type": "object"
+          },
+          "state_revision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State Revision"
+          },
+          "to_tuple": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To Tuple"
+          },
+          "ts": {
+            "title": "Ts",
+            "type": "string"
+          },
+          "tuple_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tuple Id"
+          },
+          "versions": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Versions",
+            "type": "object"
+          }
+        },
+        "required": [
+          "ts",
+          "actor",
+          "action"
+        ],
+        "title": "DecisionLogEntry",
+        "type": "object"
+      },
       "DecisionRequest": {
         "additionalProperties": false,
         "properties": {
@@ -46,6 +1083,221 @@
         "title": "DecisionRequest",
         "type": "object"
       },
+      "Entity": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "operators": {
+            "items": {
+              "$ref": "#/components/schemas/OperatorOption"
+            },
+            "title": "Operators",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "label"
+        ],
+        "title": "Entity",
+        "type": "object"
+      },
+      "ExclusionItem": {
+        "additionalProperties": false,
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "rule_id": {
+            "enum": [
+              "CONSENT-CHANNEL",
+              "CONSENT-PROFILING",
+              "CHANNEL-AVAILABLE",
+              "EXCL-DUNNING",
+              "EXCL-CANCELLATION",
+              "EXCL-OPEN-TICKET",
+              "EXCL-AUTOSTROM-CANCELLED",
+              "HOLDING-PRECONDITION",
+              "CONTACT-CAP",
+              "ECON-NONPOSITIVE",
+              "DATA-MISSING",
+              "BUSINESS-RULE"
+            ],
+            "title": "Rule Id",
+            "type": "string"
+          },
+          "src": {
+            "title": "Src",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rule_id",
+          "active",
+          "src"
+        ],
+        "title": "ExclusionItem",
+        "type": "object"
+      },
+      "Fact": {
+        "additionalProperties": false,
+        "description": "One displayed value plus where it came from; the UI builds the tooltip from it.",
+        "properties": {
+          "row_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Row Key"
+          },
+          "src": {
+            "title": "Src",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "v": {
+            "title": "V"
+          }
+        },
+        "required": [
+          "src"
+        ],
+        "title": "Fact",
+        "type": "object"
+      },
+      "Fatigue": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_feedback": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Agent Feedback",
+            "type": "array"
+          },
+          "contacts_30d": {
+            "default": 0,
+            "title": "Contacts 30D",
+            "type": "integer"
+          },
+          "contacts_90d": {
+            "default": 0,
+            "title": "Contacts 90D",
+            "type": "integer"
+          },
+          "legacy_no_consent_check": {
+            "default": 0,
+            "title": "Legacy No Consent Check",
+            "type": "integer"
+          },
+          "repeatedly_ignored": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Repeatedly Ignored",
+            "type": "array"
+          },
+          "response_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Response Rate"
+          }
+        },
+        "title": "Fatigue",
+        "type": "object"
+      },
+      "Flag": {
+        "additionalProperties": false,
+        "properties": {
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "id": {
+            "enum": [
+              "service_critical",
+              "no_marketing_channel",
+              "no_profiling",
+              "negative_clv",
+              "top_clv",
+              "contact_fatigue",
+              "annoyed_before",
+              "prefers_en",
+              "data_inconsistent"
+            ],
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "src": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Src"
+          }
+        },
+        "required": [
+          "id",
+          "label"
+        ],
+        "title": "Flag",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -57,6 +1309,1680 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "Header": {
+        "additionalProperties": false,
+        "properties": {
+          "age_band": {
+            "$ref": "#/components/schemas/Fact"
+          },
+          "city": {
+            "$ref": "#/components/schemas/Fact"
+          },
+          "digital": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Fact"
+            },
+            "title": "Digital",
+            "type": "object"
+          },
+          "household_size": {
+            "$ref": "#/components/schemas/Fact"
+          },
+          "tenure_years": {
+            "$ref": "#/components/schemas/Fact"
+          },
+          "tone": {
+            "$ref": "#/components/schemas/Tone"
+          }
+        },
+        "required": [
+          "age_band",
+          "city",
+          "household_size",
+          "tenure_years",
+          "digital",
+          "tone"
+        ],
+        "title": "Header",
+        "type": "object"
+      },
+      "Highlight": {
+        "additionalProperties": false,
+        "properties": {
+          "basis": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Basis",
+            "type": "array"
+          },
+          "rarity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rarity"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "basis"
+        ],
+        "title": "Highlight",
+        "type": "object"
+      },
+      "IndexRow": {
+        "additionalProperties": false,
+        "properties": {
+          "age_band": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Age Band"
+          },
+          "archetype": {
+            "default": "A0",
+            "enum": [
+              "A1",
+              "A2",
+              "A3",
+              "A4",
+              "A5",
+              "A0"
+            ],
+            "title": "Archetype",
+            "type": "string"
+          },
+          "archetype_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Archetype Name"
+          },
+          "channel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Channel"
+          },
+          "checklist_failed": {
+            "items": {
+              "enum": [
+                "consent_for_channel",
+                "profiling_consent",
+                "no_exclusion",
+                "not_owned",
+                "contact_cap",
+                "data_fresh"
+              ],
+              "type": "string"
+            },
+            "title": "Checklist Failed",
+            "type": "array"
+          },
+          "chosen_offer": {
+            "title": "Chosen Offer",
+            "type": "string"
+          },
+          "chosen_tuple": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chosen Tuple"
+          },
+          "churn": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Churn"
+          },
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "clv_eur": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clv Eur"
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "enum": [
+                  "high",
+                  "medium",
+                  "low"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence"
+          },
+          "contact_cost": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact Cost"
+          },
+          "customer_id": {
+            "title": "Customer Id",
+            "type": "string"
+          },
+          "deferred_until": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deferred Until"
+          },
+          "delta_clv": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delta Clv"
+          },
+          "exclusions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Exclusions",
+            "type": "array"
+          },
+          "flags": {
+            "items": {
+              "enum": [
+                "service_critical",
+                "no_marketing_channel",
+                "no_profiling",
+                "negative_clv",
+                "top_clv",
+                "contact_fatigue",
+                "annoyed_before",
+                "prefers_en",
+                "data_inconsistent"
+              ],
+              "type": "string"
+            },
+            "title": "Flags",
+            "type": "array"
+          },
+          "lines": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lines"
+          },
+          "n_blocked": {
+            "default": 0,
+            "title": "N Blocked",
+            "type": "integer"
+          },
+          "n_candidates": {
+            "default": 0,
+            "title": "N Candidates",
+            "type": "integer"
+          },
+          "n_signals": {
+            "default": 0,
+            "title": "N Signals",
+            "type": "integer"
+          },
+          "outlier": {
+            "default": false,
+            "title": "Outlier",
+            "type": "boolean"
+          },
+          "p_accept": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "P Accept"
+          },
+          "personalised": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Personalised"
+          },
+          "service_mode": {
+            "default": false,
+            "title": "Service Mode",
+            "type": "boolean"
+          },
+          "tone": {
+            "anyOf": [
+              {
+                "enum": [
+                  "du",
+                  "sie"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tone"
+          },
+          "top_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Top Reason"
+          },
+          "triggers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Triggers",
+            "type": "array"
+          },
+          "urgency_score": {
+            "default": 0.0,
+            "title": "Urgency Score",
+            "type": "number"
+          },
+          "urgency_tier": {
+            "default": "P5",
+            "enum": [
+              "P1",
+              "P2",
+              "P3",
+              "P4",
+              "P5"
+            ],
+            "title": "Urgency Tier",
+            "type": "string"
+          }
+        },
+        "required": [
+          "customer_id",
+          "chosen_offer"
+        ],
+        "title": "IndexRow",
+        "type": "object"
+      },
+      "LegacyComparison": {
+        "additionalProperties": false,
+        "properties": {
+          "blocked_now_by": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Blocked Now By",
+            "type": "array"
+          },
+          "channel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Channel"
+          },
+          "decided_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided At"
+          },
+          "delta_clv_our_model": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delta Clv Our Model"
+          },
+          "offer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Offer Id"
+          },
+          "rule_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rule Id"
+          }
+        },
+        "title": "LegacyComparison",
+        "type": "object"
+      },
+      "Meta": {
+        "additionalProperties": false,
+        "properties": {
+          "eval_time": {
+            "title": "Eval Time",
+            "type": "string"
+          },
+          "events_applied_until": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Events Applied Until"
+          },
+          "mode_default": {
+            "default": "marketing",
+            "enum": [
+              "marketing",
+              "service"
+            ],
+            "title": "Mode Default",
+            "type": "string"
+          },
+          "snapshot_mode": {
+            "default": "provided",
+            "enum": [
+              "provided",
+              "strict_asof"
+            ],
+            "title": "Snapshot Mode",
+            "type": "string"
+          },
+          "state_revision": {
+            "title": "State Revision",
+            "type": "string"
+          },
+          "versions": {
+            "$ref": "#/components/schemas/Versions"
+          }
+        },
+        "required": [
+          "eval_time",
+          "versions",
+          "state_revision"
+        ],
+        "title": "Meta",
+        "type": "object"
+      },
+      "OperatorOption": {
+        "additionalProperties": false,
+        "properties": {
+          "column": {
+            "title": "Column",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "op": {
+            "enum": [
+              "=",
+              "!=",
+              ">=",
+              "<=",
+              "within_days"
+            ],
+            "title": "Op",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value"
+          }
+        },
+        "required": [
+          "id",
+          "column",
+          "op",
+          "value",
+          "label"
+        ],
+        "title": "OperatorOption",
+        "type": "object"
+      },
+      "PSource": {
+        "additionalProperties": false,
+        "properties": {
+          "baseline_control": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline Control"
+          },
+          "conv_control": {
+            "default": 0,
+            "title": "Conv Control",
+            "type": "integer"
+          },
+          "conv_treated": {
+            "default": 0,
+            "title": "Conv Treated",
+            "type": "integer"
+          },
+          "level": {
+            "enum": [
+              "offer_channel_tone",
+              "offer_channel",
+              "offer",
+              "global",
+              "assumption"
+            ],
+            "title": "Level",
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "uplift",
+              "rate",
+              "assumption"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "n_control": {
+            "default": 0,
+            "title": "N Control",
+            "type": "integer"
+          },
+          "n_treated": {
+            "default": 0,
+            "title": "N Treated",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "mode",
+          "level"
+        ],
+        "title": "PSource",
+        "type": "object"
+      },
+      "PathStep": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "kind": {
+            "enum": [
+              "node",
+              "edge"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "ui_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ui Ref"
+          }
+        },
+        "required": [
+          "kind",
+          "type"
+        ],
+        "title": "PathStep",
+        "type": "object"
+      },
+      "Percentiles": {
+        "additionalProperties": false,
+        "properties": {
+          "clv_all": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clv All"
+          },
+          "clv_same_combo": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clv Same Combo"
+          },
+          "combo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Combo"
+          }
+        },
+        "title": "Percentiles",
+        "type": "object"
+      },
+      "ProductLine": {
+        "additionalProperties": false,
+        "properties": {
+          "held": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Held"
+          },
+          "items": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "opportunity": {
+            "default": false,
+            "title": "Opportunity",
+            "type": "boolean"
+          }
+        },
+        "title": "ProductLine",
+        "type": "object"
+      },
+      "Products": {
+        "additionalProperties": false,
+        "properties": {
+          "autostrom": {
+            "$ref": "#/components/schemas/ProductLine"
+          },
+          "energy": {
+            "$ref": "#/components/schemas/ProductLine"
+          },
+          "internet": {
+            "$ref": "#/components/schemas/ProductLine"
+          },
+          "mobile": {
+            "$ref": "#/components/schemas/ProductLine"
+          },
+          "shop": {
+            "$ref": "#/components/schemas/ProductLine"
+          },
+          "smart_living": {
+            "$ref": "#/components/schemas/ProductLine"
+          }
+        },
+        "required": [
+          "energy",
+          "autostrom",
+          "mobile",
+          "shop",
+          "smart_living",
+          "internet"
+        ],
+        "title": "Products",
+        "type": "object"
+      },
+      "Profile": {
+        "additionalProperties": false,
+        "properties": {
+          "channels": {
+            "items": {
+              "$ref": "#/components/schemas/ChannelItem"
+            },
+            "title": "Channels",
+            "type": "array"
+          },
+          "consent": {
+            "items": {
+              "$ref": "#/components/schemas/ConsentItem"
+            },
+            "title": "Consent",
+            "type": "array"
+          },
+          "exclusions": {
+            "items": {
+              "$ref": "#/components/schemas/ExclusionItem"
+            },
+            "title": "Exclusions",
+            "type": "array"
+          },
+          "fatigue": {
+            "$ref": "#/components/schemas/Fatigue"
+          },
+          "header": {
+            "$ref": "#/components/schemas/Header"
+          },
+          "highlights": {
+            "items": {
+              "$ref": "#/components/schemas/Highlight"
+            },
+            "title": "Highlights",
+            "type": "array"
+          },
+          "products": {
+            "$ref": "#/components/schemas/Products"
+          },
+          "trends": {
+            "$ref": "#/components/schemas/Trends"
+          },
+          "value_risk": {
+            "$ref": "#/components/schemas/ValueRisk"
+          }
+        },
+        "required": [
+          "header",
+          "value_risk",
+          "products",
+          "consent",
+          "channels",
+          "exclusions"
+        ],
+        "title": "Profile",
+        "type": "object"
+      },
+      "RuleChange": {
+        "additionalProperties": false,
+        "description": "PUT /api/rules/{id}: switch a rule or change its numbers (rule_id comes from the path; what-if needs it).",
+        "properties": {
+          "active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active"
+          },
+          "by": {
+            "default": "",
+            "title": "By",
+            "type": "string"
+          },
+          "params": {
+            "additionalProperties": true,
+            "title": "Params",
+            "type": "object"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "rule_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rule Id"
+          }
+        },
+        "title": "RuleChange",
+        "type": "object"
+      },
+      "RuleCreate": {
+        "additionalProperties": false,
+        "description": "POST /api/rules: a customized or hard rule from the Rule Center popup (sub-rules narrow the parent).",
+        "properties": {
+          "active": {
+            "default": true,
+            "title": "Active",
+            "type": "boolean"
+          },
+          "by": {
+            "default": "",
+            "title": "By",
+            "type": "string"
+          },
+          "children": {
+            "items": {
+              "$ref": "#/components/schemas/RuleCreate"
+            },
+            "title": "Children",
+            "type": "array"
+          },
+          "condition": {
+            "$ref": "#/components/schemas/Condition"
+          },
+          "effect": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effect"
+          },
+          "hard": {
+            "default": false,
+            "title": "Hard",
+            "type": "boolean"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "parent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent"
+          }
+        },
+        "required": [
+          "condition"
+        ],
+        "title": "RuleCreate",
+        "type": "object"
+      },
+      "RuleNode": {
+        "additionalProperties": false,
+        "description": "One rule in the Rule Center tree; also the shape of web/public/data/rules.json.",
+        "properties": {
+          "active": {
+            "default": true,
+            "title": "Active",
+            "type": "boolean"
+          },
+          "children": {
+            "items": {
+              "$ref": "#/components/schemas/RuleNode"
+            },
+            "title": "Children",
+            "type": "array"
+          },
+          "condition": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Condition"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "effect": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effect"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind"
+          },
+          "locked": {
+            "default": false,
+            "title": "Locked",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "params": {
+            "additionalProperties": true,
+            "title": "Params",
+            "type": "object"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target"
+          },
+          "tier": {
+            "enum": [
+              "hard",
+              "custom"
+            ],
+            "title": "Tier",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "tier"
+        ],
+        "title": "RuleNode",
+        "type": "object"
+      },
+      "RuleReport": {
+        "additionalProperties": false,
+        "properties": {
+          "counter_line": {
+            "default": "",
+            "title": "Counter Line",
+            "type": "string"
+          },
+          "counters": {
+            "items": {
+              "$ref": "#/components/schemas/ContactCounter"
+            },
+            "title": "Counters",
+            "type": "array"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/RuleResult"
+            },
+            "title": "Results",
+            "type": "array"
+          },
+          "rule_set_version": {
+            "title": "Rule Set Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rule_set_version"
+        ],
+        "title": "RuleReport",
+        "type": "object"
+      },
+      "RuleResult": {
+        "additionalProperties": false,
+        "description": "One Rule Center rule for one customer and run (docs/rule-center.md §4, §6).",
+        "properties": {
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "measured": {
+            "additionalProperties": true,
+            "title": "Measured",
+            "type": "object"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "result": {
+            "enum": [
+              "pass",
+              "block",
+              "defer",
+              "off",
+              "n/a"
+            ],
+            "title": "Result",
+            "type": "string"
+          },
+          "rule_id": {
+            "title": "Rule Id",
+            "type": "string"
+          },
+          "tier": {
+            "enum": [
+              "compliance",
+              "business",
+              "custom"
+            ],
+            "title": "Tier",
+            "type": "string"
+          },
+          "tuples": {
+            "default": 0,
+            "title": "Tuples",
+            "type": "integer"
+          },
+          "until": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Until"
+          }
+        },
+        "required": [
+          "rule_id",
+          "tier",
+          "name",
+          "result"
+        ],
+        "title": "RuleResult",
+        "type": "object"
+      },
+      "RulesFile": {
+        "additionalProperties": false,
+        "properties": {
+          "entities": {
+            "items": {
+              "$ref": "#/components/schemas/Entity"
+            },
+            "title": "Entities",
+            "type": "array"
+          },
+          "generated_at": {
+            "title": "Generated At",
+            "type": "string"
+          },
+          "rule_set_version": {
+            "title": "Rule Set Version",
+            "type": "string"
+          },
+          "rules": {
+            "items": {
+              "$ref": "#/components/schemas/RuleNode"
+            },
+            "title": "Rules",
+            "type": "array"
+          },
+          "version": {
+            "default": 1,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "generated_at",
+          "rule_set_version",
+          "rules"
+        ],
+        "title": "RulesFile",
+        "type": "object"
+      },
+      "Signal": {
+        "additionalProperties": false,
+        "properties": {
+          "date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "evidence": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Evidence",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "needs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Needs",
+            "type": "array"
+          },
+          "offers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Offers",
+            "type": "array"
+          },
+          "purpose": {
+            "enum": [
+              "contract",
+              "device",
+              "behavioural",
+              "service"
+            ],
+            "title": "Purpose",
+            "type": "string"
+          },
+          "src": {
+            "title": "Src",
+            "type": "string"
+          },
+          "strength": {
+            "enum": [
+              "strong",
+              "medium",
+              "weak"
+            ],
+            "title": "Strength",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "strength",
+          "purpose",
+          "src"
+        ],
+        "title": "Signal",
+        "type": "object"
+      },
+      "SourceInfo": {
+        "additionalProperties": false,
+        "properties": {
+          "latency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latency"
+          },
+          "refresh": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refresh"
+          }
+        },
+        "title": "SourceInfo",
+        "type": "object"
+      },
+      "Summary": {
+        "additionalProperties": false,
+        "properties": {
+          "archetype_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Archetype Counts",
+            "type": "object"
+          },
+          "blocked_by_rule": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Blocked By Rule",
+            "type": "object"
+          },
+          "chosen_by_offer": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "number"
+              },
+              "type": "object"
+            },
+            "title": "Chosen By Offer",
+            "type": "object"
+          },
+          "column_src": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Column Src",
+            "type": "object"
+          },
+          "eval_time": {
+            "title": "Eval Time",
+            "type": "string"
+          },
+          "flag_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Flag Counts",
+            "type": "object"
+          },
+          "n_customers": {
+            "title": "N Customers",
+            "type": "integer"
+          },
+          "no_action_by_reason": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "No Action By Reason",
+            "type": "object"
+          },
+          "signal_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Signal Counts",
+            "type": "object"
+          },
+          "sources": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/SourceInfo"
+            },
+            "title": "Sources",
+            "type": "object"
+          },
+          "urgency_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Urgency Counts",
+            "type": "object"
+          },
+          "value_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value Date"
+          }
+        },
+        "required": [
+          "eval_time",
+          "n_customers"
+        ],
+        "title": "Summary",
+        "type": "object"
+      },
+      "TimelineItem": {
+        "additionalProperties": false,
+        "properties": {
+          "date": {
+            "title": "Date",
+            "type": "string"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "flags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Flags",
+            "type": "array"
+          },
+          "future": {
+            "default": false,
+            "title": "Future",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "contract",
+              "milestone",
+              "service",
+              "order",
+              "consent",
+              "marketing",
+              "event"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "line": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Line"
+          },
+          "ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ref"
+          },
+          "src": {
+            "title": "Src",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "date",
+          "kind",
+          "title",
+          "src"
+        ],
+        "title": "TimelineItem",
+        "type": "object"
+      },
+      "Tone": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence": {
+            "title": "Evidence",
+            "type": "string"
+          },
+          "method": {
+            "enum": [
+              "text",
+              "newsletter",
+              "default"
+            ],
+            "title": "Method",
+            "type": "string"
+          },
+          "refs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Refs",
+            "type": "array"
+          },
+          "value": {
+            "enum": [
+              "du",
+              "sie"
+            ],
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value",
+          "method",
+          "evidence"
+        ],
+        "title": "Tone",
+        "type": "object"
+      },
+      "Trends": {
+        "additionalProperties": false,
+        "properties": {
+          "charging": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Charging"
+          },
+          "clv_note": {
+            "default": "customer_value is a single snapshot; no CLV trend",
+            "title": "Clv Note",
+            "type": "string"
+          },
+          "hems": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hems"
+          },
+          "mobile_usage": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mobile Usage"
+          },
+          "newsletter": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Newsletter"
+          },
+          "portal": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Portal"
+          },
+          "service": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service"
+          }
+        },
+        "title": "Trends",
+        "type": "object"
+      },
+      "Triage": {
+        "additionalProperties": false,
+        "description": "Why this customer is near the top of the worklist (README §6.13). Computed by Agent KG.",
+        "properties": {
+          "archetype": {
+            "$ref": "#/components/schemas/Archetype"
+          },
+          "deadline": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deadline"
+          },
+          "flags": {
+            "items": {
+              "$ref": "#/components/schemas/Flag"
+            },
+            "title": "Flags",
+            "type": "array"
+          },
+          "outlier": {
+            "default": false,
+            "title": "Outlier",
+            "type": "boolean"
+          },
+          "urgency_reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Urgency Reasons",
+            "type": "array"
+          },
+          "urgency_score": {
+            "title": "Urgency Score",
+            "type": "number"
+          },
+          "urgency_tier": {
+            "enum": [
+              "P1",
+              "P2",
+              "P3",
+              "P4",
+              "P5"
+            ],
+            "title": "Urgency Tier",
+            "type": "string"
+          }
+        },
+        "required": [
+          "archetype",
+          "urgency_tier",
+          "urgency_score"
+        ],
+        "title": "Triage",
         "type": "object"
       },
       "TupleRef": {
@@ -135,12 +3061,153 @@
         ],
         "title": "ValidationError",
         "type": "object"
+      },
+      "Valuation": {
+        "additionalProperties": false,
+        "properties": {
+          "clv_after_accept": {
+            "title": "Clv After Accept",
+            "type": "number"
+          },
+          "clv_after_reject": {
+            "title": "Clv After Reject",
+            "type": "number"
+          },
+          "clv_now_model": {
+            "title": "Clv Now Model",
+            "type": "number"
+          },
+          "clv_now_shown": {
+            "title": "Clv Now Shown",
+            "type": "number"
+          },
+          "confidence": {
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ],
+            "title": "Confidence",
+            "type": "string"
+          },
+          "contact_cost": {
+            "title": "Contact Cost",
+            "type": "number"
+          },
+          "delta_clv": {
+            "title": "Delta Clv",
+            "type": "number"
+          },
+          "p_accept": {
+            "title": "P Accept",
+            "type": "number"
+          },
+          "p_source": {
+            "$ref": "#/components/schemas/PSource"
+          }
+        },
+        "required": [
+          "clv_now_shown",
+          "clv_now_model",
+          "clv_after_accept",
+          "clv_after_reject",
+          "p_accept",
+          "p_source",
+          "contact_cost",
+          "delta_clv",
+          "confidence"
+        ],
+        "title": "Valuation",
+        "type": "object"
+      },
+      "ValueRisk": {
+        "additionalProperties": false,
+        "properties": {
+          "active_business_lines": {
+            "$ref": "#/components/schemas/Fact"
+          },
+          "annual_margin_eur": {
+            "$ref": "#/components/schemas/Fact"
+          },
+          "churn_drivers": {
+            "items": {
+              "$ref": "#/components/schemas/ChurnDriver"
+            },
+            "title": "Churn Drivers",
+            "type": "array"
+          },
+          "churn_prob_12m": {
+            "$ref": "#/components/schemas/Fact"
+          },
+          "clv_eur": {
+            "$ref": "#/components/schemas/Fact"
+          },
+          "clv_service_impact_eur": {
+            "$ref": "#/components/schemas/Fact"
+          },
+          "cost_to_serve_12m_eur": {
+            "$ref": "#/components/schemas/Fact"
+          },
+          "percentiles": {
+            "$ref": "#/components/schemas/Percentiles"
+          }
+        },
+        "required": [
+          "clv_eur",
+          "annual_margin_eur",
+          "cost_to_serve_12m_eur",
+          "active_business_lines",
+          "churn_prob_12m",
+          "clv_service_impact_eur"
+        ],
+        "title": "ValueRisk",
+        "type": "object"
+      },
+      "Versions": {
+        "additionalProperties": false,
+        "properties": {
+          "policy": {
+            "title": "Policy",
+            "type": "string"
+          },
+          "propensity": {
+            "title": "Propensity",
+            "type": "string"
+          },
+          "rules": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rules"
+          },
+          "templates": {
+            "title": "Templates",
+            "type": "string"
+          },
+          "value_model": {
+            "title": "Value Model",
+            "type": "string"
+          }
+        },
+        "required": [
+          "policy",
+          "value_model",
+          "propensity",
+          "templates"
+        ],
+        "title": "Versions",
+        "type": "object"
       }
     }
   },
   "info": {
     "title": "MAINGAU NBA",
-    "version": "0.1.0"
+    "version": "0.2.0"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -297,7 +3364,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/IndexRow"
+                  },
+                  "title": "Response Customers Api Customers Get",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -334,7 +3407,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerCard"
+                }
               }
             },
             "description": "Successful Response"
@@ -381,7 +3456,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/DecisionLogEntry"
+                }
               }
             },
             "description": "Successful Response"
@@ -446,6 +3523,252 @@
         "summary": "Preview Replay"
       }
     },
+    "/api/rules": {
+      "get": {
+        "operationId": "get_rules_api_rules_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RulesFile"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Rules"
+      },
+      "post": {
+        "operationId": "create_rule_api_rules_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RuleCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RulesFile"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Rule"
+      }
+    },
+    "/api/rules/audit": {
+      "get": {
+        "description": "Legacy audit: past sends in nba_action_history that today's rules would have stopped.",
+        "operationId": "rule_audit_api_rules_audit_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Rule Audit"
+      }
+    },
+    "/api/rules/versions": {
+      "get": {
+        "operationId": "rule_versions_api_rules_versions_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Rule Versions"
+      }
+    },
+    "/api/rules/whatif": {
+      "post": {
+        "description": "Decide every customer under the current rules and under the proposed edits; nothing is saved.",
+        "operationId": "what_if_api_rules_whatif_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "items": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/RuleChange"
+                    },
+                    {
+                      "$ref": "#/components/schemas/RuleCreate"
+                    }
+                  ]
+                },
+                "title": "Changes",
+                "type": "array"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "What If"
+      }
+    },
+    "/api/rules/{rule_id}": {
+      "delete": {
+        "operationId": "delete_rule_api_rules__rule_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rule_id",
+            "required": true,
+            "schema": {
+              "title": "Rule Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "by",
+            "required": true,
+            "schema": {
+              "title": "By",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "reason",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Reason"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RulesFile"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Rule"
+      },
+      "put": {
+        "operationId": "change_rule_api_rules__rule_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rule_id",
+            "required": true,
+            "schema": {
+              "title": "Rule Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RuleChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RulesFile"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Change Rule"
+      }
+    },
     "/api/summary": {
       "get": {
         "operationId": "get_summary_api_summary_get",
@@ -453,7 +3776,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/Summary"
+                }
               }
             },
             "description": "Successful Response"

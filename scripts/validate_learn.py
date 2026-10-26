@@ -253,7 +253,7 @@ def main(argv=None) -> int:
         section("7. Hard rules on all 750 customers, before and after each fix option")
         kg = yaml.safe_load((REPO / "config" / "kg.yaml").read_text(encoding="utf-8"))
         cap = (int(kg["contact_cap"]["max_contacts"]), int(kg["contact_cap"]["window_days"]))
-        rules = raw_rules(x, policy_yaml["channels"], EVAL_TIME, cap)
+        rules = raw_rules(x, policy_yaml["channels"], EVAL_TIME, cap, tuple(kg["contact_cap"].get("sources") or ("nba_history",)))
         base = runtime.cards()
         found = violations(base, rules)
         check(not found, "baseline engine: no consent, exclusion, profiling, contact-cap or ΔCLV violation", "; ".join(found[:3]))
