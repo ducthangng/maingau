@@ -97,11 +97,11 @@ def test_what_if_b01_from_5_to_3(rt):
 
 def test_capacity_switches_channel_or_waits(rt):
     calls = [c for c in rt.cards() if "|outbound_call|" in c.chosen.tuple_id and not c.chosen.deferred_until]
-    assert len(calls) > 2
-    overflow = plan_capacity(rt.cards(), {"outbound_call": 2})
-    assert len(overflow) == len(calls) - 2
+    assert len(calls) > 1
+    overflow = plan_capacity(rt.cards(), {"outbound_call": 1})
+    assert len(overflow) == len(calls) - 1
     edited = dict(rt.cfg.settings["business_rules"])
-    edited["B-09"] = {**edited["B-09"], "per_week": {"outbound_call": 2}}
+    edited["B-09"] = {**edited["B-09"], "per_week": {"outbound_call": 1}}
     small = rt.with_rules(settings={"business_rules": edited})
     after = {c.customer_id: c for c in small.cards()}
     moved = [cid for cid in overflow if after[cid].chosen.tuple_id != card(rt, cid).chosen.tuple_id

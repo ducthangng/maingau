@@ -833,6 +833,14 @@ Only 20 of the 50 offer × channel cells have n ≥ 30.
 | P-AS-01 | e_mobility | sales | 85 | −0.02 |
 | P-SV-01 | service | service | 0 | removes service drivers |
 
+**Calibration (team decision, 27 Oct).** After the estimate above, p is scaled by the engine's own track record for the same offer × channel × tone (the action type follows from the offer):
+- k = (buys observed + 5) / (buys the model expected + 5), kept within [0.2, 3]; p_new = p × k (uplift mode: the rate is scaled, then the control baseline is subtracted);
+- the 5 pseudo-buys keep k near 1 when a group has little evidence; with plenty of evidence k approaches the plain ratio (3 bought where 10 were expected: 0.3);
+- not applied to catalog offers (D1 keeps the catalog average), the service assumption or reviewed overrides;
+- settings in `config/nba.yaml → calibration`; `Valuation.p_source.k` and the evidence line show it.
+
+On the mock data 254 candidate tuples are calibrated (k 0.73–1.13) and 12 decisions change. Example: MG-100019 moves from StromGarant by newsletter (ΔCLV €13.19) to StromGarant by app push (€11.40).
+
 ### 6.7 Contact cost, contact cap and send time (owner: Agent NBA; cap computed by Agent KG)
 
 **Contact cost:**

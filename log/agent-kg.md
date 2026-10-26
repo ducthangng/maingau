@@ -620,3 +620,22 @@ Claude Code (Opus) on Windows, in the user's checkout `E:\Projects\maingau`. On 
 
 **Next session starts with:** fixing the confirmed review findings (highest first) and delivering them to `main`; afterwards wire the Rule CARD page (`feat/rule-card`) to `/api/rules`.
 
+### Session 13 · 2026-10-27 · Claude Code (Opus) · branch feat/kg
+
+**Goal (user):** implement the whiteboard idea from 27 Oct: per offer × channel × tone, k = buys observed / buys predicted, p_new = p × k, so a channel that does worse than predicted loses to the next one.
+
+**Done:**
+- `nba/engine/propensity.py`: `calibration_factor` and a calibrated `p_accept`:
+  - k is shrunk toward 1 by 5 pseudo-buys and kept within [0.2, 3];
+  - k is not applied to catalog offers (D1), the service assumption or overrides.
+- `PSource.k` added; the evidence line reads "calibrated ×k: n bought where the model expected m".
+- `config/nba.yaml calibration` (validated); README §6.6 and `docs/nba-guide.md` updated; schemas regenerated.
+
+**Verified:**
+- 254 tuples calibrated (k 0.73–1.13); 12 decisions change.
+- MG-100019 moves from newsletter €13.19 to app push €11.40, the whiteboard case.
+- MG-100273's call falls under the B-08 €10 floor, so the customer gets no action.
+- Tests: 4 new calibration tests. Two older tests were adjusted: the base-shrinkage test now runs without calibration, and the B-09 test uses a limit of 1, because only 2 calls are chosen now.
+
+**Next:** "AI decides whether k applies to this customer's profile (clustering)" from the whiteboard. The look-alike lift (`nba.learn.lookalike`) is the closest existing piece.
+

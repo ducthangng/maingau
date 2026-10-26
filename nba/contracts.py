@@ -325,6 +325,7 @@ class PSource(Model):
     n_control: int = 0
     conv_control: int = 0
     baseline_control: Optional[float] = None
+    k: Optional[float] = omit_unset()  # calibration: actual / expected buys of this offer × channel × tone group
 
 
 class Valuation(Model):

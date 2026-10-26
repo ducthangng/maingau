@@ -1872,6 +1872,17 @@
             "title": "Conv Treated",
             "type": "integer"
           },
+          "k": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "K"
+          },
           "level": {
             "enum": [
               "offer_channel_tone",

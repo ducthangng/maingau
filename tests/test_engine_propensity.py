@@ -24,7 +24,7 @@ def test_real_history_and_generic_global_prior(tables):
 
 
 def test_rate_shrinkage_and_raw_uplift_are_distinct(tables):
-    cfg = load_config(tables)
+    cfg = load_config(tables).with_settings(calibration={"active": False})  # the base estimate, before k
     history = observations(40, 4) + observations(30, 1, control=True)
     rate = p_accept('P-AS-01', 'email', 'sie', history, cfg)
     assert rate.p_accept == pytest.approx((4 + 0.034 * 30) / 70)

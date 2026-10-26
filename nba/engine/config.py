@@ -108,6 +108,11 @@ def load_config(tables=None, path: str | Path = REPO / "config" / "nba.yaml", *,
             raise ValueError(f"{key} must be in [0, 1]")
     from nba.engine.rulecenter import load_rules
 
+    cal = settings.get("calibration") or {}
+    if cal and not (number(cal.get("prior_buys", 5), "config.nba.calibration.prior_buys") >= 0
+                    and 0 < number(cal.get("min_k", 0.2), "config.nba.calibration.min_k") <= 1
+                    <= number(cal.get("max_k", 3.0), "config.nba.calibration.max_k")):
+        raise ValueError("calibration needs prior_buys ≥ 0 and 0 < min_k ≤ 1 ≤ max_k")
     load_rules(settings)  # a bad Rule Center rule stops loading (ValueError), like a bad policy
     for key, o in (settings.get("p_overrides") or {}).items():
         if not isinstance(o, dict) or not 0 <= number(o.get("p"), f"config.nba.p_overrides.{key}.p") <= 1:
