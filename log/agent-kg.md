@@ -63,6 +63,7 @@ These are kept up to date and edited in place. Status values: `open`, `answered`
 | Q-KG-16 | Agent NBA: K11 is decided. Make MG-100112 strict in `tests/test_acceptance.py` under both p modes (chosen `P-EN-01|outbound_call|sie`, `origin = generic`, content not personalised, S3 blocked by CONSENT-PROFILING), and close Q-NBA-11 in your log | README §9 strict list | Agent NBA | open | — |
 | Q-KG-17 | Agent NBA (optional stretch): `POST /api/replay?until=` can call `nba.kg.events.replay(runtime.states, load_events(), policy, pop, until, pending=<chosen tuples>)` and then `assemble()` on the affected customers, as in `scripts/replay_demo.py` | Live deep-dive B demo in the API | Agent NBA | open | — |
 | Q-KG-18 | Agent CARDS (optional): show deep dive B in the UI from `out/replay/timeline.json` (copy into `web/public/data/replay/`): a "What changed since 30.09" panel with event, delay, KG effect and pending card status (REVOKED + rule). Demo customers MG-100125 (card revoked by a new ticket), MG-100465 (cancellation 16.9 h late → P1), MG-100009 (ticket + annoyed flag), MG-100003 (consent withdrawn) | Deep dive B is the challenge's chosen deep dive | Agent CARDS | open | — |
+| Q-KG-19 | Agent NBA (API, from writing docs/api.md): (a) no CORS middleware, so a browser UI on another origin cannot call it; add `CORSMiddleware` for the Vite dev origin, or document the proxy (docs/api.md uses the proxy); (b) the routes have no `response_model`, so `docs/openapi.json` does not describe responses; (c) `NO_ACTION` cards report all 6 checklist items as failed, which the worklist shows as 6 failures; report an empty `checklist_failed` or a dedicated NO_ACTION state | UI integration | Agent NBA | open | — |
 
 ## Session entries
 
@@ -326,4 +327,25 @@ These are kept up to date and edited in place. Status values: `open`, `answered`
 **Handoff:** Q-KG-17 (Agent NBA, optional API replay) and Q-KG-18 (Agent CARDS, optional "What changed" panel).
 
 **Next session starts with:** review `nba/profile` and `web/` when Agent CARDS pushes; reconcile S4 143 vs 145 (Q-KG-06).
+
+### Session 9 · 2026-10-26 19:20–19:40 Europe/Berlin · Claude Code (Opus) · branch feat/kg · commits e40c526..(this commit)
+
+**Goal:** API documentation for the UI (user request).
+
+**Done:**
+- `docs/api.md`: modes (static vs API), run instructions, types, all 4 endpoints with query parameters, real request/response examples, decision semantics, the error and rule-ID table with UI labels, static-mode mapping, a TypeScript client and known limitations.
+- `scripts/export_schema.py` now also writes `docs/openapi.json`. README tree updated.
+
+**Verified:** every example in `docs/api.md` comes from real calls through FastAPI's TestClient against `create_app(out_dir=<scratch>)` on main e40c526, without touching the repo's `out/`:
+- the worklist filters;
+- the card for MG-100068;
+- the summary;
+- 404;
+- approve and override (200);
+- 409 for MG-100112 Autostrom by phone, MG-100068 by phone and approving MG-100035 (NO_ACTION);
+- 422 for a reject without reason and for an invalid action.
+
+Cold start 1.8 s; warm list call 0.75 s. `pytest -q`: 128 passed.
+
+**Issues / risks:** Q-KG-19 (CORS, response models, NO_ACTION checklist). The UI code was not touched; Agent CARDS' folder is being edited by a team member.
 

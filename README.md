@@ -71,6 +71,8 @@ The entry point is a **worklist ranked by urgency** (§6.13). A marketer opens o
 ├── README.md                    # this file; editing it = changing a contract
 ├── Hackathon_slides_for_MAINGAU.pdf   # challenge brief, read-only
 ├── docs/schema/                 # JSON Schemas generated from nba/contracts.py (scripts/export_schema.py)
+├── docs/api.md                  # API reference for the UI (endpoints, errors, static mode)
+├── docs/openapi.json            # OpenAPI of api/app.py (scripts/export_schema.py)
 ├── prompts/                     # kickoff prompts for the AI agents (agent-cards.md, agent-nba.md)
 ├── PLAN_KG.md                   # Agent KG's detailed build plan
 ├── references/                  # background material, read-only
