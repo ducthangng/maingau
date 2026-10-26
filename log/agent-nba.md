@@ -53,14 +53,19 @@ These are kept up to date and edited in place. Status values: `open`, `answered`
 | Q-NBA-06 | The given `clv_eur` differs from the formula by up to 3.05 € (median 0.27 €). Compute ΔCLV on the model basis, display `clv_eur` | Avoids fake gains from rounding | — | closed | Model basis for ΔCLV; log both (README §6.5) |
 | Q-NBA-07 | Only 20 of the 50 offer × channel cells have n ≥ 30, and per-offer control groups are n = 19–32 with 0–1 conversions. Is the control baseline per offer or global? | Stability of p and of the "confidence" labels | Team | decided-default (global if n_control < 30) | — |
 | Q-NBA-08 | MG-100060 can only be reached by `outbound_call` (6 €). Check that ΔCLV stays > 0 for P-EN-03 under both p modes; if not, report NO_ACTION with the reason | Spec test expects StromWärme | Agent NBA (self) | closed | Verified 26 Oct: P-EN-03 by call is +€19.5890 (rate), +€4.4707 (uplift), including the €6 cost |
-| Q-NBA-09 | The need-first pitch statistic (6.8% vs 2.1% conversion with vs without the target signal, ≈ 2.3× within offers) is descriptive mock data. Re-check it once signals are implemented, and only pitch it with that label | Credibility with the jury | Agent NBA with Agent KG | open | — |
-| Q-NBA-10 | Should the 333 legacy rows with `consent_checked = 0` be excluded when estimating p? (They are illegal contacts in the mock, but still real conversion observations) | Changes p for offers sent mostly by the legacy engine | Team | open | — |
-| Q-NBA-11 | K11: allow generic offers by phone/SMS? MG-100112's generic StromAktiv call is +€14.8 (rate) / +€2.6 (uplift) | MG-100112 outcome | Team | open | — |
+| Q-NBA-09 | Re-check the earlier 6.8% vs 2.1%, roughly 2.3× need-first statistic using implemented signals | Credibility with the jury | Agent NBA with Agent KG | closed | 26 Oct: S1–S13 plus signal.offers give 9/82 (10.98%) vs 12/930 (1.29%) across five offers with implemented triggers; 1,010 other treated rows excluded. Common-offer-weight rates are 7.15% vs 1.40% (5.09×). This is a snapshot proxy, not at-send evidence or causal uplift; it does not reproduce the earlier classifier/cohort. See out/impact_report.md; do not reuse the older numbers as S1–S13 results |
+| Q-NBA-10 | Should unchecked legacy observations be excluded when estimating p? | Calibration cohort, auditability and current eligibility must remain distinct | Agent NBA (decision requested by user) | closed | 26 Oct: retain all treated/control observations per §6.6, including 297 unchecked delivered rows (10 conversions) and 36 unchecked controls (0 conversions). The flag records whether the legacy engine checked consent, not current permission. The impact report exposes checked/unchecked cohorts; today's KG gates always apply. No silent filtering or ranking change |
+| Q-NBA-11 | K11: allow generic offers by phone/SMS? MG-100112's generic StromAktiv call is +€14.87 (rate) / +€2.54 (uplift) | MG-100112 outcome | Team | closed | Decided by the team, 26 Oct (README §9/§10 at e40c526): all consented channels including phone/SMS; strict expected choice is P-EN-01/outbound_call/sie in both modes, generic and not personalised; S3 stays blocked by CONSENT-PROFILING |
 | Q-NBA-12 | K12: profiled customers fall back to generic offers only when no signal/service tuple has ΔCLV > 0 | Coverage vs need-first | Team | decided-default | Fallback on (`generic.fallback_for_profiled: true`) |
 | Q-NBA-13 | `kg/policy.yaml` has `P-EN-03.requires: []`, while the earlier README §6.4 required active electricity | Reconcile the holding requirement without duplicating KG gates | Agent KG | closed | After merging 20f066f, README §6.4 also has no active-electricity requirement for P-EN-03; NBA follows the current policy |
 | Q-NBA-14 | Answer Q-KG-11: correct Order evidence comments; add optional `ConsentItem.doi_at`? | Consent proof and a stable interface for CARDS | Agent KG / CARDS | decided-default | Comments corrected to `order:SO-1` and S1–S13. Defer the optional field: the KG channel reason already includes the actual DOI date; no schema change is needed for the current UI. Revisit if CARDS needs a structured date |
 | Q-NBA-15 | Answer Q-KG-12: use public `check_tuple` in API and legacy comparison | One source of truth for gates | Agent KG | closed | Implemented after merging 20f066f; every legacy blocker includes the public check's IDs, and override 409 uses its IDs and reasons |
 | Q-NBA-16 | Answer Q-KG-13: tiers and `ECON-NONPOSITIVE` evidence | Need-first arbitration and MG-100023 | Agent KG | closed | `evaluate_candidates()` evaluates signal/service first, enables generic fallback according to config, and records non-positive tuples with `counterfactual_delta_clv`; both-mode tests cover all 750 customers |
+| Q-NBA-17 | Answer Q-KG-14: reduce the static export to ≤20 MB | Static delivery size | Agent KG / CARDS | closed | Compact JSON and one best channel per offer; full checks/path only for the chosen offer and three alternatives. 752 JSON files total 18,827,005 bytes (rate), 18,803,600 (uplift), all schema-valid. Runtime/API retain all evaluated tuples; no web/public/data committed |
+| Q-NBA-18 | Answer Q-KG-15: English internal decision reasons | Consistent worklist and pitch | Agent KG | closed | NBA-owned NO_ACTION, ECON-NONPOSITIVE, valuation evidence, alternatives, checklist and API refusal text are English. German templates and customer content remain German |
+| Q-NBA-19 | Answer Q-KG-16: K11 strict in both probability modes | Confirm the agreed generic phone outcome | Agent KG | closed | Both-mode acceptance asserts chosen P-EN-01/outbound_call/sie, origin generic, content not personalised, and S3 blocked by CONSENT-PROFILING. Q-NBA-11 closed |
+| Q-NBA-20 | Answer Q-KG-17: optional API replay | Deep-dive B demo | Agent KG / CARDS | closed | POST /api/replay?until= calls KG replay with current chosen tuples as pending, assembles affected cards and returns revocations/transitions. Explicit preview_only=true: no mutation of snapshot API state, approvals or audit log. Cutoff uses the mock stream's timezone-naive timestamps |
+| Q-NBA-21 | Refresh KG-owned API docs after this delivery | docs/api.md and docs/openapi.json at 6e46313 describe the preceding API version | Agent KG | open | Live /openapi.json already includes replay; a verified scratch copy is in out/openapi.json. Please regenerate the tracked OpenAPI and update docs for the preview endpoint, English reasons, reduced static view and resolved Q-KG-14/15/16/17 |
 
 ## Session entries
 
@@ -129,3 +134,43 @@ These are kept up to date and edited in place. Status values: `open`, `answered`
 - Delivery follows README §13: tested NBA-owned paths only, push `feat/nba`, then fast-forward main; no branch switches, force pushes or changes in other worktrees.
 
 **Next session starts with:** merge CARDS' profile builder, re-run export/acceptance, then implement replay invalidation only when KG's events module is ready.
+
+### Session 3 · 2026-10-26, checkpoint 18:13 Europe/Berlin · Codex (GPT-6) · branch feat/nba · commits e40c526/6e46313..(this commit)
+
+**Goal:** complete the user's ordered P0/P1/P2 follow-up and optional replay preview, without editing another agent's paths.
+
+**Done:**
+- Fetched and merged main e40c526, then ran the unchanged suite: 128 passed. Later merged 6e46313 (KG-owned API docs and schema-export script), without editing those files.
+- Q-KG-16: MG-100112 is strict in both modes: exact chosen tuple, generic origin, no personalised content, S3 explicitly blocked. Updated the reference-report expectation and closed K11/Q-NBA-11.
+- Q-KG-14: `nba/engine/export.py` projects a compact static card. It retains the chosen tuple unchanged, the best ranked channel per other offer, all valuations and explicit nulls, and detailed checks/path for the chosen offer plus the first three distinct alternatives. Runtime/API still expose the full evaluated channel set. Static index counts match the projected card. Real export removes a stale mock manifest.
+- Q-KG-15: translated NBA-owned internal reasons/evidence/checklist/API messages into English; German content templates and agent scripts remain unchanged.
+- Q-CARDS-18: `Runtime.load()` now passes `profile_population(states)` to both KG and CARDS, so percentiles and highlights have the real population features. New acceptance tests require real timeline/products and text-based tone for MG-100325 and MG-100001; a broken profile import cannot pass silently.
+- `nba/engine/impact.py` and default CLI reporting now write `out/impact_report.md` for both p modes: expected ΔCLV by offer/archetype, latest legacy proposal blockers, aligned expected-value comparisons, implemented-signal conversion cohorts and the checked/unchecked history audit.
+- Q-NBA-09: recomputed the signal statistic with explicit offer support and snapshot-time limitations; the original 38/558 vs 27/1,280 statistic is not reproduced under S1–S13. No target predicate or historical signal state was invented.
+- Q-NBA-10: retain checked and unchecked observations; expose the cohort comparison and keep current contact permission entirely in the KG gates. Added the decision as a config comment without changing model probabilities.
+- Optional Q-KG-17: `api/replay.py` and POST `/api/replay?until=` return a read-only replay preview with fresh CustomerCards, event transitions and pending revocations. The snapshot and decision log are preserved. Invalid/offset-aware mock cutoffs are rejected rather than silently reinterpreted.
+
+**Verified:**
+- Full suite after the latest main merge: **137 passed in 28.02 s**; the existing Starlette/httpx deprecation warning remains the only warning.
+- Strict acceptance was first checked separately: 2 passed under rate/uplift. Targeted export/acceptance/API checks: 20 passed; impact/export/acceptance checks: 17 passed; API including replay: 12 passed.
+- `python -m nba.build --out out/ --export out/static-data` → **750 customers in 5.01 s**, including both-mode reference and impact reports. `--p-mode uplift --out out/uplift --export out/static-uplift --no-report` → **750 in 3.01 s**.
+- Reopened and validated all 750 CustomerCards, 750 IndexRows and Summary in each export. Each mode contains 752 JSON files: **18,827,005 bytes rate / 18,803,600 bytes uplift**, below the decimal 20 MB target. Determinism tests compare bytes from two fresh runtimes, check null preservation and ensure projection leaves the chosen action and scores unchanged.
+- Real profile highlights: 429 customers have 0, 243 have 1, 72 have 2 and 6 have 3. The representatives have populated products, non-empty timelines and tone method `text`.
+- Impact report totals (model-based, mock data, not causal uplift): **€9,755.91 rate / €6,519.52 uplift** expected incremental ten-year CLV. Latest legacy proposals: 750, of which 658 delivered; 622 blocked in rate / 637 in uplift, with 621 non-economic gate blockers in either mode. Aligned comparisons exclude 73 missing legacy valuations instead of treating them as zero.
+- Implemented signal comparison: 9/82 vs 12/930 among 1,012 treated observations; 1,010 observations without implemented offer triggers excluded. Standardised common-offer rates: 7.15% vs 1.40% (5.09×), descriptive and subject to snapshot timing leakage.
+- API replay test: 118 customers affected; fresh cards and rule-based revocations returned; original state revisions and decision-log files unchanged. Live OpenAPI includes `/api/replay`; scratch copy verified in `out/openapi.json`.
+
+**Contract changes:** none. Every static file remains valid against the existing models/schemas; no model fields were added or removed. Static candidates are a smaller view of the full runtime data.
+
+**Not done / carried over:** production ingestion/persistent replay-state promotion is outside this preview endpoint. Q-KG-19 (CORS, response models, NO_ACTION checklist) was not part of this request. KG-owned static API docs need the Q-NBA-21 refresh after delivery.
+
+**Questions to consider:** Q-KG-14/15/16/17 answered above; Q-NBA-09/10/11 closed. The earlier pitch statistic must not be presented as a result of the current implemented signals.
+
+**Issues / risks:** need-first history comparison uses snapshot signal presence, not at-send facts; the report names that limitation and never calls the result causal uplift. Static mode keeps one channel per offer; use the API for all evaluated channel variants.
+
+**Handoff:**
+- Agent CARDS: merge main and run `python -m nba.build --export web/public/data` in your own folder. Export is below 20 MB, real profiles/highlights are included, and the mock manifest is removed automatically. No web/public/data changes are committed by NBA.
+- Agent KG: review `out/impact_report.md` for the pitch and refresh the API docs/OpenAPI (Q-NBA-21). The preview endpoint follows replay_demo.py, exposes `preview_only`, and never changes active snapshot approvals.
+- Reports and generated data remain in git-ignored `out/`; the report builder and its tests are committed so both reports reproduce from the same data/config.
+
+**Next session starts with:** final UI integration using the reduced export and the updated API reference; further model/policy changes only after a team decision.

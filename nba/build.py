@@ -10,6 +10,8 @@ from pathlib import Path
 
 from nba.contracts import CustomerCard, IndexRow, Summary
 from nba.data import DEFAULT_WORKBOOK
+from nba.engine.export import export_card
+from nba.engine.impact import impact_report
 from nba.engine.report import test_report
 from nba.engine.runtime import Runtime, index_rows, summary
 
@@ -17,7 +19,7 @@ from nba.engine.runtime import Runtime, index_rows, summary
 def json_text(value):
     if hasattr(value, "model_dump"):
         value = value.model_dump(mode="json")
-    return json.dumps(value, sort_keys=True, ensure_ascii=False, allow_nan=False, indent=2) + "\n"
+    return json.dumps(value, sort_keys=True, ensure_ascii=False, allow_nan=False, separators=(",", ":")) + "\n"
 
 
 def build(runtime: Runtime, out_dir, customer_ids=None, *, export_dir=None, report=True):
@@ -27,7 +29,7 @@ def build(runtime: Runtime, out_dir, customer_ids=None, *, export_dir=None, repo
         raise ValueError("Unknown customers: " + ", ".join(unknown))
     if not ids:
         raise ValueError("Select at least one customer")
-    cards = runtime.cards(ids)
+    cards = [export_card(card) for card in runtime.cards(ids)]
     rows = index_rows(cards, runtime.states)
     totals = summary(cards, runtime.cfg, runtime.states[ids[0]].eval_time)
     out = Path(out_dir)
@@ -43,6 +45,7 @@ def build(runtime: Runtime, out_dir, customer_ids=None, *, export_dir=None, repo
     files += [out / "index.json", out / "summary.json"]
     if report:
         (out / "test_report.md").write_text(test_report(runtime.states, runtime.pop, runtime.policy, runtime.cfg), encoding="utf-8")
+        (out / "impact_report.md").write_text(impact_report(cards, runtime.states, runtime.pop, runtime.policy, runtime.cfg), encoding="utf-8")
     if export_dir is not None:
         target = Path(export_dir)
         for file in files:
@@ -50,6 +53,8 @@ def build(runtime: Runtime, out_dir, customer_ids=None, *, export_dir=None, repo
             destination.parent.mkdir(parents=True, exist_ok=True)
             if file.resolve() != destination.resolve():
                 shutil.copyfile(file, destination)
+        # A real export replaces the mock dataset, including its visible mock marker.
+        (target / "manifest.json").unlink(missing_ok=True)
     return cards, rows, totals
 
 
@@ -61,7 +66,7 @@ def main(argv=None):
     parser.add_argument("--p-mode", choices=("rate", "uplift"))
     parser.add_argument("--asof", type=datetime.fromisoformat)
     parser.add_argument("--workbook", type=Path, default=DEFAULT_WORKBOOK)
-    parser.add_argument("--no-report", action="store_true", help="Skip regenerating the two-mode reference report")
+    parser.add_argument("--no-report", action="store_true", help="Skip regenerating the reference and impact reports")
     args = parser.parse_args(argv)
     start = time.perf_counter()
     ids = [x.strip() for x in args.customers.split(",") if x.strip()] if args.customers is not None else None
