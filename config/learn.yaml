@@ -27,5 +27,4 @@ harm:
 
 # README §9 reference customers. A fix option that changes one of them is flagged in its backtest,
 # because the jury checks these (e.g. MG-100023 is the agreed P-AS-01 case).
-reference_customers: [MG-100051, MG-100060, MG-100096, MG-100186, MG-100068, MG-100023, MG-100112,
-                      MG-100009, MG-100659, MG-100035, MG-100087, MG-100004]
+reference_customers: [MG-100051, MG-100060, MG-100096, MG-100186, MG-100068, MG-100023, MG-100112, MG-100009, MG-100659, MG-100035, MG-100087, MG-100004]

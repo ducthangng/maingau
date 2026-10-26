@@ -16,3 +16,6 @@ web/dist/
 .DS_Store
 .vscode/
 .idea/
+
+# rulebook working copy (python -m nba.rules export); the source files are the truth
+rules.yaml
