@@ -9,12 +9,15 @@ from nba.engine.config import EngineConfig, MissingDataError, number
 CHANNEL_COST_PARAMETER = {
     "newsletter_email": "contact_cost_email_eur", "email": "contact_cost_email_eur",
     "sms": "contact_cost_sms_eur", "portal_popup": "contact_cost_popup_eur",
-    "app_push": "contact_cost_popup_eur", "service_agent": "contact_cost_popup_eur",
+    "app_push": "contact_cost_popup_eur",
     "outbound_call": "contact_cost_call_eur",
 }
 
 
 def contact_cost(channel, cfg: EngineConfig) -> float:
+    # Service has no marketing contact fee; the workbook's resolution cost is in its accept branch.
+    if channel == "service_agent":
+        return 0.0
     return cfg.parameter(CHANNEL_COST_PARAMETER[channel])
 
 

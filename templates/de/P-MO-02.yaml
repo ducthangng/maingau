@@ -1,0 +1,14 @@
+du:
+  personalised:
+    subject: "Mehr mobiles Datenvolumen"
+    body: "Ein Mobil Upgrade bietet dir mehr Datenvolumen. Wir prüfen gern mit dir, welche Option passt."
+  generic:
+    subject: "Mehr mobiles Datenvolumen"
+    body: "Nicht personalisiert. Ein Mobil Upgrade bietet dir mehr Datenvolumen. Wir prüfen gern mit dir, welche Option passt."
+sie:
+  personalised:
+    subject: "Mehr mobiles Datenvolumen"
+    body: "Ein Mobil Upgrade bietet Ihnen mehr Datenvolumen. Wir prüfen gern mit Ihnen, welche Option passt."
+  generic:
+    subject: "Mehr mobiles Datenvolumen"
+    body: "Nicht personalisiert. Ein Mobil Upgrade bietet Ihnen mehr Datenvolumen. Wir prüfen gern mit Ihnen, welche Option passt."

@@ -1,0 +1,14 @@
+du:
+  personalised:
+    subject: "Solarstrom mit einem Balkonkraftwerk"
+    body: "Ein Balkonkraftwerk kann eigenen Solarstrom liefern. Wir informieren dich gern über das Set und die Installationsvoraussetzungen."
+  generic:
+    subject: "Solarstrom mit einem Balkonkraftwerk"
+    body: "Nicht personalisiert. Ein Balkonkraftwerk kann eigenen Solarstrom liefern. Wir informieren dich gern über das Set und die Installationsvoraussetzungen."
+sie:
+  personalised:
+    subject: "Solarstrom mit einem Balkonkraftwerk"
+    body: "Ein Balkonkraftwerk kann eigenen Solarstrom liefern. Wir informieren Sie gern über das Set und die Installationsvoraussetzungen."
+  generic:
+    subject: "Solarstrom mit einem Balkonkraftwerk"
+    body: "Nicht personalisiert. Ein Balkonkraftwerk kann eigenen Solarstrom liefern. Wir informieren Sie gern über das Set und die Installationsvoraussetzungen."

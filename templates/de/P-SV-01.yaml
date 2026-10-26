@@ -1,0 +1,16 @@
+du:
+  personalised:
+    subject: "Wir kümmern uns um das Anliegen"
+    body: "Es tut uns leid, dass es Schwierigkeiten gibt. Wir prüfen den Fall und besprechen die nächsten Schritte mit dir."
+  generic:
+    subject: "Wir kümmern uns um das Anliegen"
+    body: "Nicht personalisiert. Es tut uns leid, dass es Schwierigkeiten gibt. Wir prüfen den Fall und besprechen die nächsten Schritte mit dir."
+  agent_script: "Es tut mir leid, dass es Schwierigkeiten gibt. Ich prüfe den Vorgang mit dir und kläre den nächsten Schritt. Ist dein Anliegen damit vollständig erfasst?"
+sie:
+  personalised:
+    subject: "Wir kümmern uns um das Anliegen"
+    body: "Es tut uns leid, dass es Schwierigkeiten gibt. Wir prüfen den Fall und besprechen die nächsten Schritte mit Ihnen."
+  generic:
+    subject: "Wir kümmern uns um das Anliegen"
+    body: "Nicht personalisiert. Es tut uns leid, dass es Schwierigkeiten gibt. Wir prüfen den Fall und besprechen die nächsten Schritte mit Ihnen."
+  agent_script: "Es tut mir leid, dass es Schwierigkeiten gibt. Ich prüfe den Vorgang mit Ihnen und kläre den nächsten Schritt. Ist Ihr Anliegen damit vollständig erfasst?"

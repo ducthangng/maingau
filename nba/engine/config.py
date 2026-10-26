@@ -4,7 +4,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-from dataclasses import dataclass, field, replace
+from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +12,7 @@ import yaml
 
 from nba.contracts import SourceInfo, Versions
 from nba.data import REPO, load_workbook
+from nba.kg.bundle import source_info
 
 
 class MissingDataError(ValueError):
@@ -62,7 +63,7 @@ class EngineConfig:
     def versions(self, policy) -> Versions:
         if self._versions is None:
             self._versions = Versions(
-                policy=f"{policy.version}:{fingerprint(policy.config)}",
+                policy=f"{policy.version}:{fingerprint(asdict(policy))}",
                 value_model=f"{self.settings['value_model']}:{fingerprint([self.assumptions, self.offers])}",
                 propensity=f"{self.settings['propensity_version']}:{self.p_mode}:{fingerprint([self.settings, self.history])}",
                 templates=f"{self.settings['templates_version']}:{fingerprint([(p.name, p.read_text(encoding='utf-8')) for p in sorted(self.template_dir.glob('*.yaml'))])}",
@@ -88,8 +89,7 @@ def load_config(tables=None, path: str | Path = REPO / "config" / "nba.yaml", *,
         assumptions={r["parameter"]: r["value"] for r in tables["value_assumptions"].to_dict("records")},
         offers={r["product_id"]: r for r in tables["product_catalog"].to_dict("records")},
         history=tables["nba_action_history"].to_dict("records"),
-        sources={r["sheet"]: SourceInfo(refresh=r.get("refresh"), latency=r.get("typical_latency"))
-                 for r in tables["sources"].to_dict("records")},
+        sources=source_info(tables),
         value_date=dates[0] if len(dates) == 1 else None,
     )
     return cfg.with_mode(p_mode) if p_mode is not None else cfg

@@ -1,0 +1,14 @@
+du:
+  personalised:
+    subject: "StromWärme für elektrisches Heizen"
+    body: "StromWärme ist unser Tarif für Wärmepumpen und elektrisches Heizen. Wir prüfen gern mit dir, ob der Tarif passt."
+  generic:
+    subject: "StromWärme für elektrisches Heizen"
+    body: "Nicht personalisiert. StromWärme ist unser Tarif für Wärmepumpen und elektrisches Heizen. Wir prüfen gern mit dir, ob der Tarif passt."
+sie:
+  personalised:
+    subject: "StromWärme für elektrisches Heizen"
+    body: "StromWärme ist unser Tarif für Wärmepumpen und elektrisches Heizen. Wir prüfen gern mit Ihnen, ob der Tarif passt."
+  generic:
+    subject: "StromWärme für elektrisches Heizen"
+    body: "Nicht personalisiert. StromWärme ist unser Tarif für Wärmepumpen und elektrisches Heizen. Wir prüfen gern mit Ihnen, ob der Tarif passt."

@@ -229,13 +229,13 @@ class TimelineItem(Model):
 
 
 class Signal(Model):
-    id: str  # "S1".."S18"
+    id: str  # "S1".."S13"
     label: str
     date: Optional[str] = None
     strength: Strength
     purpose: Purpose
     src: str
-    evidence: list[str] = Field(default_factory=list)  # refs like "contract:EC-1", "order:SO-1#2"
+    evidence: list[str] = Field(default_factory=list)  # refs like "contract:EC-1", "order:SO-1"
     needs: list[str] = Field(default_factory=list)
     offers: list[str] = Field(default_factory=list)
     detail: Optional[str] = None

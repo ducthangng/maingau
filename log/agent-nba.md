@@ -57,7 +57,10 @@ These are kept up to date and edited in place. Status values: `open`, `answered`
 | Q-NBA-10 | Should the 333 legacy rows with `consent_checked = 0` be excluded when estimating p? (They are illegal contacts in the mock, but still real conversion observations) | Changes p for offers sent mostly by the legacy engine | Team | open | — |
 | Q-NBA-11 | K11: allow generic offers by phone/SMS? MG-100112's generic StromAktiv call is +€14.8 (rate) / +€2.6 (uplift) | MG-100112 outcome | Team | open | — |
 | Q-NBA-12 | K12: profiled customers fall back to generic offers only when no signal/service tuple has ΔCLV > 0 | Coverage vs need-first | Team | decided-default | Fallback on (`generic.fallback_for_profiled: true`) |
-| Q-NBA-13 | `kg/policy.yaml` has `P-EN-03.requires: []`, while README §6.4 requires active electricity. Please reconcile in KG; NBA calls the KG gates rather than duplicating them | Prevents accepting a heat-pump offer without its documented holding requirement | Agent KG | open | Found 26 Oct; not changed in NBA-owned paths |
+| Q-NBA-13 | `kg/policy.yaml` has `P-EN-03.requires: []`, while the earlier README §6.4 required active electricity | Reconcile the holding requirement without duplicating KG gates | Agent KG | closed | After merging 20f066f, README §6.4 also has no active-electricity requirement for P-EN-03; NBA follows the current policy |
+| Q-NBA-14 | Answer Q-KG-11: correct Order evidence comments; add optional `ConsentItem.doi_at`? | Consent proof and a stable interface for CARDS | Agent KG / CARDS | decided-default | Comments corrected to `order:SO-1` and S1–S13. Defer the optional field: the KG channel reason already includes the actual DOI date; no schema change is needed for the current UI. Revisit if CARDS needs a structured date |
+| Q-NBA-15 | Answer Q-KG-12: use public `check_tuple` in API and legacy comparison | One source of truth for gates | Agent KG | closed | Implemented after merging 20f066f; every legacy blocker includes the public check's IDs, and override 409 uses its IDs and reasons |
+| Q-NBA-16 | Answer Q-KG-13: tiers and `ECON-NONPOSITIVE` evidence | Need-first arbitration and MG-100023 | Agent KG | closed | `evaluate_candidates()` evaluates signal/service first, enables generic fallback according to config, and records non-positive tuples with `counterfactual_delta_clv`; both-mode tests cover all 750 customers |
 
 ## Session entries
 
@@ -89,3 +92,40 @@ These are kept up to date and edited in place. Status values: `open`, `answered`
 **Handoff:** `load_config(tables)` provides `EngineConfig`; `p_accept()` returns `Propensity` including its `PSource`. No change is needed in KG or CARDS for the valuation modules.
 
 **Next session starts with:** finish and verify M2/M3 integration, then export all 750 cards and deliver the branch.
+
+### Session 2 · 2026-10-26 17:00–17:16 Europe/Berlin · Codex (GPT-6) · branch feat/nba · commits 34a9f5c..(this commit)
+
+**Goal:** complete M2/M3: real KG integration, German content, build/export, API, acceptance and sensitivity report.
+
+**Done:**
+- Merged `origin/main` at 20f066f, including the parser cache fix, K6 scope fix, `kg_bundle`, `check_tuple`, `source_info` and `COLUMN_SRC`. Re-ran pytest before adapting the integration: 87 passed.
+- `nba/engine/assemble.py`: calls `kg_bundle()` once per card; values and ranks the evaluated tier, records economic blocks, creates alternatives, legacy comparison, the six-item checklist, data-quality notes and the proposed audit entry.
+- `nba/engine/profile_adapter.py`: imports CARDS' `build_profile`, `build_timeline` and `infer_tone` when available; otherwise emits valid placeholders with `PROFILE-PENDING`. No profiling consent always means default Sie and no tone inference.
+- `nba/engine/content.py`, `schedule.py`, `templates/de/*.yaml`: all 18 offers have du/sie × personalised/generic variants. Retention dates are only injected for personalised content. P-SV-01 has an apology, next steps and an agent script, without products. Service has no marketing contact fee; the workbook's €15 resolution cost remains in its accept branch.
+- `nba/build.py`, `runtime.py`, `report.py`: subset/full builds, `--out`, `--export`, `--p-mode`, `--asof`; all IndexRow worklist fields populated, source metadata copied through KG helpers, and a report for 13 reference customers under both probability modes with a 3×3 p/margin sensitivity grid.
+- `api/app.py`: list/filter, customer, summary and decision endpoints. Approvals and overrides re-run KG checks; economic and tier checks also apply. Invalid overrides return 409 with rule IDs. An explicitly supplied approval tuple cannot silently change. Append-only JSONL records use `{customer_id, entry}`, with `entry` matching `DecisionLogEntry`.
+- `nba/contracts.py`: comment corrections only (S1–S13, `order:SO-1`); regenerated all four schemas, with no schema differences.
+
+**Verified:**
+- `/Users/linhngo/Downloads/Work/Hackathon/MAINGAU/.venv/bin/python -B -m pytest -q -p no:cacheprovider` → **88 passed in 12.80 s** after the public KG integration. Includes strict/reference cases and consent, exclusions, profiling, ownership, contact-cap, positive-value and schema invariants across all 750 customers in both modes; also verifies a single `kg_bundle` call per assembled card.
+- `python -m nba.build --out out/ --export out/static-data` → **750 customers in 2.53 s** (rate).
+- `python -m nba.build --p-mode uplift --out out/uplift --no-report` → **750 customers in 2.27 s**.
+- Fresh-runtime build tests produce byte-identical JSON. Separately reopened and validated all 750 CustomerCards, all 750 IndexRows and Summary; all 752 static-export files are byte-identical to their output counterparts.
+- `out/test_report.md` exists (37,500 bytes), covers both modes and sensitivity. Rate: MG-100068 → P-EN-02/newsletter/Sie (+€18.9198), MG-100023 → P-AS-01/portal/Sie (+€7.1164), MG-100009 → P-SV-01 (+€84.9798). MG-100112 → generic P-EN-01/call (+€14.8703 rate / +€2.5398 uplift), following K11's current default.
+- API tests cover real GET/filter/summary responses, approval/override/rejection persistence, consent withdrawal after a cached card, blocked sales/profiling/uneconomic overrides, tier restrictions and explicit-tuple approval conflicts.
+
+**Not done / carried over:** CARDS' real profile/timeline/tone module is not yet on the merged main; placeholders are deliberately marked, and a test verifies automatic use of the public builders when available. Event replay/API revocation remains the optional KG stretch goal. No web code or `web/public/data` is committed; the generated export is kept in git-ignored `out/static-data`.
+
+**Contract changes:** no JSON schema or public model-field changes. `ConsentItem.doi_at` is deferred as explained in Q-NBA-14; the actual DOI date is already present in the KG channel proof.
+
+**Questions to consider:** Q-KG-11/12/13 answered in Q-NBA-14/15/16 above; Q-NBA-13 reconciled with the current README. Q-NBA-09 (historical signal/pitch comparison), Q-NBA-10 (legacy observations) and K11 still await team decisions; no default was changed.
+
+**Issues / risks:** one dependency warning in the test environment: Starlette deprecates its installed httpx TestClient path. All tests pass; no dependency change was needed. Only the tested rules and the provided snapshot are covered by the invariant claims.
+
+**Handoff:**
+- Agent CARDS: merge main, then run `python -m nba.build --export web/public/data` in your own folder. `index.json` is an IndexRow array, `summary.json` contains source metadata, and `customers/<id>.json` is a CustomerCard. `chosen_tuple`, `p_accept`, `contact_cost`, `checklist_failed`, `sources`, `column_src` and `value_date` are populated. NO_ACTION keeps unavailable numeric scores null.
+- Agent CARDS: export the three public builders from `nba.profile` (or the documented builder/tone/timeline modules). Restart the API/re-run the CLI after merging them; PROFILE-PENDING then disappears. The NBA layer retains KG's authoritative consent/channel/exclusion views.
+- Agent KG: please review `evaluate_candidates`, the API's `checked_tuple`, and the two-mode reference report. `rank` intentionally sorts only its already-valued input; `evaluate_candidates` owns tier selection and the economic blocked rows.
+- Delivery follows README §13: tested NBA-owned paths only, push `feat/nba`, then fast-forward main; no branch switches, force pushes or changes in other worktrees.
+
+**Next session starts with:** merge CARDS' profile builder, re-run export/acceptance, then implement replay invalidation only when KG's events module is ready.

@@ -1,0 +1,14 @@
+du:
+  personalised:
+    subject: "Unterwegs laden mit MAINGAU Autostrom"
+    body: "Mit MAINGAU Autostrom kannst du öffentliche Ladepunkte nutzen. Wir erklären dir gern die Nutzung per App oder Ladekarte."
+  generic:
+    subject: "Unterwegs laden mit MAINGAU Autostrom"
+    body: "Nicht personalisiert. Mit MAINGAU Autostrom kannst du öffentliche Ladepunkte nutzen. Wir erklären dir gern die Nutzung per App oder Ladekarte."
+sie:
+  personalised:
+    subject: "Unterwegs laden mit MAINGAU Autostrom"
+    body: "Mit MAINGAU Autostrom können Sie öffentliche Ladepunkte nutzen. Wir erklären Ihnen gern die Nutzung per App oder Ladekarte."
+  generic:
+    subject: "Unterwegs laden mit MAINGAU Autostrom"
+    body: "Nicht personalisiert. Mit MAINGAU Autostrom können Sie öffentliche Ladepunkte nutzen. Wir erklären Ihnen gern die Nutzung per App oder Ladekarte."

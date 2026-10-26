@@ -1,0 +1,14 @@
+du:
+  personalised:
+    subject: "Internet für zu Hause"
+    body: "Unser Internetangebot umfasst DSL und Glasfaser. Wir prüfen gern mit dir die Verfügbarkeit."
+  generic:
+    subject: "Internet für zu Hause"
+    body: "Nicht personalisiert. Unser Internetangebot umfasst DSL und Glasfaser. Wir prüfen gern mit dir die Verfügbarkeit."
+sie:
+  personalised:
+    subject: "Internet für zu Hause"
+    body: "Unser Internetangebot umfasst DSL und Glasfaser. Wir prüfen gern mit Ihnen die Verfügbarkeit."
+  generic:
+    subject: "Internet für zu Hause"
+    body: "Nicht personalisiert. Unser Internetangebot umfasst DSL und Glasfaser. Wir prüfen gern mit Ihnen die Verfügbarkeit."

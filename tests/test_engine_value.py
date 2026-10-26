@@ -62,3 +62,10 @@ def test_call_cost_is_read_from_the_workbook(states, tables):
     cfg.assumptions = {**cfg.assumptions, 'contact_cost_call_eur': 11}
     result = value(candidate('P-EN-01', channel='outbound_call'), states['MG-100112'], sure(), cfg)
     assert result.contact_cost == 11
+
+
+def test_service_has_no_marketing_fee_when_popup_cost_changes(states, tables):
+    cfg = load_config(tables)
+    cfg.assumptions = {**cfg.assumptions, 'contact_cost_popup_eur': 2}
+    service = value(candidate('P-SV-01', 'service', 'service_agent'), states['MG-100009'], sure(), cfg)
+    assert service.contact_cost == 0

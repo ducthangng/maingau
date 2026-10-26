@@ -1,0 +1,14 @@
+du:
+  personalised:
+    subject: "Gasversorgung mit GasAktiv"
+    body: "Mit GasAktiv kannst du deine Gasversorgung gestalten. Wir informieren dich gern über die Voraussetzungen."
+  generic:
+    subject: "Gasversorgung mit GasAktiv"
+    body: "Nicht personalisiert. Mit GasAktiv kannst du deine Gasversorgung gestalten. Wir informieren dich gern über die Voraussetzungen."
+sie:
+  personalised:
+    subject: "Gasversorgung mit GasAktiv"
+    body: "Mit GasAktiv können Sie Ihre Gasversorgung gestalten. Wir informieren Sie gern über die Voraussetzungen."
+  generic:
+    subject: "Gasversorgung mit GasAktiv"
+    body: "Nicht personalisiert. Mit GasAktiv können Sie Ihre Gasversorgung gestalten. Wir informieren Sie gern über die Voraussetzungen."
