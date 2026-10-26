@@ -61,6 +61,8 @@ These are kept up to date and edited in place. Status values: `open`, `answered`
 | Q-KG-14 | Agent NBA: the export is 34 MB (`indent=2`) and still 23 MB compact, above the ~20 MB budget for `web/public/data` (README §13.2). Write compact JSON and trim per-candidate duplication: only the top 5 tuples per customer get the full `checks`/`path`, or drop channel duplicates of the same offer | Vercel static deploy and UI load time | Agent NBA | open | — |
 | Q-KG-15 | Agent NBA: internal reason lines mix languages: the NO_ACTION and ECON-NONPOSITIVE reasons are German ("Keine zulässige Aktion…", "erwartete ΔCLV"), the rest is English. README §0: UI text may be English or German, customer content German. Pick one language for internal reasons, English recommended | Consistent UI and pitch | Agent NBA | open | — |
 | Q-KG-16 | Agent NBA: K11 is decided. Make MG-100112 strict in `tests/test_acceptance.py` under both p modes (chosen `P-EN-01|outbound_call|sie`, `origin = generic`, content not personalised, S3 blocked by CONSENT-PROFILING), and close Q-NBA-11 in your log | README §9 strict list | Agent NBA | open | — |
+| Q-KG-17 | Agent NBA (optional stretch): `POST /api/replay?until=` can call `nba.kg.events.replay(runtime.states, load_events(), policy, pop, until, pending=<chosen tuples>)` and then `assemble()` on the affected customers, as in `scripts/replay_demo.py` | Live deep-dive B demo in the API | Agent NBA | open | — |
+| Q-KG-18 | Agent CARDS (optional): show deep dive B in the UI from `out/replay/timeline.json` (copy into `web/public/data/replay/`): a "What changed since 30.09" panel with event, delay, KG effect and pending card status (REVOKED + rule). Demo customers MG-100125 (card revoked by a new ticket), MG-100465 (cancellation 16.9 h late → P1), MG-100009 (ticket + annoyed flag), MG-100003 (consent withdrawn) | Deep dive B is the challenge's chosen deep dive | Agent CARDS | open | — |
 
 ## Session entries
 
@@ -277,4 +279,51 @@ These are kept up to date and edited in place. Status values: `open`, `answered`
 **Verified:** `nba.build --customers MG-100112` gives `P-EN-01|outbound_call|sie` in both modes: rate +€14.87 at p 3.41%, uplift +€2.54 at p 1.40%. Not personalised; S3 blocked by CONSENT-PROFILING.
 
 **Next session starts with:** event replay (deep dive B); review `nba/profile` and `web/` when Agent CARDS pushes.
+
+### Session 8 · 2026-10-26 18:20–19:05 Europe/Berlin · Claude Code (Opus) · branch feat/kg · commits 8ecc8ce..(this commit)
+
+**Goal:** deep dive B, event replay (PLAN_KG step 9).
+
+**Done:**
+- `nba/kg/events.py`:
+  - ingest-order replay;
+  - per-fact-key clocks (consent, contract status, dunning, ticket), with `stale` for older facts;
+  - `effective_date` for gas deregistration (S1 now; gas stays active until 31.10);
+  - orphan ticket → conservative open placeholder with provenance;
+  - informational events logged without fact changes; duplicates → `already_applied`;
+  - snapshot states never mutated;
+  - per-transition KG diff (signals, exclusions, tier, profiling, flags);
+  - pending-card re-check with `check_tuple`, plus CONSENT-PROFILING for personalised cards.
+- `nba/kg/predicates.py`: the S1 detail shows the effective date when it is in the future.
+- `scripts/replay_demo.py`:
+  - T0 cards from Agent NBA's engine → replay → re-decision with `assemble()`;
+  - verdicts REVOKED / SUPERSEDED / UNCHANGED;
+  - three freshness measures;
+  - output in `out/replay_report.md` and `out/replay/timeline.json`.
+- README §5.6, new §6.14, §7.1 and §8; PLAN_KG step 9.
+
+**Verified:**
+- `pytest -q`: 98 passed, with 10 new replay tests:
+  - online order for MG-100003 (newsletter still granted at 10:14:07);
+  - the late cancellation is only known after 02.10 02:11:06;
+  - effective date (gas active on 03.10, terminated on 01.11);
+  - the orphan ticket;
+  - the MG-100009 story;
+  - a stale event is ignored; a duplicate is applied once;
+  - pending revocation.
+- `scripts/replay_demo.py`: 635 events in 0.44 s (about 0.7 ms per event); 118 customers affected; 29 pending cards revoked (28 EXCL-OPEN-TICKET, 1 EXCL-CANCELLATION), 5 superseded, 84 unchanged.
+
+**Demo stories:**
+- MG-100125: T0 card Autostrom by newsletter is REVOKED at 01.10 11:31 by a new open ticket; S1 arrives 14.7 h late with effective date 31.10; the re-decision is NO_ACTION while the ticket is open.
+- MG-100465: cancellation 16.9 h late → EXCL-CANCELLATION, P5 → P1 (no pending card at T0).
+- MG-100009: 4th failed charge → ticket → "annoyed_before" flag; the service card stays valid.
+- MG-100003: profiling and then newsletter withdrawn; the card stays valid because the T0 card was already generic (no signals).
+
+**Issues / risks:**
+- The NO_ACTION reason lines are German (Q-KG-15).
+- MG-100003 is a weaker demo than planned, because its T0 card was already generic. MG-100125 is the strongest revocation story.
+
+**Handoff:** Q-KG-17 (Agent NBA, optional API replay) and Q-KG-18 (Agent CARDS, optional "What changed" panel).
+
+**Next session starts with:** review `nba/profile` and `web/` when Agent CARDS pushes; reconcile S4 143 vs 145 (Q-KG-06).
 

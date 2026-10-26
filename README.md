@@ -554,6 +554,8 @@ def data_quality(state) -> list[DataQuality]                       # §6.9; NBA 
 def check_tuple(state, offer_id, channel, policy) -> list[Blocked] # hard-rule blockers of one tuple; [] = allowed
                                                                    # (override 409, legacy_comparison.blocked_now_by)
 def kg_bundle(state, policy, pop, tone) -> KGBundle                # all of the above for one customer (nba/kg/bundle.py)
+def replay(states, events, policy, pop, until=None, pending=None) -> ReplayResult
+                                                                   # deep dive B (nba/kg/events.py, §6.14)
 def source_info(tables) -> dict[str, SourceInfo]                   # CustomerCard.sources / Summary.sources
 
 # Agent CARDS — nba/profile/*.py
@@ -970,6 +972,22 @@ Representative customers: MG-100325 (A1) and MG-100001 (A2).
 
 Counts are from Agent KG's check script; `scripts/kg_report.py` reproduces them.
 
+### 6.14 Event replay: deep dive B (owner: Agent KG, `nba/kg/events.py`)
+
+- **Online order:** events (deduplicated) are applied in `ingested_at` order. At any moment the engine only knows what has arrived. `occurred_at` updates the fact; `effective_date` defers a contract change (a gas meter deregistration creates S1 at once, but the gas contract stays active until the effective date).
+- **Per-fact-key clocks:** consent per type, contract status, dunning and ticket status each keep their own clock. An older event that arrives later is `stale` and never overwrites a newer fact.
+- **Unknown IDs:** a ticket update for an ID missing from the snapshot (`TK-open-complaint`) becomes a conservative open placeholder ticket with provenance. It is never merged into another ticket.
+- **Pending cards:** after each decision-relevant event, every pending card (offer, channel) is re-checked with `check_tuple`. A personalised card is also revoked when profiling consent is gone. A revoked card can no longer be exported, and the engine re-decides. A card already sent cannot be recalled.
+- **Three freshness measures:**
+  - arrival-to-invalidation: re-check at ingest, about 0.7 ms per event;
+  - decision-time known-state validity: every transition is re-checked;
+  - retrospective late-data exposure: `ingested_at − occurred_at` of revoking events.
+- **Result on the stream:**
+  - 635 events: 126 applied, 508 informational, 1 orphan. Decision facts changed for 118 customers.
+  - Of those 118 customers (92 with a pending T0 card): 29 cards revoked (28 by a new open ticket, 1 by a late cancellation), 5 decisions superseded, 84 unchanged.
+  - Late decision events: MG-100465 cancellation 16.9 h, MG-100510 cancellation 9.9 h, MG-100125 gas deregistration 14.7 h, MG-100004 dunning 25.5 h.
+  - Report: `python scripts/replay_demo.py` → `out/replay_report.md`, `out/replay/timeline.json`.
+
 ## 7. Tasks: three agents in parallel
 
 ### 7.1 Agent KG: ontology, knowledge graph, signals, rules and triage
@@ -996,10 +1014,10 @@ All of it is driven by `kg/policy.yaml`.
 2. `kg/ontology.yaml` and `kg/policy.yaml` covering §6.1–§6.4, §6.11 and §6.12.
 3. `extract_signals` (S1–S13); the gates (exclusions → holding preconditions → profiling purpose → channel consent and availability → contact cap); generic tuples; `triage`; `explain` with `ui_ref`; `customer_graph`; data-quality flags (§6.9).
 4. `scripts/export_schema.py` → `docs/schema/*.json`, which Agent CARDS turns into TypeScript types. `scripts/kg_report.py` → `out/kg_report.md` with signal, archetype, tier and flag counts.
-5. *(stretch, deep dive B)* `nba/kg/events.py`:
-   - dedup, then apply events in `ingested_at` order with per-key updates;
-   - return the affected customers;
-   - demo customers: MG-100003, MG-100465, MG-100125 and MG-100009.
+5. *(done 26 Oct, deep dive B)* `nba/kg/events.py` + `scripts/replay_demo.py` (§6.14):
+   - ingest-order replay with per-key clocks, effective dates and orphan handling;
+   - pending-card revocation and the three freshness measures;
+   - demo customers: MG-100003, MG-100465, MG-100125, MG-100009 and MG-100004.
 
 **Done when:**
 - Policy integrity tests pass:
@@ -1130,6 +1148,7 @@ python -m nba.build --asof 2026-09-30T23:59:59 --out out/          # all custome
 python -m nba.build --customers MG-100068,MG-100009 --out out/    # subset
 python -m nba.build --out out/ --export web/public/data            # refresh the UI data
 python scripts/export_preview.py --out web/public/data             # KG-only preview until nba.build exists
+python scripts/replay_demo.py                                      # deep dive B: out/replay_report.md, out/replay/timeline.json
 pytest -q
 uvicorn api.app:app --reload --port 8000
 cd web && npm install && npm run dev
