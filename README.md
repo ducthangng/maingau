@@ -24,6 +24,7 @@ Every agent reads §0–§6, its own task in §7, then §8–§10.
 1. Write only inside the paths your agent owns (§2).
 2. Shared contracts (§5) change only through a PR that also edits this README, and the other agents must be told.
 3. Start from stubs. Every public function in §5.6 returns fixture data in the first hour, so nobody waits on anyone (§8).
+4. Log every session in your own file under `log/` (§12): what you did, what you verified, open questions and issues. Read all three logs at the start of each session.
 
 **Never:**
 
@@ -68,6 +69,10 @@ Every number on a card has a tooltip showing:
 ├── Hackathon_slides_for_MAINGAU.pdf   # challenge brief, read-only
 ├── docs/company-spec-vi.md      # original spec, read-only
 ├── references/                  # background material, read-only
+├── log/                         # one session log per agent (§12)
+│   ├── agent-kg.md              # Agent KG
+│   ├── agent-cards.md           # Agent CARDS
+│   └── agent-nba.md             # Agent NBA
 ├── data/                        # read-only inputs
 │   ├── maingau_nba_mockdata.xlsx
 │   └── event_stream_2026-10-01.jsonl
@@ -1108,3 +1113,17 @@ Customer facts below were verified in the workbook on 26 Oct. "Spec expects" is 
 - Online learning or reinforcement learning. Learning is presented as a concept: a holdout design and Bayesian updates of p with versioning.
 - A graph database, embeddings or an LLM reasoner. The KG is small and lives in YAML + NetworkX.
 - Personalised prices, and causal uplift claims based on the mock history.
+
+## 12. Session logs (`log/`)
+
+Each agent owns one file and writes only there: `log/agent-kg.md`, `log/agent-cards.md`, `log/agent-nba.md`.
+
+- **Start of a session:** `git pull`, then read the open-questions table and the latest entry of all three logs.
+- **End of a session** (before the last push):
+  - append one entry using the template at the top of your file: goal, what was done, what was verified, what was not done, contract changes, new questions, issues, handoff, next step;
+  - update your open-questions table;
+  - commit the log together with the session's code.
+- **Append-only:** correct an earlier mistake in a new entry, never by rewriting it.
+- **Answered questions:** when a mentor or the team answers one, write the answer and the date in the table. If the answer changes a default in §10, update §10 in the same PR.
+- **Cross-agent questions:** a question for another agent goes in your own table, with "Ask whom" set to that agent. The other agent answers it in its next entry.
+- **No sensitive content:** never put secrets, tokens or real customer data in a log.
