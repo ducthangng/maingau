@@ -777,3 +777,19 @@ Claude Code (Opus) on Windows, in the user's checkout `E:\Projects\maingau`. On 
 - stale need-first number in README §1;
 - deep dive B not in the UI;
 - no pitch deck or demo script yet.
+
+### Session 21 · 2026-10-27 · Claude Code (Opus) · branch feat/kg
+
+**Goal (user):** fast-forward feat/cards and feat/nba to main, and bring in the fixes from https://github.com/Avocado0602/maingau (the author has no write access here). feat/rule-card stays as it is and waits for edits.
+
+**Done:**
+- feat/cards and feat/nba fast-forwarded to main.
+- Fork: remote `avocado`. Its `main` adds bfda563 and 4a4e451, based on db7c4ef: a Customer 360° customer list, and the three tabs replaced by three side-by-side cards in the Orchestration style.
+- Read the whole diff before running it: UI-only TypeScript, no network calls, no package or script changes. `NbaPanel.tsx` only gains `export` keywords (no behaviour change), and `Layout.tsx` widens the page only on `/service`.
+- Merged in 9f6b015 (Layout auto-merged). tsc clean, vitest 74/74, build passes.
+
+**Behaviour changes to confirm with the team (vs prompts/ui-customer360.md):**
+- The NBA card now uses the Orchestration decision box (approve / override / reject into the decision log), not the agent's reaction buttons (mentioned / interested / declined). Service-agent reactions are no longer recorded (`lib/serviceFeedback.ts` is unused).
+- The "service first while a ticket is open" order is replaced by the engine order: the chosen action, then the alternatives (3 in static mode).
+- New amber banner "Resolve the service issue first". The brief has no warning colours in Customer 360°.
+- No `?tab=` URL state any more (three columns at ≥ 1280 px).
