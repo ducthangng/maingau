@@ -9,4 +9,5 @@ testpaths = ["tests"]
 pythonpath = ["."]
 markers = [
     "acceptance: spec test customers (README §9)",
+    "ai_live: AI test harness against a real backend (MAINGAU_AI_QA=1 and MAINGAU_LLM); skipped otherwise",
 ]

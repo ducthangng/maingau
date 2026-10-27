@@ -737,3 +737,21 @@ Claude Code (Opus) on Windows, in the user's checkout `E:\Projects\maingau`. On 
 - P-EN-03 rows → S1 / N-HEAT-PUMP;
 - every personalised action has a signal that indicates its need, which the offer addresses;
 - S4 reads "Price guarantee ends within 90 days".
+
+### Session 19 · 2026-10-27 · Claude Code (Opus) · branch feat/kg
+
+**Goal (user):** tests that use AI to exercise the whole workflow on the current pipeline.
+
+**Done:** `nba/ai/qa.py` (CLI `python -m nba.ai qa`, guide §6.8), with three AI roles on the real pipeline and code checks as the ground truth:
+- **Tester:** writes scenarios as real event-stream events. Every value comes from an enum (ontology, policy, data), so it cannot invent an ID. Code applies the events with `nba.kg.events.replay` and decides again with `assemble`.
+- **Marketer:** approves or rejects through the API, then the code checks feedback memory, journey, Overview fields and cluster review.
+- **Judge:** marks each before/after pair explainable or suspicious, and only IDs from the evidence count as citations.
+- **Without a backend:** 8 seed scenarios (one per event type, each on a different customer) and a fixed marketer policy.
+- **Checks:** every card is checked for hard rules, no sending without approval, positive value and consent, plus the expected effect of each event (exclusion, then no sales, then the pending card is revoked; withdrawn consent is not used; S1/S2 appear) and the workflow through the API. A tester expectation that fails is a finding, not a failure.
+
+**Verified:**
+- `tests/test_ai_qa.py`: 6 tests with a fake backend, including a mutation test showing the checks catch a broken decision. A live run is opt-in: `MAINGAU_AI_QA=1 MAINGAU_LLM=… pytest -m ai_live`. It has not been run yet, because no backend is configured.
+- `python -m nba.ai qa --no-ai`: 8/8 scenarios pass and the workflow passes, in about 10 s.
+- Full suite: 437 passed, 1 skipped.
+
+**For the judge / a person:** after 3 failed charges, MG-100007 gets S2 but still the HEMS sales offer (the service action ranks lower by ΔCLV). Withdrawing profiling changes MG-100005's tone from du to sie.

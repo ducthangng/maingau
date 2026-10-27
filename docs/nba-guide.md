@@ -178,6 +178,33 @@ cd web && npm run dev                          # terminal 2: http://localhost:51
 | `.venv/bin/python scripts/export_kg_viz.py` | Graph data for the decision-graph viewer: the ontology, the policy layer and eight demo customers' decision paths (`out/kg_viz.json`) |
 | `.venv/bin/python -m nba.learn run` | Feedback loop: which offers work, compared with the control group |
 | `.venv/bin/python -m pytest -q tests/` | All tests (about 90 s), including the reference customers in both p modes |
+| `.venv/bin/python -m nba.ai qa [--no-ai] [--scenarios 8]` | AI tests of the whole workflow (§6.8); report in `out/ai_qa/report.md`; exit code 1 if a check fails |
+
+### 6.8 AI tests of the whole workflow
+
+`nba/ai/qa.py` puts three AI roles on the real pipeline. Code checks decide what passes, and the AI can never clear a failed check.
+
+| Role | What it does | Without an AI backend |
+|---|---|---|
+| Tester | Writes scenarios: one change to one customer, as events of the real event stream (ticket, dunning, cancellation, consent, charging failures, gas meter, order). It can only use IDs and values from the ontology and the data. Code applies the events (`nba.kg.events.replay`) and decides the customer again | 8 seed scenarios, one per event type, each on a different customer |
+| Marketer | Approves or rejects proposals through the API. Code then runs the feedback step and checks that a rejected offer does not come back | Fixed policy: every third proposal is rejected |
+| Judge | Reads each before/after pair, marks it explainable or suspicious, and cites IDs from the evidence | Skipped |
+
+**Checks (code):**
+- **Every card:** the schema is valid; the chosen action is a candidate; nothing is sent without approval; the value is positive (or it is a service action); an active exclusion means no sales; the channel has consent; personalised offers need profiling consent.
+- **Each event's effect:**
+  - a ticket, dunning or cancellation activates its exclusion, stops sales and revokes a pending sales card;
+  - a withdrawn consent is no longer used;
+  - three failed charges raise S2, a gas meter deregistration raises S1.
+- **The workflow through the API:**
+  - the summary matches the index;
+  - Overview reasons exist for personalised actions;
+  - decisions are accepted;
+  - rejected offers are not proposed again (rule MEMORY);
+  - the journey is newest first;
+  - the cluster review never marks a hard flag ready.
+
+A tester expectation that does not come true is a **finding** for a person, not a failure. Tests: `tests/test_ai_qa.py`, with a fake backend and a mutation test showing the checks catch a broken decision. To run against a real backend: `MAINGAU_AI_QA=1 MAINGAU_LLM=claude .venv/bin/python -m pytest -m ai_live` (opt-in, because it costs API calls).
 
 ### 6.7 Common problems
 
