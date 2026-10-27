@@ -14,6 +14,7 @@ from typing import Any
 
 from nba.contracts import NO_ACTION, Blocked, Candidate, ContactCounter, RuleReport, RuleResult
 from nba.engine.config import fingerprint
+from nba.engine.content import guarantee_dates
 from nba.kg.contacts import check_sources, contact_events, free_from, window
 from nba.kg.rules import contact_cap_status
 
@@ -348,8 +349,10 @@ class Evaluator:
 
 def apply_rules(candidates: list[Candidate], ev: Evaluator) -> tuple[list[Candidate], list[Candidate], list[Blocked]]:
     """Split valued tuples into (allowed now, deferred, blocked rows). Service tuples always pass; tuples with
-    ΔCLV ≤ 0 pass through too, because the economics row (ECON-NONPOSITIVE) already drops them."""
+    ΔCLV ≤ 0 pass through too, because the economics row (ECON-NONPOSITIVE) already drops them. A P-EN-02
+    tuple held until the day its price guarantee ends, or later, is blocked by the rules that hold it that long."""
     allowed, deferred, blocked = [], [], []
+    ends = guarantee_dates(ev.state, (getattr(ev.policy, "params", None) or {}).get("price_guarantee_window_days"))
     for c in candidates:
         if c.action_type == "service" or (c.valuation is not None and c.valuation.delta_clv <= 0):
             allowed.append(c)
@@ -364,7 +367,21 @@ def apply_rules(candidates: list[Candidate], ev: Evaluator) -> tuple[list[Candid
             continue
         if defers:
             until = max(u for _, u, _ in defers)
+            if c.offer_id == "P-EN-02" and ends and until.date() >= ends[0].date():
+                for rid, u, reason in defers:
+                    if u.date() >= ends[0].date():
+                        ev.record(rid, "block", f"{reason}; the price guarantee ends first ({ends[0]:%Y-%m-%d})")
+                        blocked.append(Blocked(
+                            offer_id=c.offer_id, channel=c.channel, rule_id="CONTACT-CAP" if rid == "B-02" else "BUSINESS-RULE",
+                            rule_center_id=rid, src="config/nba.yaml business_rules; energy_contracts.price_guarantee_until",
+                            reason=f"{c.tuple_id}: Price guarantee ends {ends[0]:%Y-%m-%d} before contact is allowed "
+                                   f"on {u:%Y-%m-%d} ({reason})",
+                            counterfactual_delta_clv=c.valuation.delta_clv if c.valuation else None))
+                continue
             for rid, u, reason in defers:
+                hit = ev.hits.get(rid)
+                if hit and hit.result == "block":  # only a P-EN-02 block above: a rule that holds a tuple reports defer
+                    hit.result, hit.detail = "defer", reason
                 ev.record(rid, "defer", reason, u)
             ids = ", ".join(sorted({rid for rid, _, _ in defers}))
             deferred.append(c.model_copy(update={
@@ -392,6 +409,8 @@ def deferred_rows(deferred: list[Candidate]) -> list[Blocked]:
 
 
 def report(ev: Evaluator, kg_blocked: list[Blocked], chosen_tuple: str, version: str) -> RuleReport:
+    """Per-rule outcome for one customer. A tier 2 rule reports block / defer only when it stopped or held a tuple
+    (ev.hits); a counter at its limit that held nothing passes with "limit reached; nothing held"."""
     results: list[RuleResult] = []
     by_rc = defaultdict(list)
     for b in kg_blocked:
@@ -409,10 +428,12 @@ def report(ev: Evaluator, kg_blocked: list[Blocked], chosen_tuple: str, version:
                                       result="n/a" if cid == "C-04" else "pass", detail=c.get("enforced_by")))
     cap = ev.cap
     hit = ev.hits.get("B-02")
+    count = f"{cap.count}/{cap.limit} contacts in {cap.days} days"
     results.append(RuleResult(rule_id="B-02", tier="business", name=f"Max {cap.limit} contacts in {cap.days} days",
-                              result="defer" if cap.hit else "pass", until=cap.free_at.isoformat() if cap.free_at else None,
+                              result=hit.result if hit else "pass", until=hit.until.isoformat() if hit and hit.until else None,
                               measured={"count": cap.count, "limit": cap.limit, "window_days": cap.days},
-                              detail=f"{cap.count}/{cap.limit} contacts in {cap.days} days", tuples=hit.tuples if hit else 0))
+                              detail=hit.detail if hit else f"{count}: limit reached; nothing held" if cap.hit else count,
+                              tuples=hit.tuples if hit else 0))
     owned = by_rc.get("B-07", [])
     results.append(RuleResult(rule_id="B-07", tier="business", name="Never offer what they own",
                               result="block" if owned else "pass", tuples=len(owned),
@@ -428,18 +449,18 @@ def report(ev: Evaluator, kg_blocked: list[Blocked], chosen_tuple: str, version:
             counters.append(ContactCounter(rule_id=rule.id, label=COUNTER_LABELS.get(rule.id, rule.name), count=n,
                                            limit=rule.params["max"], window_days=rule.params["window_days"]))
             if free:
-                result, detail, until = "defer", rule.text(count=n, **rule.params), free
+                detail = f"{n}/{rule.params['max']} in {rule.params['window_days']} days: limit reached; nothing held"
         if not rule.active:
             result, detail, until = "off", None, None
         elif hit:
-            result, detail, until = hit.result, hit.detail, hit.until or until
+            result, detail, until = hit.result, hit.detail, hit.until
         results.append(RuleResult(rule_id=rule.id, tier=rule.tier, name=rule.name, result=result, detail=detail,
                                   until=until.isoformat() if until else None, measured=measured,
                                   tuples=hit.tuples if hit and rule.active else 0))
     if ev.memory:
         hit = ev.hits.get("MEMORY")
         results.append(RuleResult(rule_id="MEMORY", tier="custom", name="Customer memory from feedback",
-                                  result="defer" if hit else "pass", detail=hit.detail if hit else
+                                  result=hit.result if hit else "pass", detail=hit.detail if hit else
                                   f"{len(ev.memory)} active note(s), none on these offers",
                                   until=hit.until.isoformat() if hit and hit.until else None, tuples=hit.tuples if hit else 0))
     counters.sort(key=lambda k: ["B-01", "B-02", "B-03", "B-04"].index(k.rule_id) if k.rule_id in COUNTER_LABELS else 9)
