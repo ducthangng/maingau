@@ -19,25 +19,31 @@ function Fact({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="min-w-0">
       <dt className="text-xs text-neutral-500">{label}</dt>
-      <dd className="truncate">{value === "" || value === null || value === undefined ? "—" : value}</dd>
+      <dd className="break-words">{value === "" || value === null || value === undefined ? "—" : value}</dd>
     </div>
   );
 }
 
+// Label left, value right; in a narrow column a long value drops onto its own line instead of
+// squeezing both (ui-polish.md §3.3).
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="flex justify-between gap-4 py-1 text-sm">
-      <dt className="text-neutral-500">{label}</dt>
-      <dd className="text-right text-neutral-900">{value === "" || value === null || value === undefined ? "—" : value}</dd>
+    <div className="flex flex-wrap justify-between gap-x-4 py-1 text-sm">
+      <dt className="min-w-0 text-neutral-500">{label}</dt>
+      <dd className="ml-auto min-w-0 break-words text-right text-neutral-900">{value === "" || value === null || value === undefined ? "—" : value}</dd>
     </div>
   );
 }
+
+// Orchestration contract (ui-polish.md §2): static outlines are borders, never rings.
+const BOX = "rounded-xl border border-neutral-200 bg-white";
+const LIST = `${BOX} divide-y divide-neutral-100`;
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="space-y-2.5">
       <Label>{title}</Label>
-      <div className="rounded-xl bg-white p-4 ring-1 ring-neutral-200">{children}</div>
+      <div className={`${BOX} p-4`}>{children}</div>
     </section>
   );
 }
@@ -56,19 +62,24 @@ const yesNo = (x: unknown) => (x === true ? "yes" : x === false ? "no" : "");
 const LANGUAGE: Record<string, string> = { de: "German", en: "English" };
 const METER: Record<string, string> = { smart_meter_imsys: "Smart meter (iMSys)", conventional: "Conventional" };
 
+// One row of the products list. The summary is secondary text: it stays on one line and keeps the
+// full text in `title`; the focus outline is drawn inside the row so the column never clips it.
 function Row({ title, summary, empty, children }: { title: string; summary: string; empty: boolean; children: React.ReactNode }) {
+  const line = empty ? "none" : summary;
   return (
-    <details className="group border-b border-neutral-100 last:border-0">
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 py-2.5 text-sm">
-        <span className="font-medium text-neutral-900">{title}</span>
-        <span className="flex items-center gap-2 text-neutral-600">
-          <span className="truncate">{empty ? "none" : summary}</span>
-          <span className="text-neutral-400 transition-transform duration-150 group-open:rotate-90" aria-hidden>
+    <details className="group">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-4 py-2.5 text-sm focus-visible:-outline-offset-2!">
+        <span className="shrink-0 font-medium text-neutral-900">{title}</span>
+        <span className="flex min-w-0 items-center gap-2 text-neutral-600">
+          <span className="truncate" title={line}>
+            {line}
+          </span>
+          <span className="shrink-0 text-neutral-400 transition-transform duration-150 group-open:rotate-90" aria-hidden>
             ›
           </span>
         </span>
       </summary>
-      <div className="pb-3">{empty ? <p className="text-sm text-neutral-500">No contract or order on record.</p> : children}</div>
+      <div className="px-4 pb-3">{empty ? <p className="text-sm text-neutral-500">No contract or order on record.</p> : children}</div>
     </details>
   );
 }
@@ -92,21 +103,23 @@ export default function ProfileTab({ card }: { card: CustomerCard }) {
   return (
     <div className="flex flex-col gap-7">
       <div className="flex items-center gap-3">
-        <div className="grid size-14 shrink-0 place-items-center rounded-2xl bg-white text-neutral-300 ring-1 ring-neutral-200" aria-hidden>
+        <div className="grid size-14 shrink-0 place-items-center rounded-2xl border border-neutral-200 bg-white text-neutral-300" aria-hidden>
           <User size={28} />
         </div>
         <div className="min-w-0">
-          <p className="text-lg font-semibold tracking-tight">
+          <p className="line-clamp-2 break-words text-lg font-semibold tracking-tight" title={mockName(card.customer_id)}>
             {mockName(card.customer_id)}{" "}
             <span className="rounded bg-neutral-100 px-1 align-middle text-[10px] font-medium uppercase text-neutral-500" title="Demo name: the data has no names">
               demo
             </span>
           </p>
-          <p className="truncate text-sm text-neutral-500 tabular-nums">{card.customer_id}</p>
+          <p className="truncate text-sm text-neutral-500 tabular-nums" title={card.customer_id}>
+            {card.customer_id}
+          </p>
         </div>
       </div>
 
-      <dl className="grid grid-cols-2 gap-x-5 gap-y-3 rounded-xl bg-white p-4 text-sm ring-1 ring-neutral-200">
+      <dl className={`grid grid-cols-2 gap-x-5 gap-y-3 p-4 text-sm @md:grid-cols-3 ${BOX}`}>
         <Fact label="Customer" value={sinceYear(card)} />
         <Fact label="City" value={str(h.city?.v)} />
         <Fact label="Household" value={h.household_size?.v ? `${h.household_size.v} people` : ""} />
@@ -115,18 +128,24 @@ export default function ProfileTab({ card }: { card: CustomerCard }) {
         <Fact label="App" value={yesNo(h.digital?.app_installed?.v)} />
       </dl>
 
-      <Interaction card={card} />
+      {/* Interaction is the pop-up's component (not edited here): its "View more" button gets the
+          inset focus outline from this wrapper, so the column's scroll box never clips it. */}
+      <div className="[&_button:focus-visible]:-outline-offset-2!">
+        <Interaction card={card} />
+      </div>
 
       <section className="space-y-2.5">
         <Label>Products</Label>
-        <div className="flex flex-wrap gap-1">
+        {/* Same compact row of six 44 px tiles as the pop-up, but the tracks may shrink, so the row
+            never overflows the column; below 14rem of column it breaks into two rows of three. */}
+        <div className="grid grid-cols-[repeat(6,minmax(0,2.75rem))] gap-1 @max-[14rem]:grid-cols-3">
           {(Object.keys(PRODUCT_META) as (keyof Products)[]).map((l) => {
             const held = !!p[l]?.held;
             const Icon = PRODUCT_META[l].icon;
             return (
-              <span key={l} className="flex w-11 flex-col items-center gap-1" title={`${PRODUCT_META[l].label}: ${held ? "in use" : "not used"}`}>
+              <span key={l} className="flex min-w-0 flex-col items-center gap-1" title={`${PRODUCT_META[l].label}: ${held ? "in use" : "not used"}`}>
                 <span
-                  className={`grid size-8 place-items-center rounded-lg ${held ? "bg-accent-600 text-white" : "bg-white text-neutral-400 ring-1 ring-inset ring-neutral-200"}`}
+                  className={`grid size-8 place-items-center rounded-lg ${held ? "bg-accent-600 text-white" : "border border-neutral-200 bg-white text-neutral-400"}`}
                 >
                   <Icon size={15} aria-hidden />
                 </span>
@@ -135,7 +154,7 @@ export default function ProfileTab({ card }: { card: CustomerCard }) {
             );
           })}
         </div>
-        <div className="rounded-xl bg-white px-4 ring-1 ring-neutral-200">
+        <div className={LIST}>
         <Row title="Energy" empty={!energy.length} summary={energy.map((i) => `${str(v(i, "tariff"))} · ${humanize(v(i, "status"))}`).join(", ")}>
           {energy.map((i, k) => {
             const days = v(i, "guarantee_days_left");
@@ -181,9 +200,9 @@ export default function ProfileTab({ card }: { card: CustomerCard }) {
         <Row title="HEMS" empty={!hems.length} summary={`${hems.length} device${hems.length === 1 ? "" : "s"}`}>
           <ul className="space-y-1 rounded-lg bg-neutral-50 px-3 py-2 text-sm">
             {hems.map((i, k) => (
-              <li key={k} className="flex justify-between gap-4">
-                <span>{humanize(v(i, "device_type"))}</span>
-                <span className="text-neutral-600">{humanize(v(i, "connection_status"))}</span>
+              <li key={k} className="flex flex-wrap justify-between gap-x-4">
+                <span className="min-w-0 break-words">{humanize(v(i, "device_type"))}</span>
+                <span className="ml-auto text-right text-neutral-600">{humanize(v(i, "connection_status"))}</span>
               </li>
             ))}
           </ul>
@@ -191,9 +210,9 @@ export default function ProfileTab({ card }: { card: CustomerCard }) {
         <Row title="Shop orders" empty={!shop.length} summary={`${shop.length} recent order${shop.length === 1 ? "" : "s"}`}>
           <ul className="space-y-1 rounded-lg bg-neutral-50 px-3 py-2 text-sm">
             {shop.map((i, k) => (
-              <li key={k} className="flex justify-between gap-4">
-                <span>{str(v(i, "product_name"))}</span>
-                <span className="text-neutral-600">
+              <li key={k} className="flex flex-wrap justify-between gap-x-4">
+                <span className="min-w-0 break-words">{str(v(i, "product_name"))}</span>
+                <span className="ml-auto text-right text-neutral-600">
                   {humanize(v(i, "order_status"))} · {dateLabel(str(v(i, "order_created_at")))}
                 </span>
               </li>
@@ -203,33 +222,41 @@ export default function ProfileTab({ card }: { card: CustomerCard }) {
         </div>
       </section>
 
-      <Card title={`Open tickets (${tickets.length})`}>
+      {/* A list in the Orchestration list style (one bordered box, rows split by dividers) instead of
+          grey tiles inside a ringed card. */}
+      <section className="space-y-2.5">
+        <Label>{`Open tickets (${tickets.length})`}</Label>
         {tickets.length === 0 ? (
-          <p className="text-sm text-neutral-500">No open ticket.</p>
+          <p className={`${BOX} p-4 text-sm text-neutral-500`}>No open ticket.</p>
         ) : (
-          <ul className="space-y-2">
-            {tickets.map((t) => (
-              <li key={t.id} className="rounded-lg bg-neutral-50 px-3 py-2 text-sm">
-                <span className="font-medium">{humanize(t.title.replace(/^Ticket:\s*/, ""))}</span>
-                <span className="text-neutral-600"> · opened {dateLabel(t.date)}</span>
-                {t.detail && <span className="block text-neutral-600">{t.detail}</span>}
-              </li>
-            ))}
+          <ul className={LIST}>
+            {tickets.map((t) => {
+              const name = humanize(t.title.replace(/^Ticket:\s*/, ""));
+              return (
+                <li key={t.id} className="px-4 py-3 text-sm">
+                  <p className="line-clamp-2 break-words" title={`${name} · opened ${dateLabel(t.date)}`}>
+                    <span className="font-medium">{name}</span>
+                    <span className="text-neutral-600"> · opened {dateLabel(t.date)}</span>
+                  </p>
+                  {t.detail && <p className="break-words text-neutral-600">{t.detail}</p>}
+                </li>
+              );
+            })}
           </ul>
         )}
-      </Card>
+      </section>
 
       <Card title="Consent">
         <p className="mb-2 text-sm">
           Personalised offers: <span className="font-medium">{profiling ? "yes" : "no"}</span>
         </p>
-        <ul className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+        <ul className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm @md:grid-cols-3">
           {channels.map((c) => (
-            <li key={c.channel} className="flex items-center gap-2">
-              <span className={c.allowed ? "text-accent-600" : "text-neutral-400"} aria-hidden>
+            <li key={c.channel} className="flex min-w-0 items-baseline gap-2">
+              <span className={`shrink-0 ${c.allowed ? "text-accent-600" : "text-neutral-400"}`} aria-hidden>
                 {c.allowed ? "✓" : "–"}
               </span>
-              <span className={c.allowed ? "text-neutral-900" : "text-neutral-500"}>
+              <span className={`min-w-0 break-words ${c.allowed ? "text-neutral-900" : "text-neutral-500"}`}>
                 {channelLabel(c.channel)}
                 <span className="sr-only">{c.allowed ? ": may be contacted" : ": no contact"}</span>
               </span>

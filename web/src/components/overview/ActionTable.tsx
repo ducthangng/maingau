@@ -128,11 +128,11 @@ export default function ActionTable({
                   aria-controls={isOpen ? `segments-${a.offer}` : undefined}
                   onClick={() => onToggle(isOpen ? null : a.offer)}
                   onKeyDown={(e) => onKey(e, a.offer)}
-                  className={`${GRID} cursor-pointer gap-y-2 px-5 py-4 transition-colors duration-150 hover:bg-neutral-50 focus-visible:-outline-offset-2 ${isOpen ? "bg-neutral-50" : ""}`}
+                  className={`${GRID} cursor-pointer gap-y-2 px-5 py-4 transition-colors duration-150 hover:bg-neutral-50 focus-visible:-outline-offset-2! ${isOpen ? "bg-neutral-50" : ""}`}
                 >
                   <span className="pt-0.5 text-sm tabular-nums text-neutral-400">{i + 1}</span>
                   <div className="min-w-0">
-                    <p className="truncate text-[15px] font-semibold text-neutral-900" title={a.offer}>
+                    <p className="line-clamp-2 break-words text-[15px] font-semibold text-neutral-900" title={a.offer}>
                       {a.name}
                     </p>
                     <p className="mt-0.5 text-sm md:hidden">{customers}</p>

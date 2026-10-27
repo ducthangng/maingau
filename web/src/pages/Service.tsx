@@ -1,8 +1,11 @@
+import { useLayoutEffect, useRef } from "react";
 import { Link, useParams } from "react-router-dom";
+import type { CustomerCard } from "../types/contracts";
 import ActionsTab from "../components/service/ActionsTab";
 import JourneyTab from "../components/service/JourneyTab";
 import ProfileTab from "../components/service/ProfileTab";
 import CustomerList from "../components/service/CustomerList";
+import ServiceColumn from "../components/service/ServiceColumn";
 import ServiceStrip from "../components/service/ServiceStrip";
 import { CustomerSearch } from "../components/service/ViewSwitch";
 import { loadCard, loadIndex, useLoad } from "../lib/data";
@@ -38,7 +41,38 @@ function CustomerView({ id }: { id: string }) {
         </div>
       </div>
     );
-  const c = card.data;
+  return <CustomerColumns card={card.data} />;
+}
+
+// Below lg one column; lg–xl Profile and Next best actions side by side, the journey full width
+// below; from xl three columns that fill the screen (prompts/ui-polish.md §3.1).
+const PLACE: Record<(typeof COLUMNS)[number]["id"], string> = {
+  profile: "",
+  journey: "lg:col-span-2 lg:order-last xl:col-span-1 xl:order-none",
+  actions: "",
+};
+
+function CustomerColumns({ card: c }: { card: CustomerCard }) {
+  const grid = useRef<HTMLDivElement>(null);
+
+  // The columns reach to the bottom of the screen: measure where the grid starts (header and strip
+  // can wrap) instead of guessing their height.
+  useLayoutEffect(() => {
+    const el = grid.current;
+    if (!el) return;
+    const set = () => {
+      const top = el.getBoundingClientRect().top + window.scrollY;
+      el.style.setProperty("--c360-h", `${Math.max(480, Math.round(window.innerHeight - top - 24))}px`);
+    };
+    set();
+    const ro = new ResizeObserver(set);
+    ro.observe(document.body);
+    window.addEventListener("resize", set);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", set);
+    };
+  }, []);
 
   return (
     <div className="space-y-5">
@@ -46,14 +80,14 @@ function CustomerView({ id }: { id: string }) {
         ← All customers
       </Link>
       <ServiceStrip card={c} />
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.6fr)]">
+      <div
+        ref={grid}
+        className="grid gap-5 lg:grid-cols-2 xl:h-[var(--c360-h)] xl:grid-cols-[minmax(17rem,1fr)_minmax(17rem,1fr)_minmax(24rem,1.6fr)]"
+      >
         {COLUMNS.map(({ id: col, label, Body }) => (
-          <section key={col} aria-label={label} className="min-w-0 rounded-xl border border-neutral-200 bg-neutral-50/60 p-4">
-            <h2 className="mb-3 text-sm font-semibold text-neutral-900">{label}</h2>
-            <div className="xl:max-h-[calc(100vh-17rem)] xl:overflow-y-auto xl:pr-1">
-              <Body card={c} />
-            </div>
-          </section>
+          <ServiceColumn key={col} label={label} className={PLACE[col]}>
+            <Body card={c} />
+          </ServiceColumn>
         ))}
       </div>
     </div>
