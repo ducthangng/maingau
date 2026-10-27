@@ -8,7 +8,7 @@ A marketer opens the app and sees at once:
 1. which actions bring the most value, and why;
 2. how each action splits across the customer segments.
 
-From any segment they jump into the Worklist, already filtered to those customers.
+From any segment they jump into the Groups page, already filtered to those customers.
 
 The page belongs to the **Orchestration** dashboard and must look like it (§6): same cards, type scale, thin bars, icons and tooltips as the Worklist and Groups pages. **Not a bare table.**
 
@@ -109,12 +109,13 @@ Not personalised                  –                 –
 - **Sort** by ΔCLV, highest first; rows with no customers go last, muted, showing "–".
 - **The two percentage columns** each add up to exactly 100% (§3).
 - **Not personalised** has a tooltip: "No profiling consent: the engine uses general offers without need signals".
-- **Clicking a row with customers** (or pressing Enter on it) opens the Worklist, filtered and showing every decision state:
-  - segment A0–A5: `/worklist?offer={offer}&arch={A}&pers=yes&queue=all`;
-  - Not personalised: `/worklist?offer={offer}&pers=no&queue=all`.
+- **Clicking a row with customers** (or pressing Enter on it) opens the Groups page, filtered to that action and segment (the Worklist's param names):
+  - segment A0–A5: `/groups?offer={offer}&arch={A}&pers=yes`;
+  - Not personalised: `/groups?offer={offer}&pers=no`.
 
-  `pers=yes` is required: customers without profiling consent still carry an archetype (for example, 229 of them are A2), so `arch` alone would mix the two groups. `queue=all` makes the Worklist show the same number of customers as the Overview. The Worklist's existing ✕ clears the filters.
-- An `ArrowRight` icon appears on hover, to show that the row leads to the Worklist.
+  `pers=yes` is required: customers without profiling consent still carry an archetype (for example, 229 of them are A2), so `arch` alone would mix the two groups. Groups then shows the channel × tone groups of that action with only that segment's customers, so the counts match the Overview. Its "Reset filter ✕" shows every group again.
+- The panel header has a small link "All segments in Groups →" (`/groups?offer={offer}`).
+- An `ArrowRight` icon appears on hover, to show that the row leads to Groups. The Worklist is unchanged and still lists every customer; the service line (§4) still opens it.
 
 ## 6. Visual style: match the Orchestration pages
 
@@ -174,7 +175,7 @@ Done on `main`; `web/src/types/contracts.ts` is regenerated. The fields:
   | A4, Not personalised | – | – |
 
 - **StromAktiv segments:** A3 96 · 55% / +€1,504 · 56%; Not personalised 79 · 45% / +€1,180 · 44%.
-- **Links:** clicking StromAktiv → Not personalised opens the Worklist with 79 rows; the ✕ clears the filters.
+- **Links:** clicking StromAktiv → Not personalised opens Groups with 79 customers; "Reset filter" clears the filter.
 - **Navigation:** `/` shows the Overview, `/worklist` the Worklist, and "Back to the worklist" on a customer page goes to `/worklist`. The dashboard switch and Customer 360° work as before.
 - **Modes:** everything works with the API running and with `VITE_STATIC=1`.
 
@@ -183,12 +184,12 @@ Done on `main`; `web/src/types/contracts.ts` is regenerated. The fields:
 - **New files:**
   - `pages/Overview.tsx`;
   - `components/overview/ActionTable.tsx` and `SegmentBreakdown.tsx`;
-  - `components/overview/model.ts`: the pure aggregation from §3, the largest-remainder rounding, the Worklist links.
+  - `components/overview/model.ts`: the pure aggregation from §3, the largest-remainder rounding, the Groups and Worklist links.
 - **Tests (vitest), `components/overview/model.test.ts`, over the real `public/data`:**
   - every action matches `summary.chosen_by_offer`;
   - the totals above;
   - both percentage columns add up to 100 for every action;
-  - the NP and A-segment links (the Worklist's `matches()` with the link's filters returns the same count);
+  - the NP and A-segment links (the Groups filter with the link's params returns the same count);
   - no reason line shows a signal code outside its tooltip.
 - **Edits to existing files:** only those in §2.
 - **Git:** work on your own branch (README §13), stage only these files, and run `npm test` and `npm run build` before pushing.

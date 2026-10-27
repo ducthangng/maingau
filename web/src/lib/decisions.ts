@@ -45,6 +45,7 @@ export interface Decision {
   p_accept: number | null;
   group: string | null; // chosen_tuple of a bulk approval
   holdout: boolean; // true = kept as control, not exported for sending
+  campaign?: string | null; // id of the campaign an "Approve everything" created; missing on older records
 }
 
 let cached: Decision[] | null = null;

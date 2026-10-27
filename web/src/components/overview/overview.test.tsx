@@ -66,16 +66,22 @@ describe("segment breakdown", () => {
     expect(visible).toMatch(/A0 .*? 2 · 3% \+€42 · 4%/);
   });
 
-  it("links each segment with customers to the filtered Worklist, empty ones are not links", () => {
-    expect(html).toContain('href="/worklist?offer=P-EN-02&amp;arch=A2&amp;pers=yes&amp;queue=all"');
+  it("links each segment with customers to the filtered Groups page, empty ones are not links", () => {
+    expect(html).toContain('href="/groups?offer=P-EN-02&amp;arch=A2&amp;pers=yes"');
+    expect(html).toContain('title="Open these 42 customers in Groups"');
     expect(html).not.toContain("arch=A4");
     expect(html).not.toContain("offer=P-EN-02&amp;pers=no");
     expect(html).toContain('aria-label="Retention risk (do no harm): no customers"');
   });
 
+  it("links the whole action to Groups from the panel header", () => {
+    expect(html).toContain('href="/groups?offer=P-EN-02"');
+    expect(visible).toContain("All segments in Groups");
+  });
+
   it("explains Not personalised", () => {
     const np = render("P-EN-01").html;
-    expect(np).toContain('href="/worklist?offer=P-EN-01&amp;pers=no&amp;queue=all"');
+    expect(np).toContain('href="/groups?offer=P-EN-01&amp;pers=no"');
     expect(np).toContain("No profiling consent: the engine uses general offers without need signals");
   });
 });

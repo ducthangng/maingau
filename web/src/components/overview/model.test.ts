@@ -3,9 +3,11 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import type { IndexRow, Summary } from "../../types/contracts";
 import { matches } from "../worklist/model";
+import { buildGroups, filterRows, readFilter } from "../groups/model";
 import {
   NOT_PERSONALISED,
   SERVICE_LINK,
+  actionGroupsLink,
   buildOverview,
   largestRemainder,
   linkFilters,
@@ -138,22 +140,33 @@ describe("segments", () => {
   });
 });
 
-describe("Worklist links", () => {
-  it("each segment link filters the Worklist to exactly that segment's customers", () => {
+describe("Groups and Worklist links", () => {
+  const groupsFilter = (link: string) => readFilter(new URLSearchParams(link.split("?")[1] ?? ""));
+
+  it("each segment link filters the Groups page to exactly that segment's customers, all in sales groups", () => {
     for (const a of overview.actions) {
       for (const s of a.segments.filter((x) => x.customers > 0)) {
         const link = segmentLink(a.offer, s.key);
-        expect(link).toContain("queue=all");
-        const f = linkFilters(link);
-        expect(rows.filter((r) => matches(r, f)).length, link).toBe(s.customers);
+        expect(link.startsWith("/groups?"), link).toBe(true);
+        const shown = filterRows(rows, groupsFilter(link));
+        expect(shown.length, link).toBe(s.customers);
+        expect(buildGroups(shown).sales.reduce((n, g) => n + g.rows.length, 0), link).toBe(s.customers);
+        // Same customers as the Worklist with the same params.
+        expect(rows.filter((r) => matches(r, linkFilters(link))).length, link).toBe(s.customers);
       }
     }
   });
 
   it("uses pers=yes for A segments and pers=no for Not personalised", () => {
-    expect(segmentLink("P-EN-01", "A3")).toBe("/worklist?offer=P-EN-01&arch=A3&pers=yes&queue=all");
-    expect(segmentLink("P-EN-01", NOT_PERSONALISED)).toBe("/worklist?offer=P-EN-01&pers=no&queue=all");
-    expect(rows.filter((r) => matches(r, linkFilters(segmentLink("P-EN-01", NOT_PERSONALISED)))).length).toBe(79);
+    expect(segmentLink("P-EN-01", "A3")).toBe("/groups?offer=P-EN-01&arch=A3&pers=yes");
+    expect(segmentLink("P-EN-01", NOT_PERSONALISED)).toBe("/groups?offer=P-EN-01&pers=no");
+    expect(filterRows(rows, groupsFilter(segmentLink("P-EN-01", NOT_PERSONALISED))).length).toBe(79);
+    expect(filterRows(rows, groupsFilter(segmentLink("P-EN-02", "A2"))).length).toBe(42);
+  });
+
+  it("'All segments in Groups' opens every customer of the action", () => {
+    expect(actionGroupsLink("P-EN-02")).toBe("/groups?offer=P-EN-02");
+    expect(filterRows(rows, groupsFilter(actionGroupsLink("P-EN-02"))).length).toBe(action("P-EN-02").customers);
   });
 
   it("the service line opens all service cases", () => {

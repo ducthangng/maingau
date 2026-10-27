@@ -2,6 +2,7 @@ import type { IndexRow } from "../../types/contracts";
 import { OUTLIER_FLAGS } from "../Chips";
 import { type Decision, isHoldout } from "../../lib/decisions";
 import { isMissing, tupleLabel } from "../../lib/format";
+import { OFFER_NAME } from "../worklist/model";
 
 // Grouping and bulk-approval gates for the Groups screen (prompts/agent-cards.md §1.2, §1.4).
 // Valuation numbers come from index.json as-is; this file only sums and sorts them for display.
@@ -161,4 +162,112 @@ export function gateCounts(rows: IndexRow[], latest?: Map<string, Decision>, tup
 
 export function holdoutOf(customerId: string, enabled: boolean): boolean {
   return enabled && isHoldout(customerId, HOLDOUT_PCT);
+}
+
+// ---------------------------------------------------------------- action and segment filter
+
+/** One action and segment from the Overview (?offer=&arch=&pers=, the Worklist's param names); "" = not set. */
+export interface GroupFilter {
+  offer: string;
+  arch: string;
+  pers: string; // "" | "yes" | "no"
+}
+
+export const FILTER_PARAMS = ["offer", "arch", "pers"] as const;
+
+export function readFilter(params: URLSearchParams): GroupFilter {
+  return { offer: params.get("offer") ?? "", arch: params.get("arch") ?? "", pers: params.get("pers") ?? "" };
+}
+
+export function hasFilter(f: GroupFilter): boolean {
+  return !!(f.offer || f.arch || f.pers);
+}
+
+/** Same semantics as matches() in components/worklist/model.ts for offer, arch and pers. */
+export function filterRows(rows: IndexRow[], f: GroupFilter): IndexRow[] {
+  return rows.filter(
+    (r) =>
+      (!f.offer || r.chosen_offer === f.offer) &&
+      (!f.arch || r.archetype === f.arch) &&
+      (f.pers !== "yes" || r.personalised === true) &&
+      (f.pers !== "no" || r.personalised === false),
+  );
+}
+
+/** "StromGarant · A2 Traditional energy loyalist", "StromAktiv · Not personalised"; `short` keeps only the segment ID. */
+export function filterLabel(f: GroupFilter, rows: IndexRow[], short = false): string {
+  const parts: string[] = [];
+  if (f.offer) parts.push(OFFER_NAME[f.offer] ?? f.offer);
+  if (f.pers === "no") parts.push("Not personalised");
+  else if (f.arch) {
+    const name = rows.find((r) => r.archetype === f.arch && r.archetype_name)?.archetype_name;
+    parts.push(short || !name ? f.arch : `${f.arch} ${name}`);
+  }
+  return parts.join(" · ") || "All actions";
+}
+
+const dayFmt = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric" });
+
+/** Prefilled campaign name: "StromGarant · A2 · 27 Oct 2026", or "All actions · 27 Oct 2026" without a filter. */
+export function defaultCampaignName(f: GroupFilter, rows: IndexRow[], date = new Date()): string {
+  return `${filterLabel(f, rows, true)} · ${dayFmt.format(date)}`;
+}
+
+// ---------------------------------------------------------------- approve everything
+
+/** Latest decision already approves this tuple (approved, or overridden to it): nothing left to do. */
+export function alreadyApproved(previous: Decision | undefined, tuple: string): boolean {
+  return !!previous && (previous.action === "approved" || previous.action === "overridden") && previous.tuple_id === tuple;
+}
+
+export interface CampaignMember {
+  tuple: string;
+  row: IndexRow;
+  holdout: boolean;
+}
+
+export interface CampaignPlan {
+  included: CampaignMember[]; // ready members, control group included
+  groups: number; // groups with at least one included member
+  contacted: number;
+  holdout: number;
+  delta_clv: number | null; // Σ expected ΔCLV of the contacted
+  secondLook: number; // review or blocked: never part of "approve everything", approve them per group
+  skipped: number; // already approved for this tuple
+}
+
+/**
+ * Who "Approve everything" approves: in every shown group, the members whose gate is "ready" and who
+ * are not approved for this tuple yet. The control group is the deterministic hash holdout at `pct`.
+ */
+export function planCampaign(groups: Group[], latest: Map<string, Decision>, pct: number): CampaignPlan {
+  const included: CampaignMember[] = [];
+  const tuples = new Set<string>();
+  let secondLook = 0;
+  let skipped = 0;
+  for (const g of groups) {
+    for (const r of g.rows) {
+      const previous = latest.get(r.customer_id);
+      if (alreadyApproved(previous, g.tuple)) {
+        skipped++;
+        continue;
+      }
+      if (assess(r, false, previous, g.tuple).gate !== "ready") {
+        secondLook++;
+        continue;
+      }
+      included.push({ tuple: g.tuple, row: r, holdout: isHoldout(r.customer_id, pct) });
+      tuples.add(g.tuple);
+    }
+  }
+  const contacted = included.filter((m) => !m.holdout).map((m) => m.row);
+  return {
+    included,
+    groups: tuples.size,
+    contacted: contacted.length,
+    holdout: included.length - contacted.length,
+    delta_clv: sumOf(contacted, "delta_clv").total,
+    secondLook,
+    skipped,
+  };
 }

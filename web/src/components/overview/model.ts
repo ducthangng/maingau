@@ -197,9 +197,9 @@ export function reasonLine(reason: ReasonCount, summary: Summary | null): Reason
   return { text, title: `${code} · ${n}`, general: false, missing };
 }
 
-// ---------------------------------------------------------------- Worklist links (§5)
+// ---------------------------------------------------------------- Groups and Worklist links (§5)
 
-/** Worklist URL filtered to one action and segment; queue=all so the counts match the Overview. */
+/** Groups URL filtered to one action and segment (the Worklist's param names: offer, arch, pers). */
 export function segmentLink(offer: string, segment: SegmentKey): string {
   const p = new URLSearchParams({ offer });
   if (segment === NOT_PERSONALISED) p.set("pers", "no");
@@ -207,13 +207,17 @@ export function segmentLink(offer: string, segment: SegmentKey): string {
     p.set("arch", segment);
     p.set("pers", "yes");
   }
-  p.set("queue", "all");
-  return `/worklist?${p.toString()}`;
+  return `/groups?${p.toString()}`;
+}
+
+/** Groups URL with every segment of one action. */
+export function actionGroupsLink(offer: string): string {
+  return `/groups?${new URLSearchParams({ offer }).toString()}`;
 }
 
 export const SERVICE_LINK = `/worklist?offer=${SERVICE_OFFER}&queue=all`;
 
-/** The Worklist filters a link sets (the Worklist reads them from the query string). */
+/** The filters a link sets (the Worklist and the Groups page read them from the query string). */
 export function linkFilters(link: string): Filters {
   const p = new URLSearchParams(link.split("?")[1] ?? "");
   const f: Filters = { ...EMPTY_FILTERS };

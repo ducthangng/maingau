@@ -4,12 +4,12 @@ import type { Summary } from "../../types/contracts";
 import { Sourced } from "../Source";
 import { ValueBar } from "../viz";
 import { asOf, colSrc } from "../worklist/model";
-import { NOT_PERSONALISED, segmentLink, type ActionStat, type SegmentStat } from "./model";
+import { NOT_PERSONALISED, actionGroupsLink, segmentLink, type ActionStat, type SegmentStat } from "./model";
 import { NOT_ENOUGH } from "../../lib/format";
 import { wholeEur } from "./format";
 
 // Segment breakdown of one action (prompts/ui-overview.md §5): A0–A5 and Not personalised, each
-// row leading to the Worklist filtered to exactly those customers.
+// row leading to the Groups page filtered to exactly those customers.
 
 const GRID = "grid grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_1rem] items-center gap-x-4";
 const LABEL = "text-[11px] font-semibold uppercase tracking-wider text-neutral-500";
@@ -31,6 +31,15 @@ export default function SegmentBreakdown({ action, summary }: { action: ActionSt
   const segSrc = colSrc(summary, "archetype");
   return (
     <div className="border-t border-neutral-100 bg-neutral-50/60 px-5 py-4" id={`segments-${action.offer}`}>
+      <div className="flex justify-end px-3 pb-2">
+        <Link
+          to={actionGroupsLink(action.offer)}
+          className="inline-flex items-center gap-1 rounded text-xs font-medium text-accent-700 transition-colors duration-150 hover:text-accent-600"
+        >
+          All segments in Groups
+          <ArrowRight size={12} aria-hidden />
+        </Link>
+      </div>
       <div className={`${GRID} px-3 pb-2`}>
         <span className={LABEL}>Segment</span>
         <span className={LABEL}>Customers</span>
@@ -43,7 +52,7 @@ export default function SegmentBreakdown({ action, summary }: { action: ActionSt
             <li key={s.key}>
               <Link
                 to={segmentLink(action.offer, s.key)}
-                title={`Open these ${s.customers} customers in the Worklist`}
+                title={`Open these ${s.customers} customers in Groups`}
                 className={`${GRID} group rounded-lg px-3 py-2 text-sm text-neutral-900 transition-colors duration-150 hover:bg-white`}
               >
                 <SegmentName s={s} />
