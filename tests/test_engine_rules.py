@@ -80,6 +80,58 @@ def test_contact_cap_defers_instead_of_dropping(rt):
     assert any(b.rule_id == "CONTACT-CAP" and b.offer_id == "*" and b.until for b in c.blocked)
 
 
+def guarantee_end(rt, cid):
+    from nba.engine.content import guarantee_dates
+
+    return guarantee_dates(rt.states[cid], rt.policy.params.get("price_guarantee_window_days"))[0].date().isoformat()
+
+
+def test_price_guarantee_offer_never_waits_past_the_guarantee(rt):
+    c = card(rt, "MG-100140")  # B-01 holds e-mail until 11.11; the guarantee ends 11.10
+    late = [b for b in c.blocked if b.offer_id == "P-EN-02" and "Price guarantee ends 2026-10-11" in b.reason]
+    assert {(b.channel, b.rule_id, b.rule_center_id, b.until) for b in late} == {
+        ("email", "BUSINESS-RULE", "B-01", None), ("newsletter_email", "BUSINESS-RULE", "B-01", None)}
+    assert c.chosen.tuple_id == "P-EN-02|portal_popup|sie" and c.chosen.deferred_until[:10] < guarantee_end(rt, "MG-100140")
+    c = card(rt, "MG-100271")  # B-02 holds every channel until 04.10; the guarantee ends 03.10: the next action wins
+    assert not c.chosen.tuple_id.startswith("P-EN-02|") and c.chosen.tuple_id != NO_ACTION
+    assert any(b.offer_id == "P-EN-02" and b.channel == "sms" and b.rule_id == "CONTACT-CAP" and b.rule_center_id == "B-02"
+               and "Price guarantee ends 2026-10-03 before contact is allowed on 2026-10-04" in b.reason for b in c.blocked)
+    for c in rt.cards():
+        if c.chosen.tuple_id.startswith("P-EN-02|") and c.chosen.deferred_until:
+            assert c.chosen.deferred_until[:10] < guarantee_end(rt, c.customer_id), c.customer_id
+
+
+def test_no_action_reason_names_the_rule_center_rule(rt):
+    c = card(rt, "MG-100129")  # the only remaining offers are calls below the B-08 floor
+    assert c.chosen.tuple_id == NO_ACTION and "B-08" in c.chosen.reason_line.split("Reasons: ")[1].split(", ")
+    assert not any("BUSINESS-RULE" in c.chosen.reason_line for c in rt.cards() if c.chosen.tuple_id == NO_ACTION)
+
+
+def test_rule_report_defers_only_when_a_tuple_is_held(rt):
+    b03 = result(card(rt, "MG-100140"), "B-03")  # 2/1 calls, but B-08 already blocked the only call
+    assert (b03.result, b03.until, b03.tuples) == ("pass", None, 0) and b03.measured["count"] > b03.measured["limit"]
+    assert b03.detail == "2/1 in 90 days: limit reached; nothing held"
+    b02 = result(card(rt, "MG-100069"), "B-02")
+    assert b02.result == "pass" and b02.detail.endswith(": limit reached; nothing held") and b02.until is None
+    assert result(card(rt, "MG-100050"), "B-01").result == "defer"  # holds generic e-mails; blocks P-EN-02 e-mails
+    for c in rt.cards():
+        for r in c.rules.results:
+            assert r.tier == "compliance" or r.result not in {"block", "defer"} or r.tuples > 0, (c.customer_id, r.rule_id)
+
+
+def test_rule_edit_keeps_the_propensity_version(rt):
+    before = rt.cfg.versions(rt.policy)
+    edited = dict(rt.cfg.settings["business_rules"])
+    edited["B-01"] = {**edited["B-01"], "max": 3}
+    custom = [{"id": "U-1", "name": "No app", "active": True,
+               "condition": {"entity": "customer_master", "column": "app_installed", "op": "=", "value": False}}]
+    for settings in ({"business_rules": edited}, {"custom_rules": custom}, {"rule_set_version": "rs-2"}):
+        after = rt.with_rules(settings=settings).cfg.versions(rt.policy)
+        assert after.propensity == before.propensity and after.rules != before.rules, settings
+    tuned = rt.with_rules(settings={"calibration": {**rt.cfg.settings["calibration"], "active": False}})
+    assert tuned.cfg.versions(rt.policy).propensity != before.propensity  # model settings still count
+
+
 # ---------------------------------------------------------------- what-if, capacity, registry
 
 
@@ -90,7 +142,7 @@ def test_what_if_b01_from_5_to_3(rt):
     edited = dict(settings["business_rules"])
     edited["B-01"] = {**edited["B-01"], "max": 3}
     report = what_if(rt, rt.with_rules(settings={"business_rules": edited}))
-    assert (report["before"]["customers_by_rule"]["B-01"], report["after"]["customers_by_rule"]["B-01"]) == (328, 492)
+    assert (report["before"]["customers_by_rule"]["B-01"], report["after"]["customers_by_rule"]["B-01"]) == (285, 410)  # customers with an e-mail tuple held
     assert report["changed"] > 0 and report["after"]["waiting"] >= report["before"]["waiting"]
     assert report["rule_set_version"]["before"] != report["rule_set_version"]["after"]
 

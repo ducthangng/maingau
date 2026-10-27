@@ -210,7 +210,9 @@ def assemble(state, pop, policy, cfg, *, capacity=None) -> CustomerCard:
         chosen = build_chosen(selected, state, cfg, service_mode, policy=policy)
         path = selected.path or explain(state, selected, policy)
     else:
-        rules = ", ".join(sorted({b.rule_id for b in blocked})) or "DATA-MISSING"
+        # a tier 2 row names its Rule Center rule (B-xx, U-xx) rather than the generic BUSINESS-RULE
+        rules = ", ".join(sorted({b.rule_center_id if b.rule_id == "BUSINESS-RULE" and b.rule_center_id else b.rule_id
+                                  for b in blocked})) or "DATA-MISSING"
         chosen = Chosen(tuple_id=NO_ACTION, service_mode=service_mode,
                         reason_line=f"No eligible action with positive expected ΔCLV. Reasons: {rules}")
         path = []

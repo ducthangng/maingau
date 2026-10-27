@@ -42,6 +42,10 @@ def fingerprint(value: Any) -> str:
     return hashlib.sha256(payload.encode()).hexdigest()[:12]
 
 
+# Rule Center settings: versioned by versions.rules, so a rule edit keeps versions.propensity (and approvals)
+RULE_KEYS = frozenset({"business_rules", "custom_rules", "rule_set_version"})
+
+
 @dataclass
 class EngineConfig:
     settings: dict[str, Any]
@@ -86,10 +90,11 @@ class EngineConfig:
 
     def versions(self, policy) -> Versions:
         if self._versions is None:
+            model_settings = {k: v for k, v in self.settings.items() if k not in RULE_KEYS}
             self._versions = Versions(
                 policy=f"{policy.version}:{fingerprint(asdict(policy))}",
                 value_model=f"{self.settings['value_model']}:{fingerprint([self.assumptions, self.offers])}",
-                propensity=f"{self.settings['propensity_version']}:{self.p_mode}:{fingerprint([self.settings, self.history, self.lookalike and self.lookalike.version])}",
+                propensity=f"{self.settings['propensity_version']}:{self.p_mode}:{fingerprint([model_settings, self.history, self.lookalike and self.lookalike.version])}",
                 templates=f"{self.settings['templates_version']}:{fingerprint([(p.name, p.read_text(encoding='utf-8')) for p in sorted(self.template_dir.glob('*.yaml'))])}",
                 rules=rule_set_version(self.settings, policy),
             )

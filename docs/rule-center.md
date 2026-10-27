@@ -35,29 +35,31 @@ The API refuses to switch off or loosen a C-xx rule (403). Tightening means addi
 
 Defined in `config/nba.yaml → business_rules`; B-02 is `config/kg.yaml → contact_cap`. Service actions are exempt from every tier 2 rule.
 
-"Customers" below is how many of the 750 have the rule blocking or holding back at least one tuple today.
+"Customers" below is how many of the 750 have the rule blocking or holding back at least one tuple today. A counter at its limit counts only when the rule held a tuple: otherwise the rule report says `pass`, "limit reached; nothing held" (e.g. 328 customers are at the B-01 limit, 285 have an e-mail tuple held).
 
 | ID | Rule (default) | Effect | Customers | Spec's claim, checked |
 |---|---|---|---|---|
-| B-01 | Max 5 e-mails in 90 days; newsletters count | DEFER_UNTIL | 328 | **Confirmed:** 673 customers e-mailed, median 4, 328 at ≥ 5 |
-| B-02 | Max 2 contacts in 30 days, all channels | DEFER_UNTIL | 95 | "p90 = 4" **not reproduced** (3 with every source). "4% → 1.2% above 4 actions" holds **per customer over Jun–Sep** (3.8–4.1% vs 1.2%), not per 30 days |
-| B-03 | Max 1 call in 90 days (a service agent's offer mention counts as a call) | DEFER_UNTIL | 101 | **Confirmed:** max 2 in 90 days in the history |
-| B-04 | Max 1 SMS in 90 days | DEFER_UNTIL | 82 | **Confirmed** |
+| B-01 | Max 5 e-mails in 90 days; newsletters count | DEFER_UNTIL | 285 | **Confirmed:** 673 customers e-mailed, median 4, 328 at ≥ 5 |
+| B-02 | Max 2 contacts in 30 days, all channels | DEFER_UNTIL | 80 | "p90 = 4" **not reproduced** (3 with every source). "4% → 1.2% above 4 actions" holds **per customer over Jun–Sep** (3.8–4.1% vs 1.2%), not per 30 days |
+| B-03 | Max 1 call in 90 days (a service agent's offer mention counts as a call) | DEFER_UNTIL | 2 | **Confirmed:** max 2 in 90 days in the history |
+| B-04 | Max 1 SMS in 90 days | DEFER_UNTIL | 8 | **Confirmed** |
 | B-05 | Same offer dismissed or ignored ≥ 2 times: pause it 60 days after the last one | DEFER_UNTIL | 22 | MG-100051 × P-EN-02: dismissed 24.07 and 25.07, paused until 23.09, so **already over** at the snapshot (R3) |
 | B-06 | No sales for 14 days after a ticket is resolved | DEFER_UNTIL | 33 | |
 | B-07 | Never offer what they own | BLOCK_OFFER (KG gate) | 552 | |
-| B-08 | A call only if ΔCLV ≥ €10 (a call costs €6) | BLOCK_CHANNEL | 92 | MG-100112's StromAktiv call is €14.87, so K11 stands in rate mode. Under uplift it is €2.54 and is blocked |
-| B-09 | Max 50 calls per week | DEFER_UNTIL (switch channel or wait) | 0 | 5 calls are chosen today |
+| B-08 | A call only if ΔCLV ≥ €10 (a call costs €6) | BLOCK_CHANNEL | 99 | MG-100112's StromAktiv call is €14.87, so K11 stands in rate mode. Under uplift it is €2.54 and is blocked |
+| B-09 | Max 50 calls per week | DEFER_UNTIL (switch channel or wait) | 0 | 3 calls are chosen today (2 now, 1 waiting) |
 
 **Decisions today: before → after the Rule Center**
 
 | Outcome | Before | After |
 |---|---|---|
-| Act now | 596 | **519** (ΔCLV €8,897) |
-| Waiting | — | **146** (ΔCLV €1,706) |
-| No action | 154 | **85** |
+| Act now | 596 | **518** (ΔCLV €8,898) |
+| Waiting | — | **146** (ΔCLV €1,666) |
+| No action | 154 | **86** |
 
-Among the 146 waiting customers, the limit is reached for B-01 in 103 cases, B-02 in 79, B-06 in 32, B-03 in 24, B-04 in 20 and B-05 in 11 (a customer can hit several). The most common dates are 21.10 (24) and 11.11 (17).
+Among the 146 waiting customers, a tuple is held by B-01 in 103 cases, B-02 in 79, B-06 in 32, B-05 in 11, B-04 in 3 and B-03 in 1 (a customer can hit several). The most common dates are 21.10 (24) and 11.11 (13).
+
+A price-guarantee offer (P-EN-02) never waits until the day its guarantee ends or later: that hold becomes a block naming the rule ("Price guarantee ends … before contact is allowed …") and the next action wins (6 decisions change today, e.g. MG-100140 and MG-100271).
 
 ## 4. Shared contact counter (`nba/kg/contacts.py`)
 
@@ -70,7 +72,7 @@ All frequency rules use one counter. It merges these sources and removes duplica
 | `service_feedback`: `service_nba_feedback` with `offer_mentioned_to_customer` (stored as text `'True'`) | `outbound_call` | `shown_at` |
 | decision log | its channel | passed in by the caller as `extra` |
 
-- The window is `(t − W days, t]` on exact timestamps. Counting from midnight of the first day would move B-01 from 328 to 449 customers.
+- The window is `(t − W days, t]` on exact timestamps. Counting from midnight of the first day would move the customers at the B-01 limit from 328 to 449.
 - Each rule chooses its sources: B-01 uses history + newsletter; B-02 history + service feedback (R1); B-03 history + service feedback; B-04 history only.
 
 ## 5. Evaluation order (as built)
@@ -79,7 +81,7 @@ All frequency rules use one counter. It merges these sources and removes duplica
 |---|---|---|
 | 1 | Tier 1 and B-07 drop tuples. A capped customer keeps their tuples, marked with a failed CONTACT-CAP check | `kg_bundle(apply_cap=False)` |
 | 2 | Every tuple is valued | `value_candidate` |
-| 3 | Tier 2 per tuple: **block** (B-08, custom) drops it; **hold** (B-01…B-06, B-09, B-02) gives it `deferred_until` = the latest of its earliest allowed times. Tuples with ΔCLV ≤ 0 are left to the economics row | `nba/engine/rulecenter.py` |
+| 3 | Tier 2 per tuple: **block** (B-08, custom) drops it; **hold** (B-01…B-06, B-09, B-02) gives it `deferred_until` = the latest of its earliest allowed times; a P-EN-02 tuple held until the day its price guarantee ends, or later, is blocked by the holding rule instead. Tuples with ΔCLV ≤ 0 are left to the economics row | `nba/engine/rulecenter.py` |
 | 4 | The best tuple allowed **now** wins, so a blocked channel falls back to the next one with its own contact cost. If none is allowed now, the best held-back tuple is chosen: `chosen.deferred_until` is set, `send_at` comes after it, and the reason starts "Held back until …". Signal tuples come before generic ones (K12) | `evaluate_candidates` |
 | 5 | Nothing allowed or waiting with ΔCLV > 0: NO_ACTION with the list of reasons | `assemble` |
 | 6 | B-09 runs last, across all customers. Per channel and ISO week, the highest ΔCLV keeps its slot; the overflow is re-decided with that channel held until next Monday (switch channel or wait) | `Runtime.capacity_overflow` |
@@ -161,13 +163,13 @@ A waiting action fails the checklist item `contact_cap`, so bulk approval leaves
 | MG-100051 | P-EN-02 paused 60 days (B-05) | At 01.09: paused until 23.09. At the snapshot: over (R3) |
 | MG-100096 | Service only (C-06) | P-SV-01 |
 | MG-100186 | Service only (C-07) | P-SV-01 |
-| B-01 5 → 3 | What-if shows more e-mail blocks | **328 → 492 customers**, 90 decisions change, ΔCLV now €8,897 → €8,617 |
+| B-01 5 → 3 | What-if shows more e-mail blocks | **285 → 410 customers**, 82 decisions change, ΔCLV now €8,898 → €8,617 |
 
 ## 9. Decisions (defaults applied; one setting switches each)
 
 | # | Question | Default applied | Switch | Effect of the other option |
 |---|---|---|---|---|
-| R1 | Do newsletters count toward B-02? | No: only toward B-01 | `config/kg.yaml contact_cap.sources` + `newsletter`, or "newsletters count: yes" in `rules.yaml` (hard, sign-off) | 328 decisions change; act now 519 → 241, waiting 146 → 424, ΔCLV now €8,897 → €5,570 |
+| R1 | Do newsletters count toward B-02? | No: only toward B-01 | `config/kg.yaml contact_cap.sources` + `newsletter`, or "newsletters count: yes" in `rules.yaml` (hard, sign-off) | 332 decisions change; act now 518 → 240, waiting 146 → 424, ΔCLV now €8,898 → €5,562 |
 | R2 | C-07 scope | Stricter: any open ticket (allowed in tier 1; same result today) | `kg/policy.yaml` exclusion predicate | none today |
 | R3 | MG-100051 B-05 test | Tested at 01.09 (paused until 23.09); the snapshot shows it over | — | — |
 | R4 | Who builds the page | API + `rules.json` first; the Rule Center card is on the temporary branch `feat/rule-card` | — | — |
