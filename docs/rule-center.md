@@ -22,7 +22,7 @@ Defined in `kg/policy.yaml → compliance`, enforced by the KG gates. Every bloc
 | C-01 | A channel needs its consent `granted`; portal needs a portal account, app push the app | BLOCK_CHANNEL | `CONSENT-CHANNEL`, `CHANNEL-AVAILABLE` | most customers lack at least one channel |
 | C-02 | Newsletter needs double opt-in | BLOCK_CHANNEL | `CONSENT-CHANNEL` | |
 | C-03 | Unsubscribe withdraws the newsletter at once | BLOCK_CHANNEL | `CONSENT-CHANNEL` (`newsletter_performance.unsubscribed`) | e.g. MG-100067, MG-100102 |
-| C-04 | Withdrawn consent cancels actions approved but not sent | CANCEL_PENDING | `nba.kg.events` replay revokes pending cards | 29 revocations on the event stream |
+| C-04 | Withdrawn consent cancels actions approved but not sent | CANCEL_PENDING | `nba.kg.events` replay revokes pending cards | 33 revocations on the event stream |
 | C-05 | No profiling consent: no personalisation | DOWNGRADE_TO_NON_PERSONALISED | `CONSENT-PROFILING` (D1 generic path) | |
 | C-06 | Dunning ≥ 1: service only | BLOCK_ALL_SALES | `EXCL-DUNNING` | MG-100096 |
 | C-07 | Open complaint: no sales. **Tightened:** any open ticket (R2) | BLOCK_ALL_SALES | `EXCL-OPEN-TICKET` | MG-100186 |

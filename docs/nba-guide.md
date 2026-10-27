@@ -67,7 +67,7 @@ Every customer card says which rule passed, blocked or held back, with a counter
 | Decisions | **519 act now** (total ΔCLV €8,897), **146 waiting** for a rule (ΔCLV €1,706), **85 no action** |
 | Legacy audit | of 2,022 past sends, 829 went out without channel consent and 114 were app pushes to customers without the app |
 | What-if, B-01 from 5 to 3 e-mails | customers with e-mail paused 328 → 492; 90 decisions change |
-| Event replay (01.10 stream) | 118 customers re-decided; 40 waiting cards revoked |
+| Event replay (01.10 stream) | 118 customers re-decided; 33 pending cards revoked (32 by a new open ticket, 1 by a cancellation) |
 
 ## 6. How to run
 
@@ -221,4 +221,3 @@ A tester expectation that does not come true is a **finding** for a person, not 
 - **Mock data:** the numbers show the method, not real results.
 - **p is descriptive:** it is an observed conversion rate (backed off to coarser levels, adjusted by similar customers), not a causal uplift. `--p-mode uplift` uses the control group.
 - **Latest state only:** `consent_status`, dunning and app/portal flags hold the latest state, so the legacy audit is an estimate.
-- **Replay and waiting cards:** replay revokes a waiting card when the contact cap is reached, even though the card already waits for that cap.

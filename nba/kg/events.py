@@ -6,7 +6,9 @@ Online semantics:
 - every fact key has its own clock: an older event that arrives later never overwrites a newer fact;
 - after each decision-relevant event the KG view of that customer is recomputed at the ingest time,
   and a pending card (offer, channel) is re-checked with `check_tuple`: revoked if a hard rule now
-  blocks it. Cards already delivered in the past cannot be revoked — only pending ones.
+  blocks it. A deferred card already waits for a temporary block (contact cap) that frees up by its
+  `deferred_until`, so that block does not revoke it. Cards already delivered in the past cannot be
+  revoked — only pending ones.
 
 Three freshness measures (from the audit): arrival-to-invalidation (processing at ingest),
 decision-time known-state validity (pending cards re-checked at every transition) and retrospective
@@ -21,6 +23,7 @@ from datetime import datetime
 
 import pandas as pd
 
+from nba.contracts import Blocked
 from nba.kg.policy import Policy
 from nba.kg.rules import active_exclusions, check_tuple
 from nba.kg.segments import triage
@@ -244,19 +247,37 @@ def _kg_view(state: CustomerState, policy: Policy, pop: pd.DataFrame):
     return (sig, triage(state, sig, policy, pop), {r for r, _ in active_exclusions(state, policy)}, is_profiled(state, policy))
 
 
+def _pending_card(entry) -> tuple[str | None, bool, datetime | None]:
+    """tuple_id | (tuple_id, personalised) | (tuple_id, personalised, deferred_until) -> the three parts."""
+    if not entry:
+        return None, False, None
+    if isinstance(entry, str):
+        return entry, False, None
+    tid, personalised, *rest = entry
+    wait = rest[0] if rest else None
+    return tid, bool(personalised), datetime.fromisoformat(wait) if isinstance(wait, str) else wait
+
+
+def _waits_for(b: Blocked, deferred_until: datetime | None) -> bool:
+    """The card already waits for this temporary block (contact cap): it frees up by `deferred_until`."""
+    return deferred_until is not None and b.until is not None and datetime.fromisoformat(b.until) <= deferred_until
+
+
 def replay(
     states: dict[str, CustomerState],
     events: list[dict],
     policy: Policy,
     pop: pd.DataFrame,
     until: datetime | None = None,
-    pending: dict[str, str | tuple[str, bool]] | None = None,
+    pending: dict[str, str | tuple] | None = None,
 ) -> ReplayResult:
     """Apply events (already deduplicated and sorted by ingested_at) up to `until` (inclusive).
 
     `pending` maps customer_id -> tuple_id of a not-yet-sent card (e.g. Agent NBA's T0 decision),
-    or -> (tuple_id, personalised). A personalised card is also revoked when profiling consent is gone,
-    even if a generic version of the same offer and channel would still be allowed (D1).
+    or -> (tuple_id, personalised[, deferred_until]). A personalised card is also revoked when profiling
+    consent is gone, even if a generic version of the same offer and channel would still be allowed (D1).
+    A deferred card is not revoked by a contact-cap block that frees up on or before its `deferred_until`
+    (ISO string or datetime); a cap that frees later, or any other hard rule, still revokes it.
     The returned states have eval_time = `until` (or the last ingest time).
     """
     pending = dict(pending or {})
@@ -303,11 +324,11 @@ def replay(
             flags_added=tuple(sorted({f.id for f in tri_a.flags} - {f.id for f in tri_b.flags})),
             flags_removed=tuple(sorted({f.id for f in tri_b.flags} - {f.id for f in tri_a.flags})),
         )
-        entry = pending.get(cid)
-        tid, personalised = (entry if isinstance(entry, tuple) else (entry, False)) if entry else (None, False)
+        tid, personalised, deferred_until = _pending_card(pending.get(cid))
         if tid and tid != "NO_ACTION":
             offer, channel, _tone = tid.split("|")
-            blockers = [(b.rule_id, b.reason) for b in check_tuple(after_state, offer, channel, policy)]
+            blockers = [(b.rule_id, b.reason) for b in check_tuple(after_state, offer, channel, policy)
+                        if not _waits_for(b, deferred_until)]
             if personalised and not prof_a:
                 blockers.append(("CONSENT-PROFILING", "personalised card, but profiling consent was withdrawn"))
             if blockers:
