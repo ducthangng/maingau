@@ -10,8 +10,13 @@ PAUSE = {"id": "M-MG-100023-1", "customer_id": "MG-100023", "kind": "pause_offer
          "source": "agent_feedback", "source_ref": "SF-test-1", "note": "dismissed: customer_already_has_product", "by": "rule"}
 
 
-def _files(folder):
-    return {str(p.relative_to(folder)): p.read_bytes() for p in sorted(folder.rglob("*")) if p.is_file()}
+def _files(folder):  # data_source.json is written by main() only (which data the run read, nba.lakehouse)
+    return {str(p.relative_to(folder)): p.read_bytes() for p in sorted(folder.rglob("*"))
+            if p.is_file() and p.name != "data_source.json"}
+
+
+def _printed(capsys):  # the build's own lines; the "Data: …" line comes from nba.lakehouse
+    return [line for line in capsys.readouterr().out.splitlines() if not line.startswith("Data: ")]
 
 
 def _card(out, cid):
@@ -27,7 +32,7 @@ def test_memory_file_changes_the_remembered_customer_only(tmp_path, capsys):
     memory.write_text(json.dumps(PAUSE) + "\n{torn line\n")
     _run("--out", tmp_path / "before", "--no-memory")
     _run("--out", tmp_path / "after", "--memory", memory)
-    out = capsys.readouterr().out.splitlines()
+    out = _printed(capsys)
     assert "memory=none;" in out[0] and f"memory=1 entries (1 active) from {memory};" in out[1]
     before, after = _card(tmp_path / "before", "MG-100023"), _card(tmp_path / "after", "MG-100023")
     assert before["chosen"]["tuple_id"] == "P-AS-01|portal_popup|sie"
@@ -64,7 +69,7 @@ def test_learn_twice_is_byte_identical_and_remembers_each_item_once(tmp_path, ca
     _run("--out", tmp_path / "first", "--memory", memory, "--learn")
     lines = memory.read_text().splitlines()
     _run("--out", tmp_path / "second", "--memory", memory, "--learn")
-    out = capsys.readouterr().out.splitlines()
+    out = _printed(capsys)
     assert out[1].startswith("Learned 76 new memory entries from 76 feedback items")  # 74 workbook + 1 log + 1 service
     assert out[3].startswith("Learned 0 new memory entries") and "memory=76 entries (" in out[4]
     assert memory.read_text().splitlines() == lines and len({json.loads(x)["source_ref"] for x in lines}) == 76

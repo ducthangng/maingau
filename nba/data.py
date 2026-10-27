@@ -2,6 +2,9 @@
 
 Owner: Agent KG. Other agents import `load_workbook` / `load_events` and never
 re-implement parsing.
+
+The default workbook and event stream come from Databricks when config/databricks.yaml selects it
+(nba.lakehouse); the local files in data/ are the backup when Databricks cannot be read.
 """
 
 from __future__ import annotations
@@ -120,6 +123,23 @@ def _cache_key(path: Path) -> str:
     return f"workbook-{st.st_mtime_ns}-{st.st_size}-{parser}.pkl"
 
 
+def _remote(path: Path):
+    """The Databricks raw layer if `path` is the default workbook and config selects Databricks, else None."""
+    if path.resolve() != DEFAULT_WORKBOOK.resolve():
+        return None
+    from nba import lakehouse
+
+    return lakehouse.remote_raw()
+
+
+def read_raw_sheets(path: str | Path = DEFAULT_WORKBOOK) -> dict[str, pd.DataFrame]:
+    """Every sheet as text, exactly as pandas reads the workbook (from Databricks when configured)."""
+    remote = _remote(Path(path))
+    if remote is not None:
+        return {name: df.copy() for name, df in remote.sheets.items()}
+    return pd.read_excel(path, sheet_name=None, dtype=str)
+
+
 def load_workbook(path: str | Path = DEFAULT_WORKBOOK, use_cache: bool = True) -> dict[str, pd.DataFrame]:
     """Every sheet as a DataFrame of Python values (None, bool, int/float, datetime, str).
 
@@ -127,6 +147,11 @@ def load_workbook(path: str | Path = DEFAULT_WORKBOOK, use_cache: bool = True) -
     out/.cache, keyed by the workbook's mtime and size and a fingerprint of this parser.
     """
     path = Path(path)
+    remote = _remote(path)
+    if remote is not None:  # Databricks: parsed once per process, each caller gets its own copies
+        if remote.parsed is None:
+            remote.parsed = {name: _clean_sheet(name, df) for name, df in remote.sheets.items()}
+        return _stamp({name: df.copy() for name, df in remote.parsed.items()}, path)
     cache = CACHE_DIR / _cache_key(path)
     if use_cache and cache.exists():
         with cache.open("rb") as fh:
@@ -148,24 +173,32 @@ def _parse_ts(s: str | None) -> datetime | None:
     return datetime.fromisoformat(str(s).replace("Z", "+00:00")).replace(tzinfo=None)
 
 
+def event_lines(path: str | Path) -> list[str]:
+    """The event stream's lines as a text file iterates them (split on newlines only)."""
+    text = Path(path).read_text(encoding="utf-8")
+    lines = text.split("\n")
+    return lines[:-1] if text.endswith("\n") else lines
+
+
 def load_events(path: str | Path = DEFAULT_EVENTS) -> list[dict]:
     """Events deduplicated by (event_id, occurred_at), first seen wins, sorted by ingested_at."""
+    remote = _remote(DEFAULT_WORKBOOK) if Path(path).resolve() == DEFAULT_EVENTS.resolve() else None
+    lines = remote.event_lines if remote is not None else event_lines(path)
     seen: set[tuple[str, str]] = set()
     events: list[dict] = []
-    with Path(path).open(encoding="utf-8") as fh:
-        for line_no, line in enumerate(fh, 1):
-            if not line.strip():
-                continue
-            ev = json.loads(line)
-            key = (ev["event_id"], ev.get("occurred_at"))
-            if key in seen:
-                log.info("duplicate event dropped: %s (line %d)", ev["event_id"], line_no)
-                continue
-            seen.add(key)
-            ev["occurred_at"] = _parse_ts(ev.get("occurred_at"))
-            ev["ingested_at"] = _parse_ts(ev.get("ingested_at"))
-            payload = ev.get("payload") or {}
-            ev["effective_date"] = _parse_ts(payload.get("effective_date")) if payload.get("effective_date") else None
-            events.append(ev)
+    for line_no, line in enumerate(lines, 1):
+        if not line.strip():
+            continue
+        ev = json.loads(line)
+        key = (ev["event_id"], ev.get("occurred_at"))
+        if key in seen:
+            log.info("duplicate event dropped: %s (line %d)", ev["event_id"], line_no)
+            continue
+        seen.add(key)
+        ev["occurred_at"] = _parse_ts(ev.get("occurred_at"))
+        ev["ingested_at"] = _parse_ts(ev.get("ingested_at"))
+        payload = ev.get("payload") or {}
+        ev["effective_date"] = _parse_ts(payload.get("effective_date")) if payload.get("effective_date") else None
+        events.append(ev)
     events.sort(key=lambda e: (e["ingested_at"] or datetime.min, e["event_id"]))
     return events

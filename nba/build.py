@@ -8,6 +8,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+from nba import lakehouse
 from nba.ai import feedback
 from nba.ai.llm import LLM
 from nba.contracts import CustomerCard, IndexRow, RulesFile, Summary
@@ -145,8 +146,13 @@ def main(argv=None):
     entries = [m for ms in runtime.cfg.memory.values() for m in ms]
     at = runtime.states[cards[0].customer_id].eval_time
     used = f"{len(entries)} entries ({sum(feedback.active(m, at) for m in entries)} active) from {args.memory}" if entries else "none"
+    # Which data this run read (Databricks or the local files, config/databricks.yaml); read by the publish step
+    source = lakehouse.status() if args.workbook.resolve() == DEFAULT_WORKBOOK.resolve() else {
+        "source": "local", "detail": str(args.workbook)}
+    (Path(args.out) / "data_source.json").write_text(json_text(source), encoding="utf-8")
     print(f"Built {len(cards)} customers in {time.perf_counter() - start:.2f}s; mode={runtime.cfg.p_mode}; "
           f"memory={used}; output={args.out}")
+    print(f"Data: {source['source']} ({source['detail']})")
 
 
 if __name__ == "__main__":

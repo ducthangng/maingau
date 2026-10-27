@@ -16,7 +16,7 @@ from pathlib import Path
 import pandas as pd
 import yaml
 
-from nba.data import BOOL_COLUMNS, DEFAULT_WORKBOOK, _is_date_column, load_workbook
+from nba.data import BOOL_COLUMNS, DEFAULT_WORKBOOK, _is_date_column, load_workbook, read_raw_sheets
 from nba.state import resolve_eval_time
 
 REPO = Path(__file__).resolve().parents[2]
@@ -206,7 +206,7 @@ def configured_eval_time(tables: dict[str, pd.DataFrame], config_path: str | Pat
 def validate_workbook(path: str | Path = DEFAULT_WORKBOOK, contract_path: str | Path = CONTRACT_PATH,
                       config_path: str | Path = CONFIG_PATH) -> list[Issue]:
     tables = load_workbook(path)
-    raw = pd.read_excel(path, sheet_name=None, dtype=str)
+    raw = read_raw_sheets(path)  # Databricks when configured, like load_workbook
     try:
         t = configured_eval_time(tables, config_path)
     except (KeyError, ValueError):

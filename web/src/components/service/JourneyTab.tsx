@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useLoad } from "../../lib/data";
 import { loadJourney } from "../../lib/journey";
+import { JourneySkeleton } from "../Skeleton";
 import type { CustomerCard, Journey, JourneyEvent, TimelineItem } from "../../types/contracts";
 import { channelName, dateLabel, humanize, offerName } from "./plain";
 
@@ -112,7 +113,7 @@ export function JourneyList({ events }: { events: JourneyEvent[] }) {
 
 export default function JourneyTab({ card }: { card: CustomerCard }) {
   const journey = useLoad<Journey>(() => loadJourney(card.customer_id), [card.customer_id]);
-  if (journey.status === "loading") return <p className="py-8 text-center text-sm text-neutral-500">Loading the journey…</p>;
+  if (journey.status === "loading") return <JourneySkeleton />;
   if (journey.status === "error") return <JourneyList key={card.customer_id} events={(card.timeline ?? []).map(fromTimeline)} />;
   return <JourneyList key={card.customer_id} events={journey.data.events} />;
 }

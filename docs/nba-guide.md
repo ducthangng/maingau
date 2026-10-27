@@ -183,6 +183,7 @@ cd web && npm run dev                          # terminal 2: http://localhost:51
 | `.venv/bin/python scripts/policy_diff.py` | Which customers change decision after an edit to `kg/policy.yaml` |
 | `.venv/bin/python scripts/export_kg_viz.py` | Graph data for the decision-graph viewer: the ontology, the policy layer and eight demo customers' decision paths (`out/kg_viz.json`) |
 | `.venv/bin/python -m nba.learn run` | Feedback loop: which offers work, compared with the control group |
+| `.venv/bin/python scripts/databricks_sync.py upload` / `check [--mcp]` / `publish` | Our own Databricks workspace: upload the mock data, check it is identical, publish results and the MCP tools. `MAINGAU_DATA_SOURCE=databricks` makes the build read from it, with `data/` as the backup ([databricks.md](databricks.md)) |
 | `.venv/bin/python -m pytest -q tests/` | All tests (about 90 s), including the reference customers in both p modes |
 | `.venv/bin/python -m nba.ai qa [--no-ai] [--scenarios 8]` | AI tests of the whole workflow (§6.8); report in `out/ai_qa/report.md`; exit code 1 if a check fails |
 

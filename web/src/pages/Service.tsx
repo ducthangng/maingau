@@ -6,6 +6,7 @@ import CustomerList from "../components/service/CustomerList";
 import ServiceStrip from "../components/service/ServiceStrip";
 import { CustomerSearch } from "../components/service/ViewSwitch";
 import { loadCard, loadIndex, useLoad } from "../lib/data";
+import { Customer360Skeleton, CustomerListSkeleton } from "../components/Skeleton";
 
 // Customer 360° dashboard for a service agent on a call (prompts/ui-customer360.md §3).
 // Start page: all customers, filtered by ID. Customer page: the strip, then profile, journey and
@@ -18,14 +19,14 @@ const COLUMNS = [
 
 function Landing() {
   const index = useLoad(loadIndex, []);
-  if (index.status === "loading") return <p className="py-12 text-center text-neutral-500">Loading customers…</p>;
+  if (index.status === "loading") return <CustomerListSkeleton />;
   if (index.status === "error") return <p className="text-red-700">Could not load index.json: {index.error}</p>;
   return <CustomerList rows={index.data} />;
 }
 
 function CustomerView({ id }: { id: string }) {
   const card = useLoad(() => loadCard(id), [id]);
-  if (card.status === "loading") return <p className="py-12 text-center text-neutral-500">Loading {id}…</p>;
+  if (card.status === "loading") return <Customer360Skeleton id={id} />;
   if (card.status === "error")
     return (
       <div className="mx-auto max-w-xl space-y-4 py-12 text-center">

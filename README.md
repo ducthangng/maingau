@@ -87,6 +87,7 @@ The entry point is a **worklist ranked by urgency** (§6.13). A marketer opens o
 │   └── event_stream_2026-10-01.jsonl
 ├── config/
 │   ├── kg.yaml                  # Agent KG
+│   ├── databricks.yaml          # data source: local | databricks; catalog and schemas (§6.18), no secrets
 │   ├── cards.yaml               # Agent CARDS
 │   └── nba.yaml                 # Agent NBA
 ├── kg/                          # Agent KG
@@ -95,6 +96,7 @@ The entry point is a **worklist ranked by urgency** (§6.13). A marketer opens o
 ├── nba/
 │   ├── contracts.py             # Agent NBA writes it from §5; others import, never edit
 │   ├── data.py                  # Agent KG: workbook + event loading (§5.1)
+│   ├── lakehouse.py             # Databricks source (with fallback to data/) and results layer (§6.18)
 │   ├── state.py                 # Agent KG: CustomerState, contact counting (§5.2)
 │   ├── kg/                      # Agent KG: policy, predicates, signals, rules, segments, graph, paths, events
 │   ├── profile/                 # Agent CARDS: header, tone, value, products, consent,
@@ -1103,6 +1105,23 @@ The backend is configured by `MAINGAU_LLM` (auto | claude | ollama | none; `nba/
 
 **On the mock data:** 467 act-now proposals in 88 clusters. 74 agent-feedback items become memory and change 14 decisions (3 get another action, 11 wait until a later date). `python -m nba.build` applies `out/customer_memory.jsonl` when it exists; `--learn` creates it first, so the static export shows the memory too (`docs/nba-guide.md` §6.3).
 
+### 6.18 Databricks source and results layer (27 Oct; `nba/lakehouse.py`)
+
+The connection is to our own Databricks Free Edition workspace loaded with the mock data, not to a MAINGAU system. Architecture, target and setup: **[docs/databricks.md](docs/databricks.md)**.
+
+- **Raw layer:** `scripts/databricks_sync.py upload` writes `<catalog>.maingau_raw`:
+  - the 23 sheets, every cell as text, with `_row` for order;
+  - `events_raw`, one row per line;
+  - `_manifest`, written last.
+- **Source:** `config/databricks.yaml → source` (or `MAINGAU_DATA_SOURCE`) is `local` (default) or `databricks`.
+  - With `databricks`, `load_workbook()` / `load_events()` read the raw layer, and `nba/data.py` parses it exactly like the file. The output is byte-identical (1,504 files, 0 differences).
+  - Any failure uses `data/` for the whole run, with one warning. Sources are never mixed.
+  - `nba.build` prints the source and writes `out/data_source.json`.
+- **Results layer:** `scripts/databricks_sync.py publish` writes `<catalog>.maingau_nba`:
+  - tables: `worklist`, `nba_options`, `nba_blocked`, `customer_cards`, `customer_journey`, `decision_log`, `customer_memory`, `run_info`;
+  - four read-only SQL functions that the managed MCP server lists as tools: `customer_360`, `next_best_actions`, `why_blocked`, `action_group`.
+- **Credentials:** `DATABRICKS_HOST` / `DATABRICKS_TOKEN` or `~/.databrickscfg`, never in the repo.
+
 ## 7. Tasks: three agents in parallel
 
 ### 7.1 Agent KG: ontology, knowledge graph, signals, rules and triage
@@ -1266,6 +1285,8 @@ python scripts/export_preview.py --out web/public/data             # KG-only pre
 python scripts/replay_demo.py                                      # deep dive B: out/replay_report.md, out/replay/timeline.json
 python scripts/validate_data.py --workbook <xlsx>                  # data contract check before a build (exit 1 on ERROR)
 python scripts/policy_diff.py [--base <git ref>]                   # customers whose decision changes with the edited policy
+python scripts/databricks_sync.py upload|check [--mcp]|publish       # Databricks raw layer, check, results + MCP tools (§6.18)
+MAINGAU_DATA_SOURCE=databricks python -m nba.build --out out/       # build from Databricks; falls back to data/
 pytest -q
 uvicorn api.app:app --reload --port 8000
 cd web && npm install && npm run dev
@@ -1331,7 +1352,9 @@ Customer facts below were verified in the workbook on 26 Oct. "Spec expects" is 
 
 ## 11. Out of scope
 
-- Real sending, real Databricks or MCP deployment, and live MAINGAU systems. The architecture slide describes the target: Delta + Unity Catalog tables, the decision service and governed MCP tools. It must not claim any of these are integrated.
+- Real sending and live MAINGAU systems.
+- A production Databricks deployment: the Job schedule, Databricks App, Auto Loader, decisions written to Delta, and permissions. The architecture slide describes this target.
+- What exists is a connection to our own Free Edition workspace with the mock data (§6.18). It is not a MAINGAU integration, and the slide must not claim one.
 - Online learning or reinforcement learning. Learning is presented as a concept: a holdout design and Bayesian updates of p with versioning.
 - A graph database, embeddings or an LLM reasoner. The KG is small and lives in YAML + NetworkX.
 - Personalised prices, and causal uplift claims based on the mock history.

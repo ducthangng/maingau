@@ -14,6 +14,7 @@ import { FLAG_META, FlagIcon } from "../viz";
 import Interaction from "./Interaction";
 import NbaPanel from "./NbaPanel";
 import { Label } from "./parts";
+import { CustomerModalSkeleton } from "../Skeleton";
 
 // Action-first pop-up opened from the worklist. Left: who the customer is and how they have dealt
 // with us. Right: hard rules, then the ranked next best actions (see NbaPanel).
@@ -205,7 +206,7 @@ export default function CustomerModal({ id, onClose }: { id: string; onClose: ()
         >
           <X size={18} />
         </button>
-        {card.status === "loading" && <p className="col-span-full p-10 text-center text-neutral-500">Loading {id}…</p>}
+        {card.status === "loading" && <CustomerModalSkeleton id={id} />}
         {card.status === "error" && (
           <p className="col-span-full p-10 text-center text-red-700">
             Could not load {id}: {card.error}

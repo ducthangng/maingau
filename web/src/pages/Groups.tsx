@@ -9,6 +9,7 @@ import PreviewSheet, { type ConfirmResult } from "../components/groups/PreviewSh
 import ServiceList from "../components/groups/ServiceList";
 import DecisionLog from "../components/groups/DecisionLog";
 import { buildGroups } from "../components/groups/model";
+import { GroupsSkeleton } from "../components/Skeleton";
 
 // Bulk execution (prompts/agent-cards.md §1.2, §1.4): groups by chosen_tuple → preview sheet → approve for hand-off.
 // Nothing is ever sent; approval writes the decision log and an export file.
@@ -36,7 +37,7 @@ export default function Groups() {
     if (serviceDeepLink) document.getElementById("service-list")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [serviceDeepLink]);
 
-  if (index.status === "loading") return <p className="text-neutral-500">Loading…</p>;
+  if (index.status === "loading") return <GroupsSkeleton />;
   if (index.status === "error") return <p className="text-red-700">Could not load index.json: {index.error}</p>;
   if (!groups) return null;
 

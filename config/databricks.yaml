@@ -1,0 +1,21 @@
+# Databricks data source and results layer (nba/lakehouse.py, docs/databricks.md).
+# No secrets in this file: the Databricks SDK reads DATABRICKS_HOST / DATABRICKS_TOKEN from the
+# environment, or a profile in ~/.databrickscfg (outside the repo).
+#
+# Every key can be overridden by an environment variable:
+#   MAINGAU_DATA_SOURCE, MAINGAU_DATABRICKS_PROFILE, MAINGAU_DATABRICKS_WAREHOUSE,
+#   MAINGAU_DATABRICKS_CATALOG, MAINGAU_DATABRICKS_RAW_SCHEMA, MAINGAU_DATABRICKS_OUT_SCHEMA,
+#   MAINGAU_DATABRICKS_VOLUME
+
+# local      read data/ (the default; tests and the static demo use it)
+# databricks read the raw layer in Unity Catalog; if that fails for any reason, the whole run
+#            falls back to the local files with a warning (sources are never mixed)
+source: local
+
+profile: null          # ~/.databrickscfg profile; null = the SDK default (env vars, then DEFAULT)
+warehouse_id: null     # null = the first SQL warehouse by name (Free Edition has one)
+catalog: workspace     # Free Edition's default catalog
+raw_schema: maingau_raw   # the 23 workbook sheets as text + events_raw + _manifest
+out_schema: maingau_nba   # build results + the SQL functions the managed MCP server exposes
+volume: landing        # Unity Catalog volume in raw_schema for uploaded files
+timeout_s: 180         # per SQL statement, including a cold warehouse start
