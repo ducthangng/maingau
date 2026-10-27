@@ -47,24 +47,23 @@ export function ChannelIcon({ channel, size = 14, className = "" }: { channel: s
   return <Icon size={size} aria-label={channel ? (CHANNEL_LABEL[channel] ?? channel) : undefined} className={className} />;
 }
 
-type FlagMeta = { icon: LucideIcon; label: string; tone: "red" | "amber" | "green" | "neutral" };
+type FlagMeta = { icon: LucideIcon; label: string; tone: "red" | "accent" | "neutral" };
 
 export const FLAG_META: Record<string, FlagMeta> = {
   service_critical: { icon: LifeBuoy, label: "Service critical", tone: "red" },
   no_marketing_channel: { icon: Ban, label: "No marketing channel", tone: "red" },
   negative_clv: { icon: TrendingDown, label: "Negative CLV", tone: "red" },
   annoyed_before: { icon: Frown, label: "Annoyed before", tone: "red" },
-  contact_fatigue: { icon: BellOff, label: "Contact fatigue", tone: "amber" },
-  data_inconsistent: { icon: TriangleAlert, label: "Data inconsistent", tone: "amber" },
+  contact_fatigue: { icon: BellOff, label: "Contact fatigue", tone: "neutral" },
+  data_inconsistent: { icon: TriangleAlert, label: "Data inconsistent", tone: "neutral" },
   no_profiling: { icon: EyeOff, label: "No profiling consent", tone: "neutral" },
   prefers_en: { icon: Languages, label: "Prefers English", tone: "neutral" },
-  top_clv: { icon: Gem, label: "Top 10% CLV", tone: "green" },
+  top_clv: { icon: Gem, label: "Top 10% CLV", tone: "accent" },
 };
 
 const ICON_TONE = {
   red: "bg-red-50 text-red-600 ring-red-200",
-  amber: "bg-amber-50 text-amber-700 ring-amber-200",
-  green: "bg-emerald-50 text-emerald-700 ring-emerald-200",
+  accent: "bg-accent-50 text-accent-700 ring-accent-100",
   neutral: "bg-neutral-50 text-neutral-500 ring-neutral-200",
 };
 
@@ -97,9 +96,9 @@ export function FlagIcons({ flags }: { flags: string[] }) {
  * Horizontal magnitude bar on a shared scale (0 → max). Negative values draw in red from the left
  * so a loss never looks like a small gain.
  */
-export function ValueBar({ value, max, className = "", tone = "accent" }: { value: number; max: number; className?: string; tone?: "accent" | "muted" | "green" }) {
+export function ValueBar({ value, max, className = "", tone = "accent" }: { value: number; max: number; className?: string; tone?: "accent" | "muted" }) {
   const w = max > 0 ? Math.min(100, (Math.abs(value) / max) * 100) : 0;
-  const fill = value < 0 ? "bg-red-500" : tone === "accent" ? "bg-accent-500" : tone === "green" ? "bg-emerald-500" : "bg-neutral-300";
+  const fill = value < 0 ? "bg-red-500" : tone === "accent" ? "bg-accent-500" : "bg-neutral-300";
   return (
     <span className={`block h-1.5 w-full overflow-hidden rounded-full bg-neutral-100 ${className}`} aria-hidden>
       <span className={`block h-full rounded-full ${fill}`} style={{ width: `${Math.max(w, value === 0 ? 0 : 3)}%` }} />
@@ -135,7 +134,7 @@ export function ProbMeter({ p, children }: { p: number; children?: ReactNode }) 
 
 /** Risk 0–1 as a meter whose colour steps up with the level (label always beside it). */
 export function RiskMeter({ v }: { v: number }) {
-  const fill = v >= 0.5 ? "bg-red-500" : v >= 0.25 ? "bg-amber-400" : "bg-emerald-500";
+  const fill = v >= 0.5 ? "bg-red-500" : v >= 0.25 ? "bg-neutral-500" : "bg-neutral-300";
   return (
     <span className="block h-1.5 w-full overflow-hidden rounded-full bg-neutral-100" aria-hidden>
       <span className={`block h-full rounded-full ${fill}`} style={{ width: `${Math.max(2, Math.min(100, v * 100))}%` }} />
@@ -148,7 +147,7 @@ export function RiskMeter({ v }: { v: number }) {
 export type DecisionState = "pending" | "approved" | "overridden" | "rejected";
 
 export const DECISION_META: Record<DecisionState, { label: string; icon: LucideIcon | null; dot: string; text: string }> = {
-  approved: { label: "Approved", icon: Check, dot: "bg-emerald-500", text: "text-emerald-700" },
+  approved: { label: "Approved", icon: Check, dot: "bg-accent-600", text: "text-accent-700" },
   overridden: { label: "Overridden", icon: Repeat2, dot: "bg-accent-500", text: "text-accent-700" },
   rejected: { label: "Rejected", icon: X, dot: "bg-red-500", text: "text-red-700" },
   pending: { label: "To review", icon: null, dot: "bg-neutral-300", text: "text-neutral-600" },
@@ -159,7 +158,7 @@ export const DECISION_META: Record<DecisionState, { label: string; icon: LucideI
 export type Direction = "up" | "down" | "flat";
 
 const DIR_META: Record<Direction, { icon: LucideIcon; cls: string; word: string }> = {
-  up: { icon: ArrowUpRight, cls: "text-emerald-600", word: "up" },
+  up: { icon: ArrowUpRight, cls: "text-accent-700", word: "up" },
   down: { icon: ArrowDownRight, cls: "text-red-600", word: "down" },
   flat: { icon: ArrowRight, cls: "text-neutral-400", word: "flat" },
 };
@@ -180,7 +179,7 @@ export function Signed({
   className?: string;
 }) {
   const m = DIR_META[dir];
-  const tone = dir === "flat" ? m.cls : dir === good ? "text-emerald-600" : "text-red-600";
+  const tone = dir === "flat" ? m.cls : dir === good ? "text-accent-700" : "text-red-600";
   const Icon = m.icon;
   return (
     <span className={`inline-flex items-center gap-0.5 whitespace-nowrap tabular-nums ${className}`} title={title}>

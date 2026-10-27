@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Check, ChevronDown, CircleSlash, Lock, Plus, ShieldBan, Trash2 } from "lucide-react";
+import { Check, ChevronDown, CircleSlash, LifeBuoy, Lock, Plus, ShieldBan, Trash2 } from "lucide-react";
 import type { Alternative, Candidate, CustomerCard } from "../../types/contracts";
 import { addRule, removeRule, rulesFor, useHardRules, violation, type HardRule, type RuleKind, type RuleScope } from "../../lib/hardRules";
 import {
@@ -249,9 +249,7 @@ function OptionItem({
     <li
       className={`rounded-xl ring-1 transition-[box-shadow,background-color] duration-150 ${
         selected
-          ? top
-            ? "bg-emerald-50/70 ring-2 ring-emerald-500"
-            : "bg-accent-50/60 ring-2 ring-accent-500"
+          ? "bg-accent-50/60 ring-2 ring-accent-500"
           : "bg-white ring-neutral-200 hover:bg-neutral-50 hover:shadow-sm"
       } ${lock ? "opacity-60" : ""}`}
     >
@@ -259,7 +257,7 @@ function OptionItem({
         <button type="button" onClick={onSelect} aria-pressed={selected} className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left">
           <span
             className={`grid size-6 shrink-0 place-items-center rounded-md text-xs font-semibold tabular-nums ${
-              top ? "bg-emerald-600 text-white" : selected ? "bg-accent-600 text-white" : "bg-neutral-100 text-neutral-600"
+              top ? "bg-gold-400 text-neutral-900" : selected ? "bg-accent-600 text-white" : "bg-neutral-100 text-neutral-600"
             }`}
             title={c?.rank ? `Engine rank #${c.rank}` : undefined}
           >
@@ -275,7 +273,7 @@ function OptionItem({
             </span>
           </span>
           <span className="hidden w-20 shrink-0 sm:block" title="Expected value, relative to the other options">
-            <ValueBar value={d} max={maxDelta} tone={top ? "green" : selected ? "accent" : "muted"} />
+            <ValueBar value={d} max={maxDelta} tone={top || selected ? "accent" : "muted"} />
           </span>
         </button>
         <button
@@ -569,7 +567,7 @@ export function DecisionBox({ card, top, sel, lock, why }: { card: CustomerCard;
             type="button"
             onClick={approve}
             disabled={!canApprove}
-            className={`${btn} text-white ${isTop ? "bg-emerald-600 hover:bg-emerald-700 focus-visible:ring-emerald-400" : "bg-accent-600 hover:bg-accent-700 focus-visible:ring-accent-400"}`}
+            className={`${btn} bg-accent-600 text-white hover:bg-accent-700 focus-visible:ring-accent-400`}
           >
             <Check size={16} strokeWidth={2.5} className="mr-1.5" aria-hidden />
             Approve
@@ -619,7 +617,10 @@ export default function NbaPanel({ card }: { card: CustomerCard }) {
           </div>
 
           {chosen.service_mode && (
-            <p className="rounded-xl bg-amber-50 px-4 py-2.5 text-sm text-amber-900 ring-1 ring-amber-200">Resolve the service issue first.</p>
+            <p className="flex items-center gap-2 rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-2.5 text-sm text-neutral-800">
+              <LifeBuoy size={15} className="shrink-0 text-neutral-500" aria-hidden />
+              Resolve the service issue first.
+            </p>
           )}
           {isNoAction && (
             <div className="flex items-start gap-3 rounded-xl bg-neutral-50 p-4 text-sm ring-1 ring-neutral-200">

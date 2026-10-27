@@ -1,12 +1,14 @@
 import { NavLink, Outlet } from "react-router-dom";
+import { TriangleAlert } from "lucide-react";
 import { dataMode, loadManifest, loadSummary, useLoad } from "../lib/data";
 import DecisionErrors from "./DecisionErrors";
 import { Bone } from "./Skeleton";
 import ViewSwitch, { useIsCustomer360 } from "./service/ViewSwitch";
 
+// Active item: brand-blue pill with the 2 px yellow underline (one of the two yellow uses, prompts/ui-colors.md).
 const navClass = ({ isActive }: { isActive: boolean }) =>
   `rounded-md px-3 py-1.5 text-sm transition-colors duration-150 ${
-    isActive ? "bg-neutral-900 text-white" : "text-neutral-600 hover:bg-neutral-100"
+    isActive ? "bg-accent-600 text-white inset-shadow-[0_-2px_0_var(--color-gold-400)]" : "text-neutral-600 hover:bg-neutral-100"
   }`;
 
 export default function Layout() {
@@ -25,9 +27,10 @@ export default function Layout() {
           <span className="whitespace-nowrap font-semibold tracking-tight">MAINGAU · Next Best Action</span>
           {isMock && (
             <span
-              className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800"
+              className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2.5 py-0.5 text-xs font-semibold text-neutral-800 ring-1 ring-inset ring-neutral-300"
               title="Profile, timeline and KG output are real; valuation, ranking and content are mock (web/mock/build_mock.py)"
             >
+              <TriangleAlert size={12} aria-hidden />
               MOCK DATA
             </span>
           )}
@@ -54,7 +57,7 @@ export default function Layout() {
             )}
             {mode.status === "ready" && summary.status !== "loading" && (
               <span
-                className={`rounded-full px-2 py-0.5 font-medium ${mode.data === "api" ? "bg-emerald-50 text-emerald-700" : "bg-neutral-100 text-neutral-600"}`}
+                className={`rounded-full px-2 py-0.5 font-medium ${mode.data === "api" ? "bg-neutral-200 text-neutral-800" : "bg-neutral-100 text-neutral-600"}`}
                 title={
                   mode.data === "api"
                     ? "Live NBA API: decisions are re-checked and stored in out/decision_log.jsonl"

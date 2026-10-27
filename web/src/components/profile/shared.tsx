@@ -7,11 +7,11 @@ export type Sources = Record<string, SourceInfo> | undefined;
 /** Classes for any element that is a jump target (data-ui-ref) so the flash from Customer.jumpTo looks right. */
 export const REF_CLS = "scroll-mt-24 rounded-md transition-colors duration-500";
 
-/** Chart colours: hex equivalents of the accent tokens in index.css (SVG attributes do not resolve CSS vars everywhere). */
+/** Chart colours: hex values of the accent-500, accent-100 and red-600 tokens (SVG attributes do not resolve CSS vars everywhere). */
 export const CHART = {
-  accent: "#007cd9",
-  accentSoft: "#d4ebff",
-  red: "#dc2626",
+  accent: "#1f62ad",
+  accentSoft: "#d6e4f3",
+  red: "#e7000b",
   grid: "#e5e5e5",
   axis: "#a3a3a3",
 };

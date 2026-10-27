@@ -31,7 +31,7 @@ function StatusPill({ item, k, s }: { item: Item; k: string; s: Sources }) {
   const ok = f.v === "active" || f.v === "online" || f.v === "delivered";
   return (
     <span
-      className={`rounded px-1.5 py-px text-[11px] ${ok ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800"}`}
+      className={`rounded px-1.5 py-px text-[11px] ${ok ? "bg-accent-50 text-accent-700" : "bg-neutral-100 text-neutral-800"}`}
     >
       <FactValue fact={f} sources={s} format={(v: string) => humanize(v)} />
     </span>
@@ -78,7 +78,7 @@ function EnergyItem({ it, s }: { it: Item; s: Sources }) {
         </div>
       )}
       {hasValue(it, "meter_deregistered_at") && (
-        <div className="text-xs text-amber-800">
+        <div className="text-xs text-neutral-800">
           Meter deregistered <V item={it} k="meter_deregistered_at" s={s} fmt={dateFmt} />
         </div>
       )}
@@ -171,7 +171,7 @@ function DeviceItem({ it, s }: { it: Item; s: Sources }) {
   return (
     <div className="flex items-center justify-between gap-2 text-xs">
       <span className="flex min-w-0 items-center gap-1.5">
-        <span className={`size-1.5 shrink-0 rounded-full ${online ? "bg-emerald-500" : "bg-red-500"}`} aria-hidden />
+        <span className={`size-1.5 shrink-0 rounded-full ${online ? "bg-accent-500" : "bg-red-500"}`} aria-hidden />
         <span className="truncate text-sm">
           <V item={it} k="device_type" s={s} fmt={(v: string) => humanize(v)} />
         </span>
@@ -251,7 +251,7 @@ function Cell({ line, p, s }: { line: Line; p: ProductLine | undefined; s: Sourc
       )}
       {isOpportunity && <p className="text-xs text-neutral-500">Not held</p>}
       {unknown && <p className="text-xs text-neutral-400 italic">no ownership data</p>}
-      {p?.note && <p className={`mt-1.5 text-[11px] leading-snug ${unknown ? "text-neutral-400" : "text-amber-800"}`}>{p.note}</p>}
+      {p?.note && <p className={`mt-1.5 text-[11px] leading-snug ${unknown ? "text-neutral-400" : "text-neutral-700"}`}>{p.note}</p>}
     </div>
   );
 }

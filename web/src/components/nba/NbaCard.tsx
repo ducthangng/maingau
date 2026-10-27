@@ -392,8 +392,8 @@ export default function NbaCard({ card, mode, activeSignal, onNavigate }: NbaCar
       ) : (
         <>
           {chosen.service_mode && (
-            <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900" role="note">
-              <LifeBuoy size={15} className="mt-0.5 shrink-0 text-amber-600" aria-hidden />
+            <div className="flex items-start gap-2 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-800" role="note">
+              <LifeBuoy size={15} className="mt-0.5 shrink-0 text-neutral-500" aria-hidden />
               <span>The engine recommends resolving the service issue first. Sales alternatives are shown for review; switch to Service for the agent script.</span>
             </div>
           )}

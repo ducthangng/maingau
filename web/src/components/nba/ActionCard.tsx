@@ -65,7 +65,11 @@ export function ActionHeader({
       <div className="min-w-0 space-y-1.5">
         <div className="flex flex-wrap items-center gap-1.5">
           {cand?.rank ? (
-            <span className="rounded-md bg-neutral-900 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-white">#{cand.rank}</span>
+            <span
+              className={`rounded-md px-1.5 py-0.5 text-[11px] font-semibold tabular-nums ${cand.rank === 1 ? "bg-gold-400 text-neutral-900" : "bg-neutral-900 text-white"}`}
+            >
+              #{cand.rank}
+            </span>
           ) : null}
           {cand && <Pill>{ACTION_TYPE_LABEL[cand.action_type]}</Pill>}
           <StatusChip status={status.status} label={status.label} />
@@ -138,9 +142,9 @@ function Checklist({ rows, sources }: { rows: CheckRow[]; sources: Sources }) {
     <ul className="divide-y divide-neutral-100 rounded-lg border border-neutral-200">
       {rows.map((r) => {
         const icon = r.passed ? (
-          <Check size={15} className="text-emerald-600" aria-label="passed" />
+          <Check size={15} className="text-accent-600" aria-label="passed" />
         ) : r.warnOnly ? (
-          <AlertTriangle size={15} className="text-amber-500" aria-label="warning, does not block" />
+          <AlertTriangle size={15} className="text-neutral-500" aria-label="warning, does not block" />
         ) : (
           <X size={15} className="text-red-600" aria-label="failed" />
         );
@@ -197,7 +201,7 @@ function ContentPreview({ content, offerId, sources }: { content: Content; offer
             <span className="font-mono text-[11px]">{content.template_id}</span>
           </Sourced>
         </Pill>
-        {generic && <Pill tone="amber">nicht personalisiert</Pill>}
+        {generic && <Pill tone="warn">nicht personalisiert</Pill>}
       </div>
       <div lang="de" className="space-y-1">
         <div className="text-sm font-semibold text-neutral-900">{content.subject}</div>
@@ -274,10 +278,10 @@ export function ActionDetail({
 
       {notes.length > 0 && (
         <Section title="Notes">
-          <ul className="space-y-1 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          <ul className="space-y-1 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-800">
             {notes.map((n, i) => (
               <li key={i} className="flex gap-2">
-                <AlertTriangle size={14} className="mt-0.5 shrink-0 text-amber-500" aria-hidden />
+                <AlertTriangle size={14} className="mt-0.5 shrink-0 text-neutral-500" aria-hidden />
                 <span>{n}</span>
               </li>
             ))}
@@ -299,7 +303,7 @@ export function ActionDetail({
             Content is drafted for the top action only.
             {cand?.personalised === false && offerId !== "P-SV-01" && (
               <span className="ml-2 align-middle">
-                <Pill tone="amber">nicht personalisiert</Pill>
+                <Pill tone="warn">nicht personalisiert</Pill>
               </span>
             )}
           </p>

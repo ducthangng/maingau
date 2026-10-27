@@ -25,9 +25,9 @@ import { CustomerModalSkeleton } from "../Skeleton";
 // One-word labels so the product tiles stay on one line; the full name is in the tooltip.
 const SHORT: Record<string, string> = { smart_living: "Smart", autostrom: "Auto" };
 
-/** Product tile: green when the customer uses the product, white when not. */
+/** Product tile: brand blue when the customer uses the product, white when not. */
 function IconTile({ icon: Icon, label, state, title }: { icon: LucideIcon; label: string; state: "held" | "free"; title?: string }) {
-  const cls = state === "held" ? "bg-emerald-500 text-white" : "bg-white text-neutral-400 ring-1 ring-inset ring-neutral-200";
+  const cls = state === "held" ? "bg-accent-600 text-white" : "bg-white text-neutral-400 ring-1 ring-inset ring-neutral-200";
   return (
     <span className="flex w-11 flex-col items-center gap-1" title={title ?? label}>
       <span className={`grid size-8 place-items-center rounded-lg ${cls}`}>
@@ -68,7 +68,7 @@ function ProfileColumn({ card }: { card: CustomerCard }) {
           <span className="text-sm font-medium text-neutral-800">{TIER_LABEL[t.urgency_tier]}</span>
           {t.deadline && (
             <span
-              className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-800 ring-1 ring-inset ring-amber-200"
+              className="inline-flex items-center gap-1 rounded-full bg-neutral-50 px-2 py-0.5 text-xs text-neutral-800 ring-1 ring-inset ring-neutral-200"
               title="Deadline"
             >
               <CalendarClock size={12} aria-hidden /> {t.deadline}
@@ -135,7 +135,7 @@ function ProfileColumn({ card }: { card: CustomerCard }) {
           </div>
           <p className="flex items-center gap-3 text-xs text-neutral-500">
             <span className="inline-flex items-center gap-1.5">
-              <span className="size-2 rounded-sm bg-emerald-500" aria-hidden /> in use
+              <span className="size-2 rounded-sm bg-accent-600" aria-hidden /> in use
             </span>
             <span className="inline-flex items-center gap-1.5">
               <span className="size-2 rounded-sm bg-white ring-1 ring-neutral-300" aria-hidden /> not used

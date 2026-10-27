@@ -93,7 +93,7 @@ export function Timeline({ card }: { card: CustomerCard }) {
                   {t.detail && <div className="text-xs text-neutral-500">{t.detail}</div>}
                   <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
                     {(t.flags ?? []).map((f) => (
-                      <span key={f} className="rounded bg-amber-50 px-1.5 py-px text-[10px] text-amber-800 ring-1 ring-inset ring-amber-200">
+                      <span key={f} className="rounded bg-neutral-100 px-1.5 py-px text-[10px] text-neutral-700 ring-1 ring-inset ring-neutral-200">
                         {f}
                       </span>
                     ))}

@@ -59,7 +59,7 @@ export function Missing({ children = NOT_ENOUGH }: { children?: ReactNode }) {
 
 const STATUS_STYLE: Record<Status, string> = {
   proposed: "bg-neutral-100 text-neutral-600 ring-neutral-200",
-  approved: "bg-emerald-50 text-emerald-700 ring-emerald-200",
+  approved: "bg-accent-50 text-accent-700 ring-accent-100",
   overridden: "bg-accent-50 text-accent-700 ring-accent-100",
   rejected: "bg-red-50 text-red-700 ring-red-200",
   revoked: "bg-neutral-100 text-neutral-500 ring-neutral-200",
@@ -84,10 +84,10 @@ export function RuleChip({ rule, title }: { rule: string; title?: string }) {
   );
 }
 
-export function Pill({ children, title, tone = "neutral" }: { children: ReactNode; title?: string; tone?: "neutral" | "amber" | "accent" }) {
+export function Pill({ children, title, tone = "neutral" }: { children: ReactNode; title?: string; tone?: "neutral" | "warn" | "accent" }) {
   const style =
-    tone === "amber"
-      ? "bg-amber-50 text-amber-800 ring-amber-200"
+    tone === "warn"
+      ? "bg-neutral-100 text-neutral-800 ring-neutral-300"
       : tone === "accent"
         ? "bg-accent-50 text-accent-700 ring-accent-100"
         : "bg-neutral-50 text-neutral-700 ring-neutral-200";

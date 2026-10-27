@@ -4,10 +4,10 @@ export type Tier = NonNullable<IndexRow["urgency_tier"]>;
 
 const TIER_STYLE: Record<Tier, string> = {
   P1: "bg-red-600 text-white",
-  P2: "bg-orange-500 text-white",
-  P3: "bg-amber-300 text-amber-950",
-  P4: "bg-accent-100 text-accent-700",
-  P5: "bg-neutral-200 text-neutral-600",
+  P2: "bg-accent-700 text-white",
+  P3: "bg-accent-100 text-accent-800",
+  P4: "bg-neutral-200 text-neutral-700",
+  P5: "bg-neutral-100 text-neutral-500",
 };
 
 export const TIER_LABEL: Record<Tier, string> = {
@@ -32,7 +32,7 @@ export const OUTLIER_FLAGS = new Set(["service_critical", "no_marketing_channel"
 export function FlagBadge({ id, label, title }: { id: string; label?: string; title?: string }) {
   const style =
     id === "top_clv"
-      ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
+      ? "bg-accent-50 text-accent-700 ring-accent-100"
       : OUTLIER_FLAGS.has(id)
         ? "bg-red-50 text-red-700 ring-red-200"
         : "bg-neutral-50 text-neutral-600 ring-neutral-200";
@@ -45,7 +45,7 @@ export function FlagBadge({ id, label, title }: { id: string; label?: string; ti
 
 export function ConfidenceDot({ confidence }: { confidence: string | null | undefined }) {
   if (!confidence) return <span className="text-neutral-400">—</span>;
-  const color = confidence === "high" ? "bg-emerald-500" : confidence === "medium" ? "bg-amber-400" : "bg-neutral-300";
+  const color = confidence === "high" ? "bg-accent-600" : confidence === "medium" ? "bg-accent-300" : "bg-neutral-300";
   return (
     <span className="inline-flex items-center gap-1.5 text-xs text-neutral-600">
       <span className={`size-2 rounded-full ${color}`} />
