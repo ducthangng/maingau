@@ -3,13 +3,14 @@ import { ArrowRight, Check, Lock, Maximize2, TrendingUp, TriangleAlert, X } from
 import { Link } from "react-router-dom";
 import { TierChip } from "../Chips";
 import { Sourced } from "../Source";
-import { ChannelIcon, ConfidenceBars, DECISION_META, FlagIcons, Signed, ValueBar, dirOf } from "../viz";
+import { ChannelIcon, DECISION_META, FlagIcons, Signed, dirOf } from "../viz";
 import { decideRow, rejectText, type Decision, type ReasonCode } from "../../lib/decisions";
 import { customerEvent, mockName } from "../../lib/customerMock";
 import { useHardRules, violation, type HardRule } from "../../lib/hardRules";
 import { RejectReasonSelect, ruleText } from "../customer/NbaPanel";
 import { CHANNEL_LABEL, eur, isMissing, pct, signedEur, tupleLabel } from "../../lib/format";
 import type { IndexRow, Summary } from "../../types/contracts";
+import { movedFromLabel, type GroupRow } from "../../lib/groupMoves";
 import { NO_ACTION, OFFER_NAME, asOf, colSrc, isNoAction, type Group } from "./model";
 
 // Action-first worklist: each row says why now, what to do, what it is worth, and lets the
@@ -28,7 +29,9 @@ const COLS: { label: string; width?: number; align?: "right"; title?: string }[]
   { label: "", width: 60 },
   { label: "Customer · latest action" },
   { label: "Recommended action", width: 200 },
-  { label: "Expected value", width: 190, title: "Expected ΔCLV (bars share one scale) and the chance of success vs the median proposal" },
+  { label: "Expected ΔCLV", width: 120, align: "right", title: "Expected change in customer lifetime value" },
+  { label: "Chance", width: 90, align: "right", title: "Chance of success (p) of the recommended action" },
+  { label: "Confidence", width: 100, title: "How many observations stand behind p (high, medium, low)" },
   { label: "", width: 190, align: "right" },
 ];
 
@@ -71,51 +74,61 @@ function ActionCell({ row }: { row: IndexRow }) {
       </span>
       <span className="truncate text-[13px] font-medium text-neutral-900">{name}</span>
       <span className="shrink-0 text-[11px] text-neutral-400">{row.tone === "du" ? "Du" : "Sie"}</span>
+      {movedFromLabel(row as GroupRow) && (
+        <span title={movedFromLabel(row as GroupRow)!} className="shrink-0 rounded bg-accent-50 px-1 text-[10px] font-medium text-accent-700 ring-1 ring-inset ring-accent-100">
+          moved
+        </span>
+      )}
     </div>
   );
 }
 
-/** Expected ΔCLV and its chance in one cell: value on top, shared-scale bar, chance vs the median below. */
-function ValueCell({ row, max, median, summary }: { row: IndexRow; max: number; median: number | null; summary: Summary | null }) {
+// Expected value as plain numbers, one column each: ΔCLV, chance and its confidence (no bars).
+const dash = <span className="text-neutral-300">—</span>;
+
+function DeltaCell({ row, summary }: { row: IndexRow; summary: Summary | null }) {
   const v = row.delta_clv;
-  const p = row.p_accept;
-  if (isNoAction(row) || isMissing(v)) return <span className="text-neutral-300">—</span>;
+  if (isNoAction(row) || isMissing(v)) return dash;
   const src = colSrc(summary, "delta_clv");
   return (
-    <div className="space-y-1.5">
-      <div className="flex items-baseline justify-between gap-3">
-        <Sourced src={src} updatedAt={asOf(summary, src)} sources={summary?.sources}>
-          <Signed dir={dirOf(v)} className="text-[13px] font-medium text-neutral-900">
-            {signedEur(v)}
-          </Signed>
-        </Sourced>
-        {!isMissing(p) && (
-          <span
-            className="inline-flex items-center gap-1.5 text-[11px] text-neutral-500"
-            title={`Chance ${pct(p)}${median !== null ? ` vs median of proposals ${pct(median)}` : ""} · ${row.confidence ?? "unknown"} confidence`}
-          >
-            {median !== null ? <Signed dir={dirOf(p, median, 0.0005)}>{pct(p)}</Signed> : pct(p)}
-            <ConfidenceBars confidence={row.confidence} />
-          </span>
-        )}
-      </div>
-      <ValueBar value={v} max={max} />
-    </div>
+    <Sourced src={src} updatedAt={asOf(summary, src)} sources={summary?.sources}>
+      <span className={`text-[13px] font-medium tabular-nums ${v < 0 ? "text-red-700" : "text-neutral-900"}`}>{signedEur(v)}</span>
+    </Sourced>
   );
+}
+
+function ChanceCell({ row, median }: { row: IndexRow; median: number | null }) {
+  const p = row.p_accept;
+  if (isNoAction(row) || isMissing(p)) return dash;
+  return (
+    <span className="text-[13px] tabular-nums text-neutral-800" title={median !== null ? `Median of proposals ${pct(median)}` : undefined}>
+      {pct(p)}
+    </span>
+  );
+}
+
+function ConfidenceCell({ row }: { row: IndexRow }) {
+  if (isNoAction(row) || !row.confidence) return dash;
+  return <span className="text-[13px] capitalize text-neutral-700">{row.confidence}</span>;
 }
 
 const btn = "inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium transition-colors duration-150";
 
-/** Two buttons only: Approve the engine's proposal, or Expand into the pop-up for everything else. */
+/** Replaces Approve on a page of its own (the group page: "Remove" / "Restore"); null = no button for that row. */
+export type RowAction = (row: IndexRow) => { label: string; title: string; danger?: boolean; onClick: () => void } | null;
+
+/** Two buttons only: Approve the engine's proposal (or the page's `rowAction`), or Expand into the pop-up for everything else. */
 function DecisionCell({
   row,
   decision,
   lock,
+  rowAction,
   onOpen,
 }: {
   row: IndexRow;
   decision: Decision | undefined;
   lock: HardRule | undefined;
+  rowAction?: RowAction;
   onOpen: () => void;
 }) {
   const stop = (fn: () => void) => (e: React.MouseEvent) => {
@@ -133,7 +146,31 @@ function DecisionCell({
     </button>
   );
   let main: React.ReactNode = null;
-  if (decision) {
+  const action = rowAction?.(row);
+  if (rowAction) {
+    main = action ? (
+      <button
+        type="button"
+        onClick={stop(action.onClick)}
+        title={action.title}
+        className={`${btn} ${action.danger ? "bg-white text-red-700 ring-1 ring-inset ring-neutral-200 hover:bg-red-50" : "bg-white text-neutral-700 ring-1 ring-inset ring-neutral-200 hover:bg-neutral-50"}`}
+      >
+        {action.danger && <X size={12} aria-hidden />} {action.label}
+      </button>
+    ) : null;
+    if (decision) {
+      const m = DECISION_META[decision.action];
+      const Icon = m.icon ?? Check;
+      main = (
+        <>
+          <span className={`inline-flex items-center gap-1 text-xs font-medium ${m.text}`} title={`${m.label} by ${decision.reviewer}`}>
+            <Icon size={14} aria-hidden /> {m.label}
+          </span>
+          {main}
+        </>
+      );
+    }
+  } else if (decision) {
     const m = DECISION_META[decision.action];
     const Icon = m.icon ?? Check;
     main = (
@@ -223,18 +260,18 @@ function Row({
   highlighted,
   rejecting,
   lock,
-  max,
   median,
+  rowAction,
   onOpen,
   onReject,
 }: {
   lock: HardRule | undefined;
+  rowAction?: RowAction;
   row: IndexRow;
   summary: Summary | null;
   decision: Decision | undefined;
   highlighted: boolean;
   rejecting: boolean;
-  max: number;
   median: number | null;
   onOpen: (id: string) => void;
   onReject: (id: string | null) => void;
@@ -287,11 +324,17 @@ function Row({
         <td className="px-3 py-3">
           <ActionCell row={row} />
         </td>
+        <td className="px-3 py-3 text-right">
+          <DeltaCell row={row} summary={summary} />
+        </td>
+        <td className="px-3 py-3 text-right">
+          <ChanceCell row={row} median={median} />
+        </td>
         <td className="px-3 py-3">
-          <ValueCell row={row} max={max} median={median} summary={summary} />
+          <ConfidenceCell row={row} />
         </td>
         <td className="py-3 pr-4 pl-3">
-          <DecisionCell row={row} decision={decision} lock={lock} onOpen={() => onOpen(row.customer_id)} />
+          <DecisionCell row={row} decision={decision} lock={lock} rowAction={rowAction} onOpen={() => onOpen(row.customer_id)} />
         </td>
       </tr>
       {rejecting && !decision && <RejectRow row={row} onDone={() => onReject(null)} />}
@@ -347,6 +390,7 @@ export default function WorklistTable({
   scale,
   onOpen,
   onReject,
+  rowAction,
   empty,
 }: {
   rows: IndexRow[];
@@ -355,10 +399,11 @@ export default function WorklistTable({
   decisions: Map<string, Decision>;
   highlightedId: string | null;
   rejectingId: string | null;
-  /** Shared bar scale and reference over the whole snapshot, so bars do not jump when filtering. */
+  /** Reference over the whole snapshot (the median p is in the Chance tooltip); `max` is no longer drawn. */
   scale: { max: number; median: number | null };
   onOpen: (id: string) => void;
   onReject: (id: string | null) => void;
+  rowAction?: RowAction;
   empty: React.ReactNode;
 }) {
   const rules = useHardRules();
@@ -376,8 +421,8 @@ export default function WorklistTable({
       decision={decisions.get(r.customer_id)}
       highlighted={r.customer_id === highlightedId}
       rejecting={r.customer_id === rejectingId}
-      max={scale.max}
       median={scale.median}
+      rowAction={rowAction}
       onOpen={onOpen}
       onReject={onReject}
     />
@@ -385,7 +430,7 @@ export default function WorklistTable({
 
   return (
     <div className="overflow-x-auto rounded-xl border border-neutral-200 bg-white">
-      <table className="w-full min-w-[820px] table-fixed border-collapse text-sm">
+      <table className="w-full min-w-[900px] table-fixed border-collapse text-sm">
         <colgroup>
           {COLS.map((c, i) => (
             <col key={i} style={c.width ? { width: c.width } : undefined} />

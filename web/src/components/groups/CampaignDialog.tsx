@@ -3,9 +3,8 @@ import { X } from "lucide-react";
 import type { Summary } from "../../types/contracts";
 import { type Decision, REVIEWER, recordDecisions } from "../../lib/decisions";
 import { saveCampaign } from "../../lib/campaigns";
-import { signedEur } from "../../lib/format";
+import type { GroupRow } from "../../lib/groupMoves";
 import { type Group, type GroupFilter, HOLDOUT_PCT, plural, planCampaign } from "./model";
-import { Num } from "./Num";
 import { Stat } from "./GroupCard";
 
 export interface CampaignResult {
@@ -21,13 +20,16 @@ const field =
 
 // "Approve everything": every ready customer of the shown groups in one go, with a named campaign and a
 // control group. Customers who need a second look stay out; they are approved per group (PreviewSheet).
+// The group page (/group/:tuple) opens it for one group, with its own heading and "Save & Run".
 export default function CampaignDialog({
   groups,
   latest,
   filter,
   scope,
   initialName,
-  summary,
+  eyebrow = `Approve everything · ${scope}`,
+  keepReview = false,
+  confirmLabel = "Approve and create campaign",
   onClose,
   onConfirmed,
 }: {
@@ -36,7 +38,11 @@ export default function CampaignDialog({
   filter: GroupFilter;
   scope: string;
   initialName: string;
-  summary: Summary | undefined;
+  summary?: Summary; // kept for callers; the dialog no longer shows ΔCLV
+  eyebrow?: string;
+  confirmLabel?: string;
+  /** Group page: everyone still in the group is included, not only the "ready" (planCampaign keepAll). */
+  keepReview?: boolean;
   onClose: () => void;
   onConfirmed: (r: CampaignResult) => void;
 }) {
@@ -96,7 +102,7 @@ export default function CampaignDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const plan = useMemo(() => planCampaign(groups, latest, pct), [groups, latest, pct]);
+  const plan = useMemo(() => planCampaign(groups, latest, pct, keepReview), [groups, latest, pct, keepReview]);
   const canConfirm = !!name.trim() && plan.included.length > 0;
 
   const confirm = () => {
@@ -104,19 +110,25 @@ export default function CampaignDialog({
     const now = new Date();
     const id = `CMP-${now.getTime()}`;
     recordDecisions(
-      plan.included.map((m) => ({
-        customer_id: m.row.customer_id,
-        action: "approved" as const,
-        tuple_id: m.tuple,
-        from_tuple: m.tuple,
-        reason: null,
-        reviewer: REVIEWER,
-        delta_clv: m.row.delta_clv ?? null,
-        p_accept: m.row.p_accept ?? null,
-        group: m.tuple,
-        holdout: m.holdout,
-        campaign: id,
-      })),
+      plan.included.map((m) => {
+        // A customer a person moved into this group (lib/groupMoves.ts) is an override of the engine's choice.
+        const row = m.row as GroupRow;
+        const moved = !!row.engine_tuple && row.engine_tuple !== m.tuple;
+        return {
+          customer_id: m.row.customer_id,
+          action: moved ? ("overridden" as const) : ("approved" as const),
+          tuple_id: m.tuple,
+          from_tuple: moved ? row.engine_tuple! : m.tuple,
+          reason: moved ? (row.move_reason ?? "Moved to this group") : null,
+          reason_code: moved ? ("other" as const) : null,
+          reviewer: REVIEWER,
+          delta_clv: m.row.delta_clv ?? null,
+          p_accept: m.row.p_accept ?? null,
+          group: m.tuple,
+          holdout: m.holdout,
+          campaign: id,
+        };
+      }),
     );
     saveCampaign({
       id,
@@ -150,13 +162,13 @@ export default function CampaignDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="campaign-title"
-        className={`relative flex max-h-full w-full max-w-lg flex-col overflow-y-auto rounded-2xl bg-white shadow-2xl ring-1 ring-neutral-200 transition duration-150 motion-reduce:transition-none ${
+        className={`relative flex max-h-full w-full max-w-3xl flex-col overflow-y-auto rounded-2xl bg-white shadow-2xl ring-1 ring-neutral-200 transition duration-150 motion-reduce:transition-none ${
           shown ? "scale-100 opacity-100" : "scale-95 opacity-0"
         }`}
       >
-        <div className="flex items-start justify-between gap-4 border-b border-neutral-200 px-6 py-4">
+        <div className="flex items-start justify-between gap-4 border-b border-neutral-200 px-8 py-5">
           <div className="min-w-0">
-            <div className="text-[11px] font-medium uppercase tracking-wider text-neutral-500">Approve everything · {scope}</div>
+            <div className="text-[11px] font-medium uppercase tracking-wider text-neutral-500">{eyebrow}</div>
             <h2 id="campaign-title" className="mt-0.5 text-lg font-semibold tracking-tight text-neutral-900">
               Create a campaign
             </h2>
@@ -171,8 +183,8 @@ export default function CampaignDialog({
           </button>
         </div>
 
-        <div className="space-y-4 px-6 py-5">
-          <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_9rem]">
+        <div className="space-y-5 px-8 py-6">
+          <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_10rem]">
             <label className="block">
               <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Campaign name</span>
               <input
@@ -197,36 +209,27 @@ export default function CampaignDialog({
             </label>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 rounded-xl bg-neutral-50 p-4 sm:grid-cols-3" aria-live="polite">
+          <div className="grid grid-cols-3 gap-4 rounded-xl bg-neutral-50 p-5" aria-live="polite">
             <Stat label="Groups">
               <span className="tabular-nums">{plan.groups}</span>
             </Stat>
-            <Stat label="Included" hint="ready customers">
+            <Stat
+              label="Included"
+              hint={keepReview ? "everyone not removed" : "ready customers"}
+            >
               <span className="tabular-nums">{plan.included.length}</span>
             </Stat>
-            <Stat label="Control group" hint={`${pct}%, not contacted`}>
-              <span className="tabular-nums">{plan.holdout}</span>
-            </Stat>
-            <Stat label="Contacted">
+            <Stat label="Contacted" hint={`${pct}% kept as control`}>
               <span className="tabular-nums">{plan.contacted}</span>
-            </Stat>
-            <Stat label="Σ ΔCLV" hint="of the contacted">
-              <Num col="delta_clv" value={plan.delta_clv} format={signedEur} summary={summary} />
             </Stat>
           </div>
 
-          <ul className="space-y-1 text-xs text-neutral-500">
-            <li>Only customers marked ready are included. The control group is fixed by a hash of the customer ID.</li>
-            {plan.secondLook > 0 && (
-              <li className="text-neutral-700">
-                Not included: {plural(plan.secondLook, "customer")} with a second look or “do no harm”. Approve them per group.
-              </li>
-            )}
-            {plan.skipped > 0 && <li>Skipped: {plural(plan.skipped, "customer")} already approved for the same action.</li>}
-          </ul>
+          {plan.skipped > 0 && (
+            <p className="text-xs text-neutral-500">Skipped: {plural(plan.skipped, "customer")} already approved for the same action.</p>
+          )}
         </div>
 
-        <div className="border-t border-neutral-200 px-6 py-4">
+        <div className="border-t border-neutral-200 px-8 py-5">
           <p className="text-xs text-neutral-500">Nothing is sent. Approved customers go to the decision log and the hand-off file.</p>
           <div className="mt-3 flex items-center justify-end gap-2">
             <button
@@ -242,7 +245,7 @@ export default function CampaignDialog({
               disabled={!canConfirm}
               className="rounded-lg bg-accent-600 px-3.5 py-2 text-sm font-medium text-white transition-colors duration-150 hover:bg-accent-700 disabled:cursor-not-allowed disabled:bg-neutral-300"
             >
-              Approve and create campaign
+              {confirmLabel}
             </button>
           </div>
         </div>

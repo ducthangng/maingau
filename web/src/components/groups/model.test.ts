@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import type { IndexRow } from "../../types/contracts";
-import { type Decision, isHoldout } from "../../lib/decisions";
+import type { Decision } from "../../lib/decisions";
 import { matches, EMPTY_FILTERS } from "../worklist/model";
 import { assess, buildGroups, defaultCampaignName, filterLabel, filterRows, hasFilter, planCampaign, readFilter } from "./model";
 
@@ -72,14 +72,27 @@ describe("planCampaign", () => {
     for (const [i, pct] of [0, 10, 50].entries()) {
       const plan = at[i];
       expect(plan.holdout + plan.contacted, `${pct}%`).toBe(plan.included.length);
-      expect(plan.included.filter((m) => m.holdout).every((m) => isHoldout(m.row.customer_id, pct))).toBe(true);
-      expect(plan.included.filter((m) => !m.holdout).some((m) => isHoldout(m.row.customer_id, pct))).toBe(false);
+      expect(plan.contacted, `${pct}%`).toBe(Math.round(plan.included.length * (1 - pct / 100)));
+      expect(plan.included.filter((m) => m.holdout).length).toBe(plan.holdout);
       expect(plan.included.length + plan.secondLook + plan.skipped).toBe(42);
     }
     expect(at[0].holdout).toBe(0);
     expect(at[0].included.length).toBe(at[2].included.length);
     expect(at[2].holdout).toBeGreaterThan(at[1].holdout);
     expect(at[0].groups).toBe(new Set(at[0].included.map((m) => m.tuple)).size);
+  });
+
+  it("contacts exactly included × (1 − control %), the same customers every time", () => {
+    for (const pct of [0, 5, 10, 25, 50]) {
+      const plan = planCampaign(all, none, pct, true);
+      expect(plan.contacted, `${pct}%`).toBe(Math.round(plan.included.length * (1 - pct / 100)));
+      const again = planCampaign(all, none, pct, true);
+      expect(again.included.filter((m) => m.holdout).map((m) => m.row.customer_id)).toEqual(
+        plan.included.filter((m) => m.holdout).map((m) => m.row.customer_id),
+      );
+    }
+    const eleven = planCampaign([{ tuple: "T", rows: rows.slice(0, 11) }], none, 10, true);
+    expect([eleven.contacted, eleven.holdout]).toEqual([10, 1]);
   });
 
   it("sums the expected ΔCLV of the contacted only", () => {
@@ -94,6 +107,15 @@ describe("planCampaign", () => {
     for (const m of plan.included) expect(assess(m.row, false, undefined, m.tuple).gate).toBe("ready");
     const total = all.reduce((n, g) => n + g.rows.length, 0);
     expect(plan.included.length + plan.secondLook).toBe(total);
+  });
+
+  it("on a group page (keepAll) includes every member not approved yet; contacted follows the control %", () => {
+    const plan = planCampaign(all, none, 10, true);
+    const total = all.reduce((n, g) => n + g.rows.length, 0);
+    expect(plan.included.length).toBe(total);
+    expect(plan.secondLook).toBe(0);
+    expect(plan.contacted).toBe(plan.included.length - plan.holdout);
+    expect(planCampaign(all, none, 0, true).contacted).toBe(plan.included.length);
   });
 
   it("skips customers already approved for the tuple; a reject moves them to second look", () => {

@@ -215,7 +215,12 @@ export function actionGroupsLink(offer: string): string {
   return `/groups?${new URLSearchParams({ offer }).toString()}`;
 }
 
-export const SERVICE_LINK = `/worklist?offer=${SERVICE_OFFER}&queue=all`;
+/** One Offer · Channel · Tone group page, optionally restricted to one urgency tier. */
+export function groupLink(tuple: string, tier?: string): string {
+  return `/group/${encodeURIComponent(tuple)}${tier ? `?${new URLSearchParams({ tier }).toString()}` : ""}`;
+}
+
+export const SERVICE_LINK =`/worklist?offer=${SERVICE_OFFER}&queue=all`;
 
 /** The filters a link sets (the Worklist and the Groups page read them from the query string). */
 export function linkFilters(link: string): Filters {

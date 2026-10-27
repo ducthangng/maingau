@@ -1,6 +1,6 @@
 import type { IndexRow } from "../../types/contracts";
 import { OUTLIER_FLAGS } from "../Chips";
-import { type Decision, isHoldout } from "../../lib/decisions";
+import { type Decision, holdoutHash, isHoldout } from "../../lib/decisions";
 import { isMissing, tupleLabel } from "../../lib/format";
 import { OFFER_NAME } from "../worklist/model";
 
@@ -210,7 +210,12 @@ const dayFmt = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short"
 
 /** Prefilled campaign name: "StromGarant · A2 · 27 Oct 2026", or "All actions · 27 Oct 2026" without a filter. */
 export function defaultCampaignName(f: GroupFilter, rows: IndexRow[], date = new Date()): string {
-  return `${filterLabel(f, rows, true)} · ${dayFmt.format(date)}`;
+  return datedName(filterLabel(f, rows, true), date);
+}
+
+/** "<label> · 27 Oct 2026": the prefilled name of a campaign. */
+export function datedName(label: string, date = new Date()): string {
+  return `${label} · ${dayFmt.format(date)}`;
 }
 
 // ---------------------------------------------------------------- approve everything
@@ -238,9 +243,12 @@ export interface CampaignPlan {
 
 /**
  * Who "Approve everything" approves: in every shown group, the members whose gate is "ready" and who
- * are not approved for this tuple yet. The control group is the deterministic hash holdout at `pct`.
+ * are not approved for this tuple yet. Exactly round(included × (1 − pct)) are contacted; the control
+ * group is the rest, drawn by customer-ID hash.
+ * `keepAll` (the group page, where a person removes whom they do not want): every member not approved
+ * yet is included, whatever their gate; the person takes a customer out with "Remove".
  */
-export function planCampaign(groups: Group[], latest: Map<string, Decision>, pct: number): CampaignPlan {
+export function planCampaign(groups: Group[], latest: Map<string, Decision>, pct: number, keepAll = false): CampaignPlan {
   const included: CampaignMember[] = [];
   const tuples = new Set<string>();
   let secondLook = 0;
@@ -252,14 +260,25 @@ export function planCampaign(groups: Group[], latest: Map<string, Decision>, pct
         skipped++;
         continue;
       }
-      if (assess(r, false, previous, g.tuple).gate !== "ready") {
+      const gate = assess(r, false, previous, g.tuple).gate;
+      if (gate !== "ready" && !keepAll) {
         secondLook++;
         continue;
       }
-      included.push({ tuple: g.tuple, row: r, holdout: isHoldout(r.customer_id, pct) });
+      included.push({ tuple: g.tuple, row: r, holdout: false });
       tuples.add(g.tuple);
     }
   }
+  // Exact split: sending = round(included × (1 − pct)), the rest is the control group. Who is held out
+  // follows the customer-ID hash, so the same plan always picks the same customers.
+  const holdoutN = included.length - Math.round(included.length * (1 - pct / 100));
+  const held = new Set(
+    [...included]
+      .sort((a, b) => holdoutHash(a.row.customer_id) - holdoutHash(b.row.customer_id) || a.row.customer_id.localeCompare(b.row.customer_id))
+      .slice(0, holdoutN)
+      .map((m) => m.row.customer_id),
+  );
+  for (const m of included) m.holdout = held.has(m.row.customer_id);
   const contacted = included.filter((m) => !m.holdout).map((m) => m.row);
   return {
     included,

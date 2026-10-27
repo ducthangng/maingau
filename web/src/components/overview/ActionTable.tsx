@@ -3,17 +3,17 @@ import { ChevronRight, EyeOff, Users } from "lucide-react";
 import type { Summary } from "../../types/contracts";
 import { NOT_ENOUGH } from "../../lib/format";
 import { Sourced, sourceTitle } from "../Source";
-import { ValueBar } from "../viz";
 import { asOf, colSrc } from "../worklist/model";
-import { reasonLine, type ActionStat, type ReasonCount } from "./model";
+import { NO_PROFILING, reasonLine, type ActionStat, type ReasonCount } from "./model";
 import { wholeEur } from "./format";
-import SegmentBreakdown from "./SegmentBreakdown";
+import type { Tier } from "../Chips";
+import type { Group } from "../groups/model";
+import ActionGroups from "./ActionGroups";
 
-// Action ranking (prompts/ui-overview.md §4): one row per action, the segment breakdown opens below.
+// Action ranking (prompts/ui-overview.md §4): one row per action, its urgency tiers open below.
 
 export const LABEL = "text-[11px] font-semibold uppercase tracking-wider text-neutral-500";
 // Below md: rank · offer (+ customers) · ΔCLV · chevron, reasons on a second line under the offer.
-// The ΔCLV track has a fixed width so the bars share one scale on every row.
 export const GRID =
   "grid grid-cols-[1.5rem_minmax(0,1fr)_5.5rem_1rem] gap-x-4 md:grid-cols-[1.5rem_minmax(0,1.1fr)_7rem_9rem_minmax(0,1.9fr)_1rem]";
 
@@ -28,8 +28,11 @@ function Reason({ r, summary }: { r: ReasonCount; summary: Summary | null }) {
   );
 }
 
-function Reasons({ reasons, summary }: { reasons: ReasonCount[]; summary: Summary | null }) {
-  if (reasons.length === 0) return <p className="text-sm italic text-neutral-400">{NOT_ENOUGH}</p>;
+function Reasons({ reasons: all, summary }: { reasons: ReasonCount[]; summary: Summary | null }) {
+  if (all.length === 0) return <p className="text-sm italic text-neutral-400">{NOT_ENOUGH}</p>;
+  // General offers (no profiling consent) have no reason to show: they get no line of their own.
+  const reasons = all.filter((r) => r.key !== NO_PROFILING);
+  if (reasons.length === 0) return null;
   const rest = reasons.slice(2);
   return (
     <div className="space-y-1">
@@ -61,15 +64,17 @@ function focusRow(from: HTMLElement, step: 1 | -1) {
 export default function ActionTable({
   actions,
   summary,
-  maxTotal,
+  groups,
   open,
   onToggle,
+  onOpenTier,
 }: {
   actions: ActionStat[];
   summary: Summary | null;
-  maxTotal: number;
+  groups: Map<string, Group[]>;
   open: string | null;
   onToggle: (offer: string | null) => void;
+  onOpenTier: (tier: Tier) => void;
 }) {
   const valueSrc = colSrc(summary, "delta_clv");
   const countSrc = colSrc(summary, "chosen_offer");
@@ -125,7 +130,7 @@ export default function ActionTable({
                   tabIndex={0}
                   data-overview-row={a.offer}
                   aria-expanded={isOpen}
-                  aria-controls={isOpen ? `segments-${a.offer}` : undefined}
+                  aria-controls={isOpen ? `groups-${a.offer}` : undefined}
                   onClick={() => onToggle(isOpen ? null : a.offer)}
                   onKeyDown={(e) => onKey(e, a.offer)}
                   className={`${GRID} cursor-pointer gap-y-2 px-5 py-4 transition-colors duration-150 hover:bg-neutral-50 focus-visible:-outline-offset-2! ${isOpen ? "bg-neutral-50" : ""}`}
@@ -142,7 +147,6 @@ export default function ActionTable({
                     <Sourced src={valueSrc} updatedAt={asOf(summary, valueSrc)} sources={summary?.sources}>
                       <span className="text-[15px] font-semibold tabular-nums text-neutral-900">{a.valued ? wholeEur(a.total) : NOT_ENOUGH}</span>
                     </Sourced>
-                    {a.valued > 0 && <ValueBar value={a.total} max={maxTotal} className="mt-1.5" />}
                   </div>
                   <div className="col-span-2 col-start-2 min-w-0 md:col-span-1 md:col-start-auto">
                     <Reasons reasons={a.reasons} summary={summary} />
@@ -153,7 +157,9 @@ export default function ActionTable({
                     aria-hidden
                   />
                 </div>
-                {isOpen && <SegmentBreakdown action={a} summary={summary} />}
+                {isOpen && (
+                  <ActionGroups action={a} groups={groups.get(a.offer) ?? []} summary={summary} onOpen={onOpenTier} />
+                )}
               </li>
             );
           })}

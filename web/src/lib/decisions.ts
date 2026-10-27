@@ -215,14 +215,19 @@ export function download(filename: string, content: string, type: string) {
   URL.revokeObjectURL(url);
 }
 
-/** Deterministic holdout by FNV-1a hash of customer_id, so the same customers are held out every time. */
-export function isHoldout(customerId: string, pct = 10): boolean {
+/** FNV-1a hash of customer_id: the stable order the control group is drawn in. */
+export function holdoutHash(customerId: string): number {
   let h = 0x811c9dc5;
   for (let i = 0; i < customerId.length; i++) {
     h ^= customerId.charCodeAt(i);
     h = Math.imul(h, 0x01000193) >>> 0;
   }
-  return h % 100 < pct;
+  return h;
+}
+
+/** Deterministic holdout by FNV-1a hash of customer_id, so the same customers are held out every time. */
+export function isHoldout(customerId: string, pct = 10): boolean {
+  return holdoutHash(customerId) % 100 < pct;
 }
 
 export const REVIEWER = "demo-marketer";

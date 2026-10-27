@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { REJECT_REASONS, type ReasonCode } from "../../lib/decisions";
-import { OVERRIDE_REASONS, RejectBar, RejectReasonSelect, whyCode, type RejectWhy } from "./NbaPanel";
+import { OVERRIDE_REASONS, RejectBar, RejectReasonSelect, RemoveNote, whyCode, type RejectWhy } from "./NbaPanel";
 
 // The reject control of the decision box (orchestration pop-up and Customer 360° actions tab):
 // a reason from the list is required, the note is optional, and overrides carry a code too.
@@ -43,5 +43,30 @@ describe("override reasons", () => {
     expect(why("Recent talk with the customer")).toBe("wrong_timing");
     const codes = Object.keys(REJECT_REASONS) as ReasonCode[];
     for (const code of Object.values(OVERRIDE_REASONS)) expect(codes).toContain(code);
+  });
+});
+
+describe("remove control (group page)", () => {
+  const remove = (why: RejectWhy) =>
+    renderToStaticMarkup(<RejectBar why={why} onChange={noop} onReject={noop} onCancel={noop} verb="remove" />);
+  const removeButton = (html: string) => html.match(/<button[^>]*>Remove<\/button>/)?.[0] ?? "";
+
+  it("asks why remove and needs a reason, with the reject reasons", () => {
+    const html = remove({ code: "", note: "" });
+    expect(html).toContain("Why remove?");
+    expect(html).not.toContain("Why reject?");
+    expect(removeButton(html)).toContain('disabled=""');
+    expect(removeButton(remove({ code: "not_relevant", note: "" }))).not.toContain('disabled=""');
+  });
+});
+
+describe("remove note (group page, under the option)", () => {
+  it("is a reason select and an optional note, like Why this one?", () => {
+    const html = renderToStaticMarkup(<RemoveNote why={{ code: "", note: "" }} onChange={noop} />);
+    expect(html).toContain("Why remove?");
+    expect(html).toContain('aria-label="Remove reason"');
+    expect(html).toContain('placeholder="Short note (optional)"');
+    expect(html).toContain("border-red-200");
+    expect(html).not.toContain("<button");
   });
 });

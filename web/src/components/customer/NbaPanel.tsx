@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useContext, useMemo, useState } from "react";
 import { Check, ChevronDown, CircleSlash, LifeBuoy, Lock, Plus, ShieldBan, Trash2 } from "lucide-react";
 import type { Alternative, Candidate, CustomerCard } from "../../types/contracts";
 import { addRule, removeRule, rulesFor, useHardRules, violation, type HardRule, type RuleKind, type RuleScope } from "../../lib/hardRules";
@@ -14,6 +14,7 @@ import {
   type ReasonCode,
 } from "../../lib/decisions";
 import { CHANNEL_LABEL, pct, signedEur, tupleLabel } from "../../lib/format";
+import { GroupContext, recordMove } from "../../lib/groupMoves";
 import { WithSignalRefs } from "../nba/ActionCard";
 import { RuleChip, StatusChip, statusFor, toneLabel } from "../nba/ui";
 import { OFFER_NAME } from "../worklist/model";
@@ -222,6 +223,7 @@ function OptionItem({
   maxDelta,
   lock,
   selected,
+  removing = false,
   onSelect,
   note,
 }: {
@@ -232,6 +234,8 @@ function OptionItem({
   maxDelta: number;
   lock: HardRule | undefined;
   selected: boolean;
+  /** Group page: this option is being removed (light red, the remove reason under it). */
+  removing?: boolean;
   onSelect: () => void;
   /** Justification shown right under the row when it is chosen instead of #1. */
   note?: React.ReactNode;
@@ -248,10 +252,12 @@ function OptionItem({
   return (
     <li
       className={`rounded-xl ring-1 transition-[box-shadow,background-color] duration-150 ${
-        selected
-          ? "bg-accent-50/60 ring-2 ring-accent-500"
-          : "bg-white ring-neutral-200 hover:bg-neutral-50 hover:shadow-sm"
-      } ${lock ? "opacity-60" : ""}`}
+        removing
+          ? "bg-red-50 ring-2 ring-red-400"
+          : selected
+            ? "bg-accent-50/60 ring-2 ring-accent-500"
+            : "bg-white ring-neutral-200 hover:bg-neutral-50 hover:shadow-sm"
+      } ${lock && !removing ? "opacity-60" : ""}`}
     >
       <div className="flex items-center gap-3 px-3.5 py-2.5">
         <button type="button" onClick={onSelect} aria-pressed={selected} className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left">
@@ -405,6 +411,29 @@ export function OverrideNote({ why, onChange }: { why: Why; onChange: (w: Why) =
   );
 }
 
+/** Group page: the reason for "Remove", right under the group's option like "Why this one?". Remove is at the bottom. */
+export function RemoveNote({ why, onChange }: { why: RejectWhy; onChange: (w: RejectWhy) => void }) {
+  return (
+    <div className="flex items-center gap-2 border-t border-red-200 px-3.5 py-2 pl-12">
+      <RejectReasonSelect
+        autoFocus
+        verb="remove"
+        value={why.code}
+        onChange={(code) => onChange({ ...why, code })}
+        className={`${pick} focus:border-red-400`}
+      />
+      <input
+        value={why.note}
+        maxLength={120}
+        onChange={(e) => onChange({ ...why, note: e.target.value })}
+        placeholder="Short note (optional)"
+        aria-label="Short note"
+        className={`${noteField} focus:border-red-400`}
+      />
+    </div>
+  );
+}
+
 /** The required reason for a reject, in plain words; the decision keeps its code (DecisionRequest.reason_code). */
 export function RejectReasonSelect({
   value,
@@ -412,25 +441,27 @@ export function RejectReasonSelect({
   id,
   autoFocus,
   className = pick,
+  verb = "reject",
 }: {
   value: ReasonCode | "";
   onChange: (code: ReasonCode) => void;
   id?: string;
   autoFocus?: boolean;
   className?: string;
+  verb?: "reject" | "remove";
 }) {
   return (
     <select
       id={id}
       autoFocus={autoFocus}
       required
-      aria-label="Reject reason"
+      aria-label={verb === "remove" ? "Remove reason" : "Reject reason"}
       value={value}
       onChange={(e) => onChange(e.target.value as ReasonCode)}
       className={className}
     >
       <option value="" disabled>
-        Why reject?
+        {verb === "remove" ? "Why remove?" : "Why reject?"}
       </option>
       {Object.entries(REJECT_REASONS).map(([code, label]) => (
         <option key={code} value={code}>
@@ -452,16 +483,19 @@ export function RejectBar({
   onChange,
   onReject,
   onCancel,
+  verb = "reject",
 }: {
   why: RejectWhy;
   onChange: (w: RejectWhy) => void;
   onReject: () => void;
   onCancel: () => void;
+  /** "remove" on a group page: the same reasons, worded as taking the customer out of the group. */
+  verb?: "reject" | "remove";
 }) {
   return (
     <div className="space-y-2.5">
       <div className="flex items-center gap-2">
-        <RejectReasonSelect autoFocus value={why.code} onChange={(code) => onChange({ ...why, code })} />
+        <RejectReasonSelect autoFocus verb={verb} value={why.code} onChange={(code) => onChange({ ...why, code })} />
         <input
           value={why.note}
           maxLength={120}
@@ -473,7 +507,7 @@ export function RejectBar({
       </div>
       <div className="flex justify-end gap-2">
         <button type="button" disabled={!why.code} onClick={onReject} className={`${btn} shrink-0 bg-red-600 text-white hover:bg-red-700`}>
-          Reject
+          {verb === "remove" ? "Remove" : "Reject"}
         </button>
         <button type="button" onClick={onCancel} className={`${btn} shrink-0 bg-white text-neutral-600 shadow-none hover:bg-neutral-100`}>
           Cancel
@@ -493,6 +527,8 @@ const INLINE_BTN = " w-full @sm:w-auto";
 /**
  * The one place to act, for whichever option is selected. Approve on #1 approves the proposal; Approve
  * on another option saves an override with the reason picked under it. A saved override can be deleted.
+ * Opened from a group page (GroupContext), another option than the group's reads "Change to this group":
+ * the customer moves to that option's group, still to be approved there.
  */
 export function DecisionBox({
   card,
@@ -500,6 +536,7 @@ export function DecisionBox({
   sel,
   lock,
   why,
+  remove,
   variant = "popup",
 }: {
   card: CustomerCard;
@@ -507,6 +544,8 @@ export function DecisionBox({
   sel: Option;
   lock: HardRule | undefined;
   why: Why;
+  /** Group page: "Remove…" turns the group's option red with its reason under it (state kept by NbaPanel). */
+  remove?: { active: boolean; why: RejectWhy; start: () => void; cancel: () => void };
   variant?: "popup" | "inline";
 }) {
   const inline = variant === "inline";
@@ -515,12 +554,28 @@ export function DecisionBox({
     () => latestByCustomer(decisions.filter((d) => d.customer_id === card.customer_id)).get(card.customer_id),
     [decisions, card.customer_id],
   );
+  const group = useContext(GroupContext);
   const [rejecting, setRejecting] = useState(false);
   const [rejectWhy, setRejectWhy] = useState<RejectWhy>({ code: "", note: "" });
   const chosen = card.chosen;
   const isTop = sel.tuple === top.tuple;
   const status = statusFor(chosen.tuple_id, chosen.tuple_id, chosen.status, latest);
   const canApprove = !lock && (isTop || (!!sel.cand && whyOk(why)));
+  const moving = !!group && sel.tuple !== group.tuple;
+  // Back to the engine's own choice needs no reason; any other option does (the note under it).
+  const canMove = moving && !lock && !!sel.cand && (sel.tuple === chosen.tuple_id || whyOk(why));
+  const move = () => {
+    if (!group || !canMove) return;
+    recordMove({
+      customer_id: card.customer_id,
+      from: group.tuple,
+      to: sel.tuple,
+      reason: sel.tuple === chosen.tuple_id ? null : whyText(why),
+      delta_clv: sel.cand?.valuation?.delta_clv ?? null,
+      p_accept: sel.cand?.valuation?.p_accept ?? null,
+    });
+    group.onMoved();
+  };
 
   const approve = () => {
     if (!canApprove) return;
@@ -533,6 +588,15 @@ export function DecisionBox({
     recordFor(card, "rejected", top, rejectText(code, note), code);
     setRejectWhy({ code: "", note: "" });
     setRejecting(false);
+  };
+  // Group page "Remove": the group's option is said no to (with the reason picked under it) and the
+  // customer leaves the group, into "Removed".
+  const removeNow = () => {
+    if (!group || !remove?.why.code) return;
+    const text = rejectText(remove.why.code, remove.why.note);
+    recordFor(card, "rejected", sel, text, remove.why.code);
+    recordMove({ customer_id: card.customer_id, from: group.tuple, to: null, reason: text, delta_clv: null, p_accept: null });
+    group.onMoved();
   };
   const overridden = latest?.action === "overridden" ? latest : undefined;
   const overriddenTo = overridden ? (card.candidates ?? []).find((c) => c.tuple_id === overridden.tuple_id) : undefined;
@@ -561,12 +625,52 @@ export function DecisionBox({
         </div>
       )}
 
-      {lock ? (
+      {remove?.active ? (
+        <div className={inline ? INLINE_ROW : "flex flex-wrap items-center justify-end gap-3"}>
+          {!remove.why.code && (
+            <span className={inline ? "w-full text-xs text-neutral-500" : "mr-auto text-xs text-neutral-500"}>
+              Pick a reason under the option to remove the customer.
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={remove.cancel}
+            className={`${btn} bg-white text-neutral-600 shadow-none hover:bg-neutral-100${inline ? INLINE_BTN : ""}`}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={removeNow}
+            disabled={!remove.why.code}
+            className={`${btn} bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-300${inline ? INLINE_BTN : ""}`}
+          >
+            Remove
+          </button>
+        </div>
+      ) : rejecting && !lock ? (
+        <RejectBar why={rejectWhy} onChange={setRejectWhy} onReject={reject} onCancel={() => setRejecting(false)} />
+      ) : lock ? (
         <p className="flex items-center gap-1.5 text-xs text-neutral-600">
           <Lock size={12} aria-hidden /> Locked by hard rule: {ruleText(lock)}. Pick another option or remove the rule.
         </p>
-      ) : rejecting ? (
-        <RejectBar why={rejectWhy} onChange={setRejectWhy} onReject={reject} onCancel={() => setRejecting(false)} />
+      ) : moving ? (
+        <div className={inline ? INLINE_ROW : "flex flex-wrap items-center justify-end gap-3"}>
+          {!canMove && (
+            <span className={inline ? "w-full text-xs text-neutral-500" : "mr-auto text-xs text-neutral-500"}>
+              Pick a reason under your choice to move the customer.
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={move}
+            disabled={!canMove}
+            title="Remove the customer from this group and add them to the group of this option"
+            className={`${btn} bg-accent-600 text-white hover:bg-accent-700 focus-visible:ring-accent-400${inline ? INLINE_BTN : ""}`}
+          >
+            Change to this group
+          </button>
+        </div>
       ) : (
         <div className={inline ? INLINE_ROW : "flex flex-wrap items-center justify-end gap-3"}>
           {latest && !overridden ? (
@@ -576,13 +680,14 @@ export function DecisionBox({
           ) : !isTop && !canApprove ? (
             <span className={inline ? "w-full text-xs text-neutral-500" : "mr-auto text-xs text-neutral-500"}>Pick a reason under your choice to approve it.</span>
           ) : null}
-          {isTop && (
+          {(isTop || !!remove) && (
             <button
               type="button"
-              onClick={() => setRejecting(true)}
+              onClick={() => (remove ? remove.start() : setRejecting(true))}
+              title={remove ? "Take this customer out of the group, with a reason" : undefined}
               className={`${btn} bg-white text-red-700 ring-1 ring-inset ring-neutral-300 hover:bg-red-50 focus-visible:ring-red-300${inline ? INLINE_BTN : ""}`}
             >
-              Reject…
+              {remove ? "Remove…" : "Reject…"}
             </button>
           )}
           <button
@@ -614,12 +719,34 @@ export default function NbaPanel({ card }: { card: CustomerCard }) {
     ...(card.alternatives ?? []).map((a) => ({ tuple: a.tuple_id, cand: byTuple.get(a.tuple_id), alt: a })),
   ];
   const top = isNoAction ? undefined : options[0];
-  const [selected, setSelected] = useState<string | null>(top?.tuple ?? null);
+  // On a group page the customer's current group is preselected, so any other choice is a move.
+  const group = useContext(GroupContext);
+  const [selected, setSelected] = useState<string | null>(
+    group && options.some((o) => o.tuple === group.tuple) ? group.tuple : (top?.tuple ?? null),
+  );
   const [why, setWhy] = useState<Why>({ preset: "", note: "" });
+  // Group page "Remove": the group's option turns red with "Why remove?" under it. The row's Remove
+  // opens the pop-up in this state.
+  const groupOption = group ? options.find((o) => o.tuple === group.tuple) : undefined;
+  const [removing, setRemoving] = useState(!!groupOption && group?.removing === card.customer_id);
+  const [removeWhy, setRemoveWhy] = useState<RejectWhy>({ code: "", note: "" });
   const choose = (t: string) => {
     if (t !== selected) setWhy({ preset: "", note: "" });
     setSelected(t);
+    setRemoving(false);
   };
+  const remove = groupOption
+    ? {
+        active: removing,
+        why: removeWhy,
+        start: () => {
+          setSelected(groupOption.tuple);
+          setRemoveWhy({ code: "", note: "" });
+          setRemoving(true);
+        },
+        cancel: () => setRemoving(false),
+      }
+    : undefined;
   const sel = options.find((o) => o.tuple === selected);
   const maxDelta = Math.max(1, ...options.map((o) => Math.abs(o.cand?.valuation?.delta_clv ?? o.alt?.delta_clv ?? 0)));
   const blocked = card.blocked ?? [];
@@ -668,8 +795,15 @@ export default function NbaPanel({ card }: { card: CustomerCard }) {
                   maxDelta={maxDelta}
                   lock={lockOf(o)}
                   selected={o.tuple === selected}
+                  removing={removing && o.tuple === groupOption?.tuple}
                   onSelect={() => choose(o.tuple)}
-                  note={o.tuple === selected && i > 0 && !lockOf(o) ? <OverrideNote why={why} onChange={setWhy} /> : undefined}
+                  note={
+                    removing && o.tuple === groupOption?.tuple ? (
+                      <RemoveNote why={removeWhy} onChange={setRemoveWhy} />
+                    ) : o.tuple === selected && i > 0 && !lockOf(o) ? (
+                      <OverrideNote why={why} onChange={setWhy} />
+                    ) : undefined
+                  }
                 />
               ))}
             </ol>
@@ -701,7 +835,7 @@ export default function NbaPanel({ card }: { card: CustomerCard }) {
         </section>
       </div>
 
-      {top && sel && <DecisionBox card={card} top={top} sel={sel} lock={lockOf(sel)} why={why} />}
+      {top && sel && <DecisionBox card={card} top={top} sel={sel} lock={lockOf(sel)} why={why} remove={remove} />}
     </div>
   );
 }

@@ -46,6 +46,9 @@ export default function Layout() {
             <NavLink to="/groups" className={navClass}>
               Groups
             </NavLink>
+            <NavLink to="/campaign" className={navClass}>
+              Campaigns
+            </NavLink>
           </nav>
           )}
           <span className="ml-auto flex items-center gap-2 text-xs text-neutral-500">

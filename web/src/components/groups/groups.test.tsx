@@ -7,6 +7,7 @@ import type { IndexRow, Summary } from "../../types/contracts";
 import Groups from "../../pages/Groups";
 import CampaignDialog from "./CampaignDialog";
 import CampaignList from "./CampaignList";
+import CampaignDetail from "./CampaignDetail";
 import { buildGroups, filterRows, readFilter } from "./model";
 
 // What the Groups page shows under an Overview filter, and the Approve everything dialog, from the real export.
@@ -48,7 +49,7 @@ describe("Groups page under an Overview filter", () => {
     expect(text).not.toContain("Service — handle individually");
     expect(text).toContain("Service cases are not part of this action");
     expect(text).toContain("Approve everything…");
-    expect(text).toContain("No campaign yet: use Approve everything to create one.");
+    expect(text).toContain("No campaign yet: use Approve everything or Approve group to create one.");
   });
 
   it("without a filter shows everything as before", () => {
@@ -88,7 +89,33 @@ describe("Approve everything dialog", () => {
     const html = dialog("x");
     expect(html).toMatch(/<option value="10" selected="">10%<\/option>/);
     const text = visibleText(html);
-    for (const label of ["Groups", "Included", "Control group", "Contacted", "Σ ΔCLV"]) expect(text).toContain(label);
+    for (const label of ["Groups", "Included", "Control group", "Contacted"]) expect(text).toContain(label);
+    expect(text).not.toContain("Σ ΔCLV");
+  });
+
+  it("on a group page: names the campaign, sets the control group, then Save & Run", () => {
+    const html = renderToStaticMarkup(
+      <MemoryRouter>
+        <CampaignDialog
+          groups={[groups[0]]}
+          latest={new Map()}
+          filter={{ offer: "P-EN-02", arch: "", pers: "" }}
+          scope="StromGarant · App push · Du · P3"
+          initialName="StromGarant · App push · Du · P3 · 27 Oct 2026"
+          summary={summary}
+          eyebrow="Approve group · StromGarant · App push · Du · P3"
+          confirmLabel="Save & Run"
+          onClose={() => {}}
+          onConfirmed={() => {}}
+        />
+      </MemoryRouter>,
+    );
+    const text = visibleText(html);
+    expect(text).toContain("Approve group · StromGarant · App push · Du · P3");
+    expect(text).toContain("Campaign name");
+    expect(text).toContain("Control group");
+    expect(html).toMatch(/<button[^>]*>Save &amp; Run<\/button>/);
+    expect(text).not.toContain("Approve and create campaign");
   });
 });
 
@@ -114,5 +141,66 @@ describe("Campaign list", () => {
     expect(text.indexOf("Second")).toBeLessThan(text.indexOf("First"));
     expect(text).toContain("10 · 20%");
     expect(text).not.toContain("No campaign yet");
+  });
+});
+
+describe("Campaign details", () => {
+  const campaign = {
+    id: "CMP-1",
+    name: "StromAktiv · App push · Du · P3 · 27 Oct 2026",
+    created_at: "2026-10-27T09:00:00.000Z",
+    reviewer: "demo-marketer",
+    offer: "P-EN-02",
+    arch: null,
+    pers: null,
+    scope: "StromAktiv · App push · Du · P3",
+    holdout_pct: 10,
+    groups: ["P-EN-02|app_push|du"],
+    customers: 2,
+    contacted: 1,
+    holdout: 1,
+    delta_clv: 12.5,
+  };
+  const decision = (id: string, holdout: boolean, campaignId: string | null = "CMP-1") => ({
+    id: `${id}@t`,
+    customer_id: id,
+    action: "approved" as const,
+    tuple_id: "P-EN-02|app_push|du",
+    from_tuple: "P-EN-02|app_push|du",
+    reason: null,
+    reviewer: "demo-marketer",
+    ts: "2026-10-27T09:00:00.000Z",
+    delta_clv: 12.5,
+    p_accept: 0.2,
+    group: "P-EN-02|app_push|du",
+    holdout,
+    campaign: campaignId,
+  });
+
+  it("shows the settings and only this campaign's customers, contacted and control group", () => {
+    const html = renderToStaticMarkup(
+      <MemoryRouter>
+        <CampaignDetail
+          campaign={campaign}
+          decisions={[decision("MG-1", false), decision("MG-2", true), decision("MG-3", false, "CMP-OTHER")]}
+          summary={summary}
+          onClose={() => {}}
+        />
+      </MemoryRouter>,
+    );
+    const text = visibleText(html);
+    expect(text).toContain("StromAktiv · App push · Du · P3 · 27 Oct 2026");
+    expect(text).toContain("10%, not contacted");
+    expect(html.match(/data-campaign-member=/g)?.length).toBe(2);
+    expect(html).not.toContain('data-campaign-member="MG-3"');
+    expect(text).toContain("Contacted");
+    expect(text).toContain("Control group");
+    expect(html).toContain('href="/customer/MG-1"');
+  });
+
+  it("makes every row of the list open its details", () => {
+    const html = renderToStaticMarkup(<MemoryRouter><CampaignList campaigns={[campaign]} summary={summary} /></MemoryRouter>);
+    expect(html).toContain('data-campaign="CMP-1"');
+    expect(html).toMatch(/<button[^>]*>StromAktiv · App push · Du · P3 · 27 Oct 2026<\/button>/);
   });
 });
