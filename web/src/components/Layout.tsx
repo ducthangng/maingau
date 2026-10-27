@@ -1,6 +1,7 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { dataMode, loadManifest, loadSummary, useLoad } from "../lib/data";
 import DecisionErrors from "./DecisionErrors";
+import ViewSwitch, { useIsCustomer360 } from "./service/ViewSwitch";
 
 const navClass = ({ isActive }: { isActive: boolean }) =>
   `rounded-md px-3 py-1.5 text-sm transition-colors duration-150 ${
@@ -12,6 +13,7 @@ export default function Layout() {
   const summary = useLoad(loadSummary, []);
   const mode = useLoad(dataMode, []);
   const isMock = manifest.status === "ready" && manifest.data?.source === "mock";
+  const isC360 = useIsCustomer360();
 
   return (
     <div className="min-h-screen">
@@ -26,6 +28,8 @@ export default function Layout() {
               MOCK DATA
             </span>
           )}
+          <ViewSwitch />
+          {!isC360 && (
           <nav className="flex gap-1 sm:ml-4">
             <NavLink to="/" end className={navClass}>
               Worklist
@@ -34,6 +38,7 @@ export default function Layout() {
               Groups
             </NavLink>
           </nav>
+          )}
           <span className="ml-auto flex items-center gap-2 text-xs text-neutral-500">
             {mode.status === "ready" && (
               <span
