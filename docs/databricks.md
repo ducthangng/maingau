@@ -88,13 +88,13 @@ The run never mixes the two sources. `nba.build` prints which source it read and
 ## 4. Connect your workspace
 
 1. **Workspace and token.** Sign up for Databricks Free Edition. In the workspace, open your profile → **Settings → Developer → Access tokens** and generate a token.
-2. **Credentials, outside the repo.** Create `C:\Users\<you>\.databrickscfg` (macOS/Linux: `~/.databrickscfg`):
+2. **Credentials, in the git-ignored `.env`.** Copy `.env.example` to `.env` (the same file that holds the Hessian.AI key) and fill in:
    ```ini
-   [DEFAULT]
-   host  = https://<your-workspace>.cloud.databricks.com
-   token = <your token>
+   DATABRICKS_HOST=https://<your-workspace>.cloud.databricks.com
+   DATABRICKS_TOKEN=<your token>
+   MAINGAU_DATA_SOURCE=databricks   # optional: build and API read the workspace, data/ is the backup
    ```
-   Environment variables `DATABRICKS_HOST` and `DATABRICKS_TOKEN` work too. Never put the token in the repo; `.databrickscfg` and `.env` are git-ignored.
+   `nba/lakehouse.py` loads `.env`, and a variable already set in the shell wins. A profile in `~/.databrickscfg` also works. Never commit the token. Tests always read `data/` (`tests/conftest.py`).
 3. **SDK.** Install it into the project environment: `.venv/Scripts/pip install databricks-sdk` (Windows) or `.venv/bin/pip install databricks-sdk`.
 4. **Upload the mock data.** Run `python scripts/databricks_sync.py upload`. It:
    - creates `workspace.maingau_raw` and the volume `landing`;

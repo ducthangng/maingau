@@ -17,7 +17,8 @@ Results layer (`<catalog>.<out_schema>`), written by `scripts/databricks_sync.py
 The source is config/databricks.yaml `source` (or MAINGAU_DATA_SOURCE): local | databricks. With
 databricks, any failure (no SDK, no credentials, warehouse down, a missing or partial table) makes the whole
 process use the local files, with a warning, so sources are never mixed. Credentials never live in the repo:
-the Databricks SDK reads DATABRICKS_HOST / DATABRICKS_TOKEN or a profile in ~/.databrickscfg.
+the Databricks SDK reads DATABRICKS_HOST / DATABRICKS_TOKEN (from the shell or the git-ignored .env) or a profile
+in ~/.databrickscfg.
 """
 from __future__ import annotations
 
@@ -117,7 +118,14 @@ class Settings:
 
 
 def load_settings(path: str | Path = CONFIG_PATH, env: dict | None = None) -> Settings:
-    env = os.environ if env is None else env
+    """config/databricks.yaml, overridden by MAINGAU_DATABRICKS_* variables. Without an explicit `env`, the
+    git-ignored .env is loaded first (like the AI steps), so DATABRICKS_HOST / DATABRICKS_TOKEN for the SDK and
+    MAINGAU_DATA_SOURCE can live there; a variable already set in the shell wins."""
+    if env is None:
+        from nba.ai.llm import load_env_file
+
+        load_env_file()
+        env = os.environ
     data = (yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}) if Path(path).exists() else {}
     data.update({key: env[var] for key, var in ENV.items() if env.get(var)})
     known = {f.name for f in fields(Settings)}

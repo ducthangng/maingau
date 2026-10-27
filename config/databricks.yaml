@@ -1,6 +1,6 @@
 # Databricks data source and results layer (nba/lakehouse.py, docs/databricks.md).
 # No secrets in this file: the Databricks SDK reads DATABRICKS_HOST / DATABRICKS_TOKEN from the
-# environment, or a profile in ~/.databrickscfg (outside the repo).
+# environment or the git-ignored .env (see .env.example), or a profile in ~/.databrickscfg.
 #
 # Every key can be overridden by an environment variable:
 #   MAINGAU_DATA_SOURCE, MAINGAU_DATABRICKS_PROFILE, MAINGAU_DATABRICKS_WAREHOUSE,

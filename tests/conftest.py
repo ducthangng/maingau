@@ -13,6 +13,8 @@ from nba.state import build_states
 # quota); only the opt-in live run (MAINGAU_AI_QA=1, tests marked ai_live) uses the configured backend.
 if os.environ.get("MAINGAU_AI_QA") != "1":
     os.environ["MAINGAU_LLM"] = "none"
+# Tests read data/, even with MAINGAU_DATA_SOURCE=databricks in .env (no network, no workspace quota).
+os.environ["MAINGAU_DATA_SOURCE"] = "local"
 
 
 @pytest.fixture(scope="session")
