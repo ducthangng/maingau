@@ -14,6 +14,7 @@ import json
 import logging
 import os
 import re
+import ssl
 import time
 import urllib.error
 import urllib.request
@@ -122,7 +123,7 @@ class HessianLLM(LLM):
                                      headers={"Content-Type": "application/json", "Authorization": f"Bearer {self.key}"})
         for attempt in range(3):  # a busy gateway (429, 5xx) gets two more tries; anything else fails at once
             try:
-                with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                with urllib.request.urlopen(req, timeout=self.timeout, context=_ssl_context()) as resp:
                     return json.loads(resp.read())
             except urllib.error.HTTPError as exc:
                 if exc.code not in (429, 500, 502, 503, 504) or attempt == 2:
@@ -149,6 +150,16 @@ class HessianLLM(LLM):
         if choice.get("finish_reason") == "length":
             return None
         return _json_text((choice.get("message") or {}).get("content") or "")
+
+
+def _ssl_context() -> ssl.SSLContext:
+    """Verify TLS against certifi's CA bundle when it is installed: a python.org Python on macOS has no CA
+    file of its own until "Install Certificates" is run (CERTIFICATE_VERIFY_FAILED); else the system default."""
+    try:
+        import certifi
+    except ImportError:
+        return ssl.create_default_context()
+    return ssl.create_default_context(cafile=certifi.where())
 
 
 def _json_text(text: str) -> str | None:

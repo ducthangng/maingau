@@ -130,3 +130,9 @@ def test_ping(gateway, capsys):
     assert ping(HessianLLM(url=gw.url, key="k")) == 0
     assert "hessian (vllm/Kolibri-1)" in capsys.readouterr().out
     assert ping(LLM()) == 1
+
+
+def test_tls_uses_a_ca_bundle_even_without_system_certificates():
+    ctx = llm_mod._ssl_context()
+    assert ctx.verify_mode.name == "CERT_REQUIRED" and ctx.check_hostname
+    assert ctx.cert_store_stats()["x509_ca"] > 100  # certifi's roots are loaded (a python.org build has none by default)
