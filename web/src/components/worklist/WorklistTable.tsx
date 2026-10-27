@@ -4,10 +4,10 @@ import { Link } from "react-router-dom";
 import { TierChip } from "../Chips";
 import { Sourced } from "../Source";
 import { ChannelIcon, ConfidenceBars, DECISION_META, FlagIcons, Signed, ValueBar, dirOf } from "../viz";
-import { decideRow, type Decision } from "../../lib/decisions";
+import { decideRow, rejectText, type Decision, type ReasonCode } from "../../lib/decisions";
 import { customerEvent, mockName } from "../../lib/customerMock";
 import { useHardRules, violation, type HardRule } from "../../lib/hardRules";
-import { ruleText } from "../customer/NbaPanel";
+import { RejectReasonSelect, ruleText } from "../customer/NbaPanel";
 import { CHANNEL_LABEL, eur, isMissing, pct, signedEur, tupleLabel } from "../../lib/format";
 import type { IndexRow, Summary } from "../../types/contracts";
 import { NO_ACTION, OFFER_NAME, asOf, colSrc, isNoAction, type Group } from "./model";
@@ -173,11 +173,15 @@ function DecisionCell({
   );
 }
 
+const rejectField = "rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm focus:border-red-400 focus:ring-2 focus:ring-red-100 focus:outline-none";
+
+// A reason from the list is required (it becomes the API's reason_code); the note is optional.
 function RejectRow({ row, onDone }: { row: IndexRow; onDone: () => void }) {
-  const [reason, setReason] = useState("");
+  const [code, setCode] = useState<ReasonCode | "">("");
+  const [note, setNote] = useState("");
   const submit = () => {
-    if (!reason.trim()) return;
-    decideRow(row, "rejected", reason.trim());
+    if (!code) return;
+    decideRow(row, "rejected", rejectText(code, note), code);
     onDone();
   };
   return (
@@ -185,22 +189,22 @@ function RejectRow({ row, onDone }: { row: IndexRow; onDone: () => void }) {
       <td colSpan={COLS.length} className="px-4 py-2.5">
         <form
           className="flex items-center gap-2"
+          onKeyDown={(e) => e.key === "Escape" && onDone()}
           onSubmit={(e) => {
             e.preventDefault();
             submit();
           }}
         >
           <X size={14} className="text-red-600" aria-hidden />
+          <RejectReasonSelect autoFocus value={code} onChange={setCode} className={`${rejectField} pr-8 text-neutral-700`} />
           <input
-            autoFocus
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            onKeyDown={(e) => e.key === "Escape" && onDone()}
-            placeholder={`Why reject ${OFFER_NAME[row.chosen_offer] ?? row.chosen_offer} for ${mockName(row.customer_id)}? (required)`}
-            aria-label="Reject reason"
-            className="min-w-0 flex-1 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm placeholder:text-neutral-400 focus:border-red-400 focus:ring-2 focus:ring-red-100 focus:outline-none"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder={`Note on ${OFFER_NAME[row.chosen_offer] ?? row.chosen_offer} for ${mockName(row.customer_id)} (optional)`}
+            aria-label="Short note"
+            className={`${rejectField} min-w-0 flex-1 placeholder:text-neutral-400`}
           />
-          <button type="submit" disabled={!reason.trim()} className={`${btn} bg-red-600 py-1.5 text-white hover:bg-red-700 disabled:opacity-40`}>
+          <button type="submit" disabled={!code} className={`${btn} bg-red-600 py-1.5 text-white hover:bg-red-700 disabled:opacity-40`}>
             Confirm reject
           </button>
           <button type="button" onClick={onDone} className={`${btn} py-1.5 text-neutral-600 hover:bg-neutral-100`}>

@@ -10,6 +10,27 @@ const EVENT = "maingau-decisions";
 
 export type DecisionAction = "approved" | "overridden" | "rejected";
 
+/** Why a person said no (nba/contracts.py ReasonCode); the API turns it into the customer's memory. */
+export type ReasonCode = NonNullable<DecisionRequest["reason_code"]>;
+
+/** Plain labels for the reject reasons, in the order the select lists them. */
+export const REJECT_REASONS: Record<ReasonCode, string> = {
+  already_has_product: "Already has it",
+  customer_upset: "Customer upset",
+  no_time: "No time right now",
+  not_relevant: "Not relevant",
+  wrong_channel: "Wrong channel",
+  wrong_timing: "Wrong timing",
+  data_wrong: "Data looks wrong",
+  other: "Other",
+};
+
+/** Reason text kept next to the code: the label plus the optional note ("Other" with a note is just the note). */
+export function rejectText(code: ReasonCode, note: string): string {
+  const n = note.trim();
+  return code === "other" && n ? n : n ? `${REJECT_REASONS[code]}: ${n}` : REJECT_REASONS[code];
+}
+
 export interface Decision {
   id: string; // `${customer_id}@${ts}`
   customer_id: string;
@@ -17,6 +38,7 @@ export interface Decision {
   tuple_id: string; // the tuple that was approved / chosen by the override / rejected
   from_tuple: string; // the engine's proposal
   reason: string | null; // required for reject and override
+  reason_code?: ReasonCode | null; // reject and override; missing on records saved before reason codes
   reviewer: string;
   ts: string;
   delta_clv: number | null;
@@ -27,10 +49,16 @@ export interface Decision {
 
 let cached: Decision[] | null = null;
 
+/** The stored log; records saved before reason codes load as they are (reason_code missing). */
+export function parseDecisions(raw: string | null): Decision[] {
+  const list: unknown = JSON.parse(raw ?? "[]");
+  return Array.isArray(list) ? (list as Decision[]) : [];
+}
+
 function read(): Decision[] {
   if (cached) return cached;
   try {
-    cached = JSON.parse(localStorage.getItem(KEY) ?? "[]") as Decision[];
+    cached = parseDecisions(localStorage.getItem(KEY));
   } catch {
     cached = [];
   }
@@ -94,10 +122,11 @@ function tupleRef(tupleId: string): TupleRef | null {
   return offer_id && channel && tone ? ({ offer_id, channel, tone } as TupleRef) : null;
 }
 
-function toRequest(d: Decision): DecisionRequest {
+export function toRequest(d: Decision): DecisionRequest {
   const action = d.action === "approved" ? "approve" : d.action === "overridden" ? "override" : "reject";
   // Approve sends the proposal it saw, so the API refuses it if the proposal changed meanwhile.
-  return { action, user: d.reviewer, reason: d.reason, tuple: tupleRef(d.tuple_id) };
+  // reason_code is what the feedback memory counts; reason alone is only a note.
+  return { action, user: d.reviewer, reason: d.reason, reason_code: d.reason_code ?? null, tuple: tupleRef(d.tuple_id) };
 }
 
 async function postDecision(d: Decision): Promise<DecisionError | null> {
@@ -202,6 +231,7 @@ export function decideRow(
   row: { customer_id: string; chosen_tuple?: string | null; delta_clv?: number | null; p_accept?: number | null },
   action: "approved" | "rejected",
   reason: string | null = null,
+  reasonCode: ReasonCode | null = null,
 ) {
   if (!row.chosen_tuple) return;
   recordDecisions([
@@ -211,6 +241,7 @@ export function decideRow(
       tuple_id: row.chosen_tuple,
       from_tuple: row.chosen_tuple,
       reason,
+      reason_code: reasonCode,
       reviewer: REVIEWER,
       delta_clv: row.delta_clv ?? null,
       p_accept: row.p_accept ?? null,
