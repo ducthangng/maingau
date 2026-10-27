@@ -965,3 +965,40 @@ Claude Code (Opus) on Windows, in the user's checkout `E:\Projects\maingau`. On 
   - An unknown edge status ("alternative" in the policy graph) now falls back to a plain line; it had blanked the page.
 
 **Verified:** tsc 0, vitest 112/112, build. Headless-Chrome screenshots of the customer (MG-100023), policy and ontology views.
+
+### Session 26 · 2026-10-27 · Claude Code (Opus) · branch feat/kg
+
+**Goal (user):**
+- Explain how learning changes decisions, through two APIs and a "Learning" view in the Knowledge Base.
+- A way to reset all data to the starting state for the demo.
+
+**Done:**
+- **`nba/learn/impact.py`:** three engine runs (nothing learned; + track record k and look-alike lift; + customer memory). Each changed decision is attributed to the lever that changed it and gets one sentence, for example:
+  - "StromGarant by newsletter: track record ×0.73, chance 7.91% → 5.80%, ΔCLV €13.19 → €9.67; app push wins with €11.40";
+  - "it now beats …" when the winner was the one that moved.
+  It also returns a k table (bought vs expected), the memory summary and the look-alike offers.
+- **`GET /api/learn/impact`:** cached per runtime.
+- **`POST /api/ai/feedback`:** now also returns `impact`, the decisions this step just changed.
+- **`nba.build`:** writes `learn_impact.json` (for the built customers only).
+- **Knowledge Base → Learning:** folds (formula and totals, k table, memory, look-alike), the changed decisions with a filter by cause, and a before → learned → after chain with Δp × (CLV_buy − CLV_no).
+- **On the mock data:** 52 decisions change (38 by learned chance, 14 by memory). Σ ΔCLV moves €10,437 → €10,564 → €10,560.
+- **`scripts/reset_demo.sh`** plus guide §6.10:
+  - moves the API state files aside (nothing deleted) and relearns the starting memory;
+  - `--restore-inputs` puts data/config/kg/static back to the committed version;
+  - prints the API restart step and the localStorage snippet.
+
+**Verified:** 15 related Python tests pass (new `test_learning_impact_api`); tsc 0; a screenshot of the Learning view; the reset script ran in this worktree.
+
+### Session 27 · 2026-10-27 · Claude Code (Opus) · branch feat/kg
+
+**Goal (user):** write down which rules come from MAINGAU (slides, spec) and which the team generated (thresholds, formulas, defaults), in a Markdown file.
+
+**Done:** `docs/rules-provenance.md`, written by a 6-agent read-only workflow (spec list, then 4 code areas classified against it, then the writer). Spot-checked against the slides text, README §4/§6.6 and `docs/rule-center.md`.
+- **Part 1, rules given by MAINGAU:** 233 entries, by source:
+  - slides (35);
+  - spec §4 (44);
+  - mentor Rule Center (25);
+  - workbook (36);
+  - spec-versus-data conflicts.
+- **Part 2, rules the team added:** 184 rows, each with a file:line reference. 103 are "Detail" rows: MAINGAU gave the rule and the team chose the numbers. Example: the spec only says "n < 30 → low"; the team added high ≥ 100 / medium ≥ 30, and only at offer × channel × tone.
+- **Part 3:** 13 team choices to confirm with MAINGAU, in order of how much they move the demo numbers.

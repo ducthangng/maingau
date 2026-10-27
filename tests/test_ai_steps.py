@@ -139,3 +139,19 @@ def test_cli_feedback_reads_posted_rows_and_skips_torn_lines(tmp_path):
     memory = feedback.read_jsonl(tmp_path / "customer_memory.jsonl")
     assert [m["offer_id"] for m in memory if m["source_ref"] == DECLINED["feedback_id"]] == ["P-EN-02"]
     assert feedback.agent_rows([{"feedback_id": "AF-1"}], [{"feedback_id": "AF-1"}, DECLINED]) == [{"feedback_id": "AF-1"}, DECLINED]
+
+
+def test_learning_impact_api(tmp_path, rt):
+    """GET /api/learn/impact explains what learning changed; the feedback step reports the decisions it just changed."""
+    api = TestClient(create_app(runtime=rt, out_dir=tmp_path))
+    r = api.post("/api/customers/MG-100068/decision", json={"action": "reject", "user": "anna", "reason": "has it",
+                                                            "reason_code": "already_has_product"})
+    before = r.json()["from_tuple"]
+    learned = api.post("/api/ai/feedback", params={"ai": False}).json()
+    mine = [c for c in learned["impact"] if c["customer_id"] == "MG-100068"]
+    assert mine and mine[0]["before"]["tuple"] == before and mine[0]["after"]["tuple"] != before and mine[0]["sentence"]
+    impact = api.get("/api/learn/impact").json()
+    s = impact["summary"]
+    assert len(impact["changes"]) == min(s["changed"], 60)
+    assert s["by_cause"].get("memory", 0) > 0 and impact["k"] and impact["formula"].startswith("ΔCLV")
+    assert any(c["customer_id"] == "MG-100068" and c["cause"] == "memory" for c in impact["changes"])

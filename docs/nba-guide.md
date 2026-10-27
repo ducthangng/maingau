@@ -244,6 +244,22 @@ cp .env.example .env            # .env is git-ignored: the team key never goes i
 
 A variable set in the shell wins over `.env`. The backend asks for JSON with the output schema (`response_format: json_schema`); if the gateway refuses that, it falls back to `json_object` and then to the schema in the prompt, and it strips thinking blocks and code fences before parsing. A wrong key or an unreachable gateway switches the AI off for that run, and the code result stands. Tests: `tests/test_ai_llm.py` (a local stand-in gateway, no real key).
 
+### 6.10 Reset the demo to its starting state
+
+```bash
+scripts/reset_demo.sh                   # move the API's state aside, learn the starting memory (API = static export)
+scripts/reset_demo.sh --restore-inputs  # also put data/, config/, kg/ and web/public/data back to the committed version
+```
+
+| What | Where | Reset by |
+|---|---|---|
+| Decisions, Rule Center edits, customer memory, service feedback (API mode) | `out/decision_log.jsonl`, `out/rule_versions.jsonl`, `out/customer_memory.jsonl`, `out/service_feedback.jsonl` | The script moves them to `out/_reset_<time>/` (nothing is deleted), then relearns the starting memory from the workbook's agent feedback (74 entries). `--no-memory` starts with nothing learned |
+| The running API | Process memory | Restart `uvicorn` after the script |
+| Approvals, campaigns, reactions, the chosen dashboard (static and API mode) | The browser's localStorage (`maingau.*`) | DevTools console: `Object.keys(localStorage).filter(k => k.startsWith("maingau.")).forEach(k => localStorage.removeItem(k)); location.reload()`, or a private window |
+| Workbook, event stream, config, static export | `data/`, `config/`, `kg/`, `web/public/data/` (in git) | `--restore-inputs`, or `git restore` on those folders |
+
+After a reset: the Overview shows 11 actions · 617 customers · +€7,250, and Knowledge Base → Learning shows 52 changed decisions (38 by learned chance, 14 by customer memory).
+
 ## 7. Limitations
 
 - **Mock data:** the numbers show the method, not real results.

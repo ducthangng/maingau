@@ -18,6 +18,7 @@ from nba.engine.impact import impact_report
 from nba.engine.report import test_report
 from nba.engine.rule_registry import rules_file
 from nba.engine.runtime import Runtime, index_rows, summary
+from nba.learn.impact import learning_impact
 from nba.kg.journey import build_journey, export_journey, lookups
 
 
@@ -85,7 +86,9 @@ def build(runtime: Runtime, out_dir, customer_ids=None, *, export_dir=None, repo
     eval_time = runtime.states[ids[0]].eval_time.isoformat()
     rules = rules_file(runtime.cfg.settings, runtime.policy, runtime.tables, eval_time)
     (out / "rules.json").write_text(json_text(RulesFile.model_validate(rules)), encoding="utf-8")
-    files += [out / "index.json", out / "summary.json", out / "rules.json"]
+    # What learning changed (nba.learn.impact): the Knowledge Base "Learning" view in static mode
+    (out / "learn_impact.json").write_text(json_text(learning_impact(runtime, customer_ids=ids)), encoding="utf-8")
+    files += [out / "index.json", out / "summary.json", out / "rules.json", out / "learn_impact.json"]
     # Rule Center log (docs/rule-center.md §6): every rule's result per customer for this run; not exported
     with (out / "rule_log.jsonl").open("w", encoding="utf-8") as log:
         for card in full:
