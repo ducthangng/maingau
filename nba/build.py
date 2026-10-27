@@ -8,6 +8,8 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+from nba.ai import feedback
+from nba.ai.llm import LLM
 from nba.contracts import CustomerCard, IndexRow, RulesFile, Summary
 from nba.data import DEFAULT_WORKBOOK
 from nba.engine.export import export_card
@@ -22,6 +24,33 @@ def json_text(value):
     if hasattr(value, "model_dump"):
         value = value.model_dump(mode="json")
     return json.dumps(value, sort_keys=True, ensure_ascii=False, allow_nan=False, separators=(",", ":")) + "\n"
+
+
+def read_jsonl(path) -> list[dict]:
+    """Rows of a JSON-lines file; a missing file is empty and a bad line is skipped."""
+    rows = []
+    for line in (Path(path).read_text(encoding="utf-8").splitlines() if Path(path).exists() else []):
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(row, dict):
+            rows.append(row)
+    return rows
+
+
+def learn(runtime: Runtime, memory_path) -> tuple[int, list[dict]]:
+    """Code-only feedback step (`python -m nba.ai feedback --no-ai`): the workbook's service_nba_feedback plus
+    decision_log.jsonl and service_feedback.jsonl next to the memory file become customer memory. Returns
+    (feedback items, new memory entries); an item already remembered (same source_ref) is not added twice."""
+    folder = Path(memory_path).parent
+    decisions = [r for r in read_jsonl(folder / "decision_log.jsonl") if r.get("customer_id") and isinstance(r.get("entry"), dict)]
+    service = [r for r in read_jsonl(folder / "service_feedback.jsonl") if r.get("customer_id") and r.get("feedback_id")]
+    items = feedback.from_decisions(decisions) + feedback.from_agent_feedback(
+        runtime.tables["service_nba_feedback"].to_dict("records") + service)
+    llm = LLM()
+    llm.enabled = False  # no backend: no card is valued for a prompt, and the memory is reproducible
+    return len(items), feedback.process(runtime, items, memory_path, llm)["added"]
 
 
 def build(runtime: Runtime, out_dir, customer_ids=None, *, export_dir=None, report=True):
@@ -88,6 +117,11 @@ def main(argv=None):
     parser.add_argument("--workbook", type=Path, default=DEFAULT_WORKBOOK)
     parser.add_argument("--no-report", action="store_true", help="Skip regenerating the reference and impact reports")
     parser.add_argument("--skip-validation", action="store_true", help="Build even if the data contract reports an ERROR")
+    parser.add_argument("--memory", type=Path, default=Path("out/customer_memory.jsonl"),
+                        help="Customer memory from feedback (nba.ai.feedback); used if the file exists")
+    memory = parser.add_mutually_exclusive_group()
+    memory.add_argument("--no-memory", action="store_true", help="Ignore the customer memory")
+    memory.add_argument("--learn", action="store_true", help="First turn new feedback into memory (code only, no AI)")
     args = parser.parse_args(argv)
     start = time.perf_counter()
     ids = [x.strip() for x in args.customers.split(",") if x.strip()] if args.customers is not None else None
@@ -100,10 +134,19 @@ def main(argv=None):
                          "run scripts/validate_data.py, or pass --skip-validation")
     try:
         runtime = Runtime.load(args.workbook, p_mode=args.p_mode, eval_time=args.asof)
+        if args.learn:
+            n_items, added = learn(runtime, args.memory)
+            print(f"Learned {len(added)} new memory entries from {n_items} feedback items -> {args.memory}")
+        if not args.no_memory and args.memory.exists():
+            runtime = runtime.with_memory(args.memory)
         cards, _, _ = build(runtime, args.out, ids, export_dir=args.export_dir, report=not args.no_report)
     except (ValueError, FileNotFoundError, NotImplementedError) as exc:
         parser.error(str(exc))
-    print(f"Built {len(cards)} customers in {time.perf_counter() - start:.2f}s; mode={runtime.cfg.p_mode}; output={args.out}")
+    entries = [m for ms in runtime.cfg.memory.values() for m in ms]
+    at = runtime.states[cards[0].customer_id].eval_time
+    used = f"{len(entries)} entries ({sum(feedback.active(m, at) for m in entries)} active) from {args.memory}" if entries else "none"
+    print(f"Built {len(cards)} customers in {time.perf_counter() - start:.2f}s; mode={runtime.cfg.p_mode}; "
+          f"memory={used}; output={args.out}")
 
 
 if __name__ == "__main__":
