@@ -1,6 +1,7 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { dataMode, loadManifest, loadSummary, useLoad } from "../lib/data";
 import DecisionErrors from "./DecisionErrors";
+import { Bone } from "./Skeleton";
 import ViewSwitch, { useIsCustomer360 } from "./service/ViewSwitch";
 
 const navClass = ({ isActive }: { isActive: boolean }) =>
@@ -45,7 +46,13 @@ export default function Layout() {
           </nav>
           )}
           <span className="ml-auto flex items-center gap-2 text-xs text-neutral-500">
-            {mode.status === "ready" && (
+            {(mode.status === "loading" || summary.status === "loading") && (
+              <span className="skeleton-reveal flex items-center gap-2" aria-hidden>
+                <Bone className="h-5 w-12 rounded-full" soft />
+                <Bone className="h-3 w-36" soft />
+              </span>
+            )}
+            {mode.status === "ready" && summary.status !== "loading" && (
               <span
                 className={`rounded-full px-2 py-0.5 font-medium ${mode.data === "api" ? "bg-emerald-50 text-emerald-700" : "bg-neutral-100 text-neutral-600"}`}
                 title={
@@ -57,7 +64,7 @@ export default function Layout() {
                 {mode.data === "api" ? "Live API" : "Static"}
               </span>
             )}
-            {summary.status === "ready" ? `Snapshot ${summary.data.eval_time.replace("T", " ")}` : ""}
+            {summary.status === "ready" && mode.status !== "loading" ? `Snapshot ${summary.data.eval_time.replace("T", " ")}` : ""}
           </span>
         </div>
       </header>

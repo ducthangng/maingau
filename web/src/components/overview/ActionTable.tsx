@@ -11,10 +11,10 @@ import SegmentBreakdown from "./SegmentBreakdown";
 
 // Action ranking (prompts/ui-overview.md §4): one row per action, the segment breakdown opens below.
 
-const LABEL = "text-[11px] font-semibold uppercase tracking-wider text-neutral-500";
+export const LABEL = "text-[11px] font-semibold uppercase tracking-wider text-neutral-500";
 // Below md: rank · offer (+ customers) · ΔCLV · chevron, reasons on a second line under the offer.
 // The ΔCLV track has a fixed width so the bars share one scale on every row.
-const GRID =
+export const GRID =
   "grid grid-cols-[1.5rem_minmax(0,1fr)_5.5rem_1rem] gap-x-4 md:grid-cols-[1.5rem_minmax(0,1.1fr)_7rem_9rem_minmax(0,1.9fr)_1rem]";
 
 function Reason({ r, summary }: { r: ReasonCount; summary: Summary | null }) {

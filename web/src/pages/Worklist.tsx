@@ -20,6 +20,7 @@ import {
   type ViewId,
 } from "../components/worklist/model";
 import { loadIndex, loadSummary, useLoad } from "../lib/data";
+import { WorklistSkeleton } from "../components/Skeleton";
 import { decideRow, latestByCustomer, useDecisions } from "../lib/decisions";
 import { useHardRules, violation } from "../lib/hardRules";
 
@@ -202,7 +203,7 @@ export default function Worklist() {
     return () => window.removeEventListener("keydown", onKey);
   }, [order, highlighted, open, selected, rejecting, latest, rules, summary]);
 
-  if (index.status === "loading") return <p className="py-12 text-center text-neutral-500">Loading worklist…</p>;
+  if (index.status === "loading") return <WorklistSkeleton />;
   if (index.status === "error")
     return <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">Could not load the worklist: {index.error}</div>;
 

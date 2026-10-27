@@ -4,6 +4,7 @@ import NbaCard from "../components/nba/NbaCard";
 import ProfileCard from "../components/profile/ProfileCard";
 import { TierChip } from "../components/Chips";
 import { loadCard, useLoad } from "../lib/data";
+import { CustomerSkeleton } from "../components/Skeleton";
 
 export type Mode = "marketing" | "service";
 
@@ -51,7 +52,7 @@ export default function Customer() {
 
   const onSignalClick = useCallback((sid: string) => setActiveSignal((cur) => (cur === sid ? null : sid)), []);
 
-  if (card.status === "loading") return <p className="text-neutral-500">Loading {id}…</p>;
+  if (card.status === "loading") return <CustomerSkeleton id={id} />;
   if (card.status === "error")
     return (
       <p className="text-red-700">

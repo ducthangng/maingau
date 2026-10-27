@@ -7,6 +7,7 @@ import { SERVICE_LINK, buildOverview } from "../components/overview/model";
 import { Sourced } from "../components/Source";
 import { asOf, colSrc } from "../components/worklist/model";
 import { loadIndex, loadSummary, useLoad } from "../lib/data";
+import { OverviewSkeleton } from "../components/Skeleton";
 import { NOT_ENOUGH } from "../lib/format";
 
 /**
@@ -51,7 +52,7 @@ export default function Overview() {
 
   // Wait for the summary too: without its labels every reason would flash "not enough data".
   if (index.status === "loading" || summaryState.status === "loading")
-    return <p className="py-12 text-center text-neutral-500">Loading overview…</p>;
+    return <OverviewSkeleton />;
   if (index.status === "error")
     return <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">Could not load the overview: {index.error}</div>;
   if (!model) return null;

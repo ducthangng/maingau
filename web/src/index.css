@@ -21,3 +21,32 @@ body {
 :focus-visible {
   @apply outline-2 outline-offset-2 outline-accent-500;
 }
+
+/* Loading skeletons (components/Skeleton.tsx). One soft sheen sweeps across every bone at once (the gradient
+   is fixed to the viewport), and a skeleton stays invisible for its first 150 ms, so a fast load never flashes. */
+.skeleton-bone {
+  background-color: var(--color-neutral-200);
+  background-image: linear-gradient(100deg, transparent 35%, rgb(255 255 255 / 0.55) 50%, transparent 65%);
+  background-size: 250% 100%;
+  background-attachment: fixed;
+  animation: skeleton-sheen 1.6s ease-in-out infinite;
+}
+/* Lighter bones: a translucent neutral-200 stays visible on white cards and on the grey page and panels. */
+.skeleton-bone.soft {
+  background-color: color-mix(in oklab, var(--color-neutral-200) 60%, transparent);
+}
+.skeleton-reveal {
+  animation: skeleton-in 280ms ease-out 150ms both;
+}
+@keyframes skeleton-sheen {
+  from { background-position: 125% 0; }
+  to { background-position: -25% 0; }
+}
+@keyframes skeleton-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-bone { animation: none; background-image: none; }
+  .skeleton-reveal { animation-duration: 1ms; }
+}
