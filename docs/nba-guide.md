@@ -179,6 +179,7 @@ cd web && npm run dev                          # terminal 2: http://localhost:51
 | Command | What it does |
 |---|---|
 | `.venv/bin/python scripts/replay_demo.py` | Event replay report (`out/replay_report.md`) |
+| `.venv/bin/python scripts/replay_demo.py --export web/public/data/replay.json` | Same replay, plus the changed cards for the Knowledge Base "Event replay" view |
 | `.venv/bin/python -m nba.rules export` → edit `rules.yaml` → `diff` → `apply --by "Name"` | Change rules as plain-language cards; `diff` shows who changes and checks the hard rules |
 | `.venv/bin/python scripts/policy_diff.py` | Which customers change decision after an edit to `kg/policy.yaml` |
 | `.venv/bin/python scripts/export_kg_viz.py --out web/public/data/kg_viz.json` | Graph data for the decision-graph viewer and the UI's Knowledge Base page (`/kb`, the button next to the snapshot): the ontology, the policy layer and eight demo customers' decision paths |

@@ -5,6 +5,7 @@ import LayerGraph from "../components/kb/LayerGraph";
 import LearningView from "../components/kb/LearningView";
 import NodeInspector, { Legend, upstream } from "../components/kb/NodeInspector";
 import ProfileSummary from "../components/kb/ProfileSummary";
+import ReplayView from "../components/kb/ReplayView";
 import ZoomCanvas from "../components/kb/ZoomCanvas";
 import { mockName } from "../lib/customerMock";
 import { useLoad } from "../lib/data";
@@ -13,12 +14,13 @@ import { loadKnowledgeBase, type KbCustomer, type KbGraph, type KbNode, type Kno
 // Knowledge Base (scripts/export_kg_viz.py): how the engine got from a customer's data to the decision, the policy
 // layer behind every rule, and the ontology. Demo view over the 8 demo customers; read only.
 
-type View = "customer" | "policy" | "ontology" | "learning";
+type View = "customer" | "policy" | "ontology" | "learning" | "replay";
 const VIEWS: { id: View; label: string }[] = [
   { id: "customer", label: "Customer decision" },
   { id: "policy", label: "Policy" },
   { id: "ontology", label: "Ontology" },
   { id: "learning", label: "Learning" },
+  { id: "replay", label: "Event replay" },
 ];
 
 const LABEL = "text-[11px] font-semibold uppercase tracking-wider text-neutral-500";
@@ -261,7 +263,9 @@ export default function KnowledgeBase() {
         {view === "customer" && <CustomerSearch kb={data} value={cid} onPick={(id) => go({ view: "customer", c: id })} />}
       </div>
 
-      {view === "learning" ? (
+      {view === "replay" ? (
+        <ReplayView />
+      ) : view === "learning" ? (
         <LearningView demo={new Set(ids)} />
       ) : (
       <div className="grid gap-5 xl:grid-cols-[22rem_minmax(0,1fr)_17rem]">
