@@ -2,10 +2,17 @@
 
 from __future__ import annotations
 
+import os
+
 import pytest
 
 from nba.data import load_workbook
 from nba.state import build_states
+
+# A normal test run never calls a real AI backend, even with a team key in .env (it would spend the team's
+# quota); only the opt-in live run (MAINGAU_AI_QA=1, tests marked ai_live) uses the configured backend.
+if os.environ.get("MAINGAU_AI_QA") != "1":
+    os.environ["MAINGAU_LLM"] = "none"
 
 
 @pytest.fixture(scope="session")

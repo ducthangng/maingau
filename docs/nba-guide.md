@@ -186,6 +186,17 @@ cd web && npm run dev                          # terminal 2: http://localhost:51
 | `.venv/bin/python scripts/databricks_sync.py upload` / `check [--mcp]` / `publish` | Our own Databricks workspace: upload the mock data, check it is identical, publish results and the MCP tools. `MAINGAU_DATA_SOURCE=databricks` makes the build read from it, with `data/` as the backup ([databricks.md](databricks.md)) |
 | `.venv/bin/python -m pytest -q tests/` | All tests (about 90 s), including the reference customers in both p modes |
 | `.venv/bin/python -m nba.ai qa [--no-ai] [--scenarios 8]` | AI tests of the whole workflow (§6.8); report in `out/ai_qa/report.md`; exit code 1 if a check fails |
+| `.venv/bin/python -m nba.ai ping` | Check that the AI backend answers: backend, model, one valid JSON reply (§6.9) |
+
+### 6.7 Common problems
+
+| Symptom | Fix |
+|---|---|
+| `ModuleNotFoundError: ruamel` | `.venv/bin/pip install -r requirements.txt` |
+| `data contract error(s)` when building | Read `out/data_validation.md`; fix the workbook or use `--skip-validation` |
+| The UI shows "MOCK DATA" | Run §6.3 with `--export web/public/data` |
+| An approval returns 409 "held back until …" | The action waits for a rule (e.g. B-01); approve after that date or choose another tuple |
+| The rules look different after restarting the API | Edits in `out/rule_versions.jsonl` are replayed; delete the file to reset |
 
 ### 6.8 AI tests of the whole workflow
 
@@ -211,17 +222,27 @@ cd web && npm run dev                          # terminal 2: http://localhost:51
   - the journey is newest first;
   - the cluster review never marks a hard flag ready.
 
-A tester expectation that does not come true is a **finding** for a person, not a failure. Tests: `tests/test_ai_qa.py`, with a fake backend and a mutation test showing the checks catch a broken decision. To run against a real backend: `MAINGAU_AI_QA=1 MAINGAU_LLM=claude .venv/bin/python -m pytest -m ai_live` (opt-in, because it costs API calls).
+A tester expectation that does not come true is a **finding** for a person, not a failure. Tests: `tests/test_ai_qa.py`, with a fake backend and a mutation test showing the checks catch a broken decision. To run against a real backend: `MAINGAU_AI_QA=1 .venv/bin/python -m pytest -m ai_live` with the backend from `.env` (§6.9), or `MAINGAU_AI_QA=1 MAINGAU_LLM=claude …` (opt-in, because it costs API calls). A normal `pytest` run never calls an AI backend, even with a key in `.env`.
 
-### 6.7 Common problems
+### 6.9 AI backend: Hessian.AI
 
-| Symptom | Fix |
+The AI steps (review, feedback, QA) work without AI. To switch the AI on with the team's Hessian.AI access:
+
+```bash
+cp .env.example .env            # .env is git-ignored: the team key never goes into the repository
+# edit .env: HAI_API_KEY=<team key>, HAI_MODEL=vllm/Kolibri-1 (or vllm/GLM-Flash:Latest)
+.venv/bin/python -m nba.ai ping # one tiny request: prints the model and {"ok": true, "answer": "pong"}
+.venv/bin/python -m nba.ai review   # then any AI step uses it (API: GET /api/ai/review?ai=true)
+```
+
+| Setting | Meaning |
 |---|---|
-| `ModuleNotFoundError: ruamel` | `.venv/bin/pip install -r requirements.txt` |
-| `data contract error(s)` when building | Read `out/data_validation.md`; fix the workbook or use `--skip-validation` |
-| The UI shows "MOCK DATA" | Run §6.3 with `--export web/public/data` |
-| An approval returns 409 "held back until …" | The action waits for a rule (e.g. B-01); approve after that date or choose another tuple |
-| The rules look different after restarting the API | Edits in `out/rule_versions.jsonl` are replayed; delete the file to reset |
+| `MAINGAU_LLM` | `hessian` (or `auto`: Hessian.AI when `HAI_API_KEY` is set, then Claude, then a local Ollama, else none) |
+| `HAI_API_KEY` | The team key, sent as `Authorization: Bearer …` |
+| `HAI_MODEL` | `vllm/Kolibri-1` (default) or `vllm/GLM-Flash:Latest`: the exact name from the access sheet |
+| `HAI_BASE_URL` | Default `https://hip-gw.hessian.ai/v1`; the backend calls `{HAI_BASE_URL}/chat/completions` |
+
+A variable set in the shell wins over `.env`. The backend asks for JSON with the output schema (`response_format: json_schema`); if the gateway refuses that, it falls back to `json_object` and then to the schema in the prompt, and it strips thinking blocks and code fences before parsing. A wrong key or an unreachable gateway switches the AI off for that run, and the code result stands. Tests: `tests/test_ai_llm.py` (a local stand-in gateway, no real key).
 
 ## 7. Limitations
 

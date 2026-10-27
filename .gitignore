@@ -25,3 +25,4 @@ rules.technical.yaml
 .databrickscfg
 .env
 .env.*
+!.env.example

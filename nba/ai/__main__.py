@@ -3,14 +3,16 @@
   python -m nba.ai review   [--no-ai] [--out out/]   who is ready for bulk approval, who needs a person (out/ai_review.json)
   python -m nba.ai feedback [--no-ai] [--out out/]   remember what people said no to (out/customer_memory.jsonl)
   python -m nba.ai qa       [--no-ai] [--scenarios N] [--out out/]   AI tests of the whole workflow (out/ai_qa/report.md)
+  python -m nba.ai ping                                    check that the AI backend answers (key, model, JSON)
 
-Backend: MAINGAU_LLM = auto | claude | ollama | none (nba/ai/llm.py).
+Backend: MAINGAU_LLM = auto | hessian | claude | ollama | none (nba/ai/llm.py; settings in .env, see .env.example).
 """
 from __future__ import annotations
 
 import argparse
 import json
 import sys
+import time
 from pathlib import Path
 
 from nba.ai import feedback
@@ -21,12 +23,14 @@ from nba.engine.runtime import Runtime
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("step", choices=["review", "feedback", "qa"])
+    ap.add_argument("step", choices=["review", "feedback", "qa", "ping"])
     ap.add_argument("--no-ai", action="store_true", help="Code only, no AI backend")
     ap.add_argument("--out", type=Path, default=Path("out"))
     ap.add_argument("--scenarios", type=int, default=8, help="qa: scenarios the AI tester may write (seed scenarios always run)")
     args = ap.parse_args(argv)
     llm = LLM() if args.no_ai else from_env()
+    if args.step == "ping":
+        return ping(llm)
     if args.step == "qa":  # a fresh runtime and its own folder: the test decisions never touch out/decision_log.jsonl
         from nba.ai import qa
 
@@ -54,6 +58,24 @@ def main(argv=None) -> int:
         (args.out / "ai_proposals.json").write_text(json.dumps(result["proposals"], ensure_ascii=False, indent=1), encoding="utf-8")
         print(f"{len(items)} feedback items, {len(result['added'])} new memory entries (AI: {result['ai']['backend']}) -> {memory}; "
               f"{len(result['proposals'])} proposals for a person -> {args.out / 'ai_proposals.json'}")
+    return 0
+
+
+def ping(llm: LLM) -> int:
+    """One tiny structured request: shows the backend, the model and whether valid JSON comes back."""
+    if not llm.enabled or llm.name == "none":
+        print("No AI backend: set MAINGAU_LLM and the backend's key (for Hessian.AI: HAI_API_KEY in .env, see .env.example)")
+        return 1
+    schema = {"type": "object", "properties": {"ok": {"type": "boolean"}, "answer": {"type": "string"}},
+              "required": ["ok", "answer"], "additionalProperties": False}
+    start = time.perf_counter()
+    answer = llm.structured("You check that a connection works. Reply with ok = true and answer = \"pong\".", {"ping": "hello"}, schema)
+    took = time.perf_counter() - start
+    model = getattr(llm, "model", "?")
+    if not answer:
+        print(f"{llm.name} ({model}): no valid answer after {took:.1f}s; see the warning above (key, model name or gateway)")
+        return 1
+    print(f"{llm.name} ({model}): {json.dumps(answer, ensure_ascii=False)} in {took:.1f}s")
     return 0
 
 

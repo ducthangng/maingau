@@ -897,3 +897,21 @@ Claude Code (Opus) on Windows, in the user's checkout `E:\Projects\maingau`. On 
 - Agent CARDS: nothing changes for the static demo; the default source is `local`.
 
 **Next session starts with:** with the user's credentials, run `upload`, then `check`, then `MAINGAU_DATA_SOURCE=databricks python -m nba.build --out out/`, then `publish`, then `check --mcp`.
+
+### Session 23 · 2026-10-27 · Claude Code (Opus) · branch feat/kg
+
+**Goal (user):** connect the AI steps to the team's Hessian.AI inference access. The access sheet gives the endpoint `hip-gw.hessian.ai/v1`, a Bearer key and the models `vllm/Kolibri-1` and `vllm/GLM-Flash:Latest`. The user adds the key and the model name.
+
+**Done:**
+- **`HessianLLM` in `nba/ai/llm.py`:** OpenAI-compatible POST to `{HAI_BASE_URL}/chat/completions` with `Authorization: Bearer $HAI_API_KEY`; model `HAI_MODEL`, default `vllm/Kolibri-1`.
+  - Structured output via `response_format: json_schema`, falling back to `json_object` and then to the schema in the prompt when the gateway refuses (remembered for the run).
+  - `<think>` blocks and code fences are stripped before parsing.
+  - 429 / 5xx retried twice; a bad key switches the AI off for the run, and the code result stands.
+- **Picking the backend:** `MAINGAU_LLM=hessian`; `auto` picks Hessian.AI first when `HAI_API_KEY` is set.
+- **Settings:** come from the shell or a git-ignored `.env` at the repo root. `.env.example` is committed with an empty key; `.gitignore` gained `!.env.example`.
+- **`python -m nba.ai ping`:** one tiny request that prints the backend, the model and the JSON reply.
+- **Tests never call a real backend:** `tests/conftest.py` sets `MAINGAU_LLM=none` unless `MAINGAU_AI_QA=1`, so a normal `pytest` never spends the team's quota.
+- **Tests:** `tests/test_ai_llm.py` runs 7 tests against a local stand-in gateway (request shape and key, format fallback, cleaning, bad key, `.env` loading and precedence, auto choice, ping). The environment is restored after each test.
+- **Docs:** README §AI (backend line) and `docs/nba-guide.md` §6.9 (the setup steps). The guide sections are back in order (6.7 → 6.9).
+
+**Verified:** full suite 479 passed, 1 skipped. Not run against the real gateway: no key in this session. The user runs `python -m nba.ai ping` after filling in `.env`.

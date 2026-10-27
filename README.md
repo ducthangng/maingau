@@ -1076,7 +1076,7 @@ Every card carries `rules` (per-rule result and the contact counter line). Edits
 
 The AI is not trained or fine-tuned. Each call gets a system prompt, the customer's evidence from the knowledge graph (card JSON) and an output schema built from the ontology. What the system learns is stored as data: customer memory, the calibration factor k and rules. The AI never sends anything and never loosens a rule. Without an AI backend the code result stands.
 
-The backend is configured by `MAINGAU_LLM` (auto | claude | ollama | none; `nba/ai/llm.py`).
+The backend is configured by `MAINGAU_LLM` (auto | hessian | claude | ollama | none; `nba/ai/llm.py`). The team uses the Hessian.AI inference gateway (`https://hip-gw.hessian.ai/v1`, OpenAI-compatible, models `vllm/Kolibri-1` and `vllm/GLM-Flash:Latest`): copy `.env.example` to `.env`, fill in `HAI_API_KEY` (one key per team, never committed) and check the connection with `python -m nba.ai ping` (docs/nba-guide.md §6.9).
 
 **Review before approval** (`python -m nba.ai review`, `GET /api/ai/review`):
 - Act-now proposals are grouped into clusters: the same offer × channel × tone in the same segment.
