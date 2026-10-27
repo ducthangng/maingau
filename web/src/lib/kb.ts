@@ -1,6 +1,8 @@
 // Knowledge Base data (scripts/export_kg_viz.py → public/data/kg_viz.json): the ontology, the policy layer and
 // the decision graphs of the demo customers. A static file in both modes; regenerate it with the script.
 
+import { API_BASE, dataMode } from "./data";
+
 export type NodeStatus = "chosen" | "blocked" | "waiting" | null;
 export type EdgeStatus = "plain" | "chosen" | "blocked" | "waiting";
 
@@ -99,4 +101,52 @@ export function loadKnowledgeBase(): Promise<KnowledgeBase> {
     cache.catch(() => (cache = null)); // a failed load is retried next time
   }
   return cache;
+}
+
+// ---------------------------------------------------------------- learning impact (nba/learn/impact.py)
+
+export interface LearnDecision {
+  tuple: string;
+  waits_until: string | null;
+  p: number | null;
+  k: number | null;
+  lift: number | null;
+  delta_clv: number | null;
+  clv_buy: number | null;
+  clv_no: number | null;
+}
+
+export interface LearnChange {
+  customer_id: string;
+  cause: "evidence" | "memory";
+  before: LearnDecision;
+  after: LearnDecision;
+  before_now?: Partial<LearnDecision>;
+  winner_before?: Partial<LearnDecision> | null;
+  sentence: string;
+}
+
+export interface LearnImpact {
+  formula: string;
+  summary: { customers: number; changed: number; by_cause: Record<string, number>; delta_clv: { baseline: number; evidence: number; learned: number } };
+  k: { offer: string; channel: string; tone: string; sends: number; bought: number; expected: number; k: number }[];
+  memory: { entries: number; active: number; by_kind: Record<string, number>; by_source: Record<string, number> };
+  lookalike: { active: boolean; offers: { offer: string; name: string; recipients: number; buyers: number; more_likely: number; less_likely: number }[] };
+  changes: LearnChange[];
+}
+
+let impactCache: Promise<LearnImpact> | null = null;
+
+/** API `GET /api/learn/impact`, static `data/learn_impact.json` (written by nba.build). */
+export function loadLearnImpact(): Promise<LearnImpact> {
+  if (!impactCache) {
+    impactCache = dataMode()
+      .then((mode) => fetch(mode === "api" ? `${API_BASE}/api/learn/impact` : `${import.meta.env.BASE_URL}data/learn_impact.json`))
+      .then((res) => {
+        if (!res.ok) throw new Error(`learning impact: HTTP ${res.status}`);
+        return res.json() as Promise<LearnImpact>;
+      });
+    impactCache.catch(() => (impactCache = null));
+  }
+  return impactCache;
 }

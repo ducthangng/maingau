@@ -2,6 +2,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import { ChevronDown, Search } from "lucide-react";
 import LayerGraph from "../components/kb/LayerGraph";
+import LearningView from "../components/kb/LearningView";
 import ZoomCanvas from "../components/kb/ZoomCanvas";
 import { OFFER_NAME } from "../components/worklist/model";
 import { channelLabel, toneLabel } from "../components/nba/ui";
@@ -13,11 +14,12 @@ import { loadKnowledgeBase, type KbCustomer, type KbGraph, type KbNode, type Kno
 // Knowledge Base (scripts/export_kg_viz.py): how the engine got from a customer's data to the decision, the policy
 // layer behind every rule, and the ontology. Demo view over the 8 demo customers; read only.
 
-type View = "customer" | "policy" | "ontology";
+type View = "customer" | "policy" | "ontology" | "learning";
 const VIEWS: { id: View; label: string }[] = [
   { id: "customer", label: "Customer decision" },
   { id: "policy", label: "Policy" },
   { id: "ontology", label: "Ontology" },
+  { id: "learning", label: "Learning" },
 ];
 
 const LABEL = "text-[11px] font-semibold uppercase tracking-wider text-neutral-500";
@@ -287,7 +289,7 @@ export default function KnowledgeBase() {
   if (!data) return null;
 
   const customer = view === "customer" ? data.customers[cid] : undefined;
-  const graph = view === "customer" ? customer!.graph : view === "policy" ? data.policy_graph : data.ontology;
+  const graph = view === "customer" ? customer!.graph : view === "policy" ? data.policy_graph : data.ontology; // unused for "learning"
   const go = (patch: Record<string, string>) => {
     setSelected(null);
     setParams((p) => {
@@ -329,6 +331,9 @@ export default function KnowledgeBase() {
         {view === "customer" && <CustomerSearch kb={data} value={cid} onPick={(id) => go({ view: "customer", c: id })} />}
       </div>
 
+      {view === "learning" ? (
+        <LearningView demo={new Set(ids)} />
+      ) : (
       <div className="grid gap-5 xl:grid-cols-[19rem_minmax(0,1fr)_17rem]">
         <aside className="space-y-3">
           {view === "customer" && customer && (
@@ -358,6 +363,7 @@ export default function KnowledgeBase() {
           <Selected node={selected} customer={customer} />
         </aside>
       </div>
+      )}
     </div>
   );
 }
