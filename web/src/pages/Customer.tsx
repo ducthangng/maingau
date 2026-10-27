@@ -25,11 +25,11 @@ export default function Customer() {
   const [mode, setMode] = useState<Mode>("marketing");
   const [activeSignal, setActiveSignal] = useState<string | null>(null);
 
-  // Going back restores the worklist's filters and view (kept in its URL); a direct link falls back to "/".
+  // Going back restores the worklist's filters and view (kept in its URL); a direct link falls back to "/worklist".
   const backToWorklist = useCallback(() => {
     const idx = (window.history.state as { idx?: number } | null)?.idx ?? 0;
     if (idx > 0) navigate(-1);
-    else navigate("/");
+    else navigate("/worklist");
   }, [navigate]);
 
   useEffect(() => {
@@ -55,7 +55,7 @@ export default function Customer() {
   if (card.status === "error")
     return (
       <p className="text-red-700">
-        Could not load {id}: {card.error}. <Link to="/" className="underline">Back to the worklist</Link>
+        Could not load {id}: {card.error}. <Link to="/worklist" className="underline">Back to the worklist</Link>
       </p>
     );
   const c = card.data;
@@ -64,7 +64,7 @@ export default function Customer() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
         <Link
-          to="/"
+          to="/worklist"
           onClick={(e) => {
             e.preventDefault();
             backToWorklist();
