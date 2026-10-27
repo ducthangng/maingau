@@ -67,11 +67,16 @@ What this means for Databricks:
 
 | Piece | Status |
 |---|---|
-| Raw layer: the 23 sheets, `events_raw` and `_manifest` in `<catalog>.maingau_raw` | **Built:** `scripts/databricks_sync.py upload` |
-| Engine reads from Databricks (`MAINGAU_DATA_SOURCE=databricks`) | **Built**, with fallback to `data/` |
-| Results layer in `<catalog>.maingau_nba` (worklist, options, blocks, cards, journeys, decision log, memory, run info) | **Built:** `publish` after a build |
-| MCP tools: the four Unity Catalog functions | **Built.** The managed MCP server must be enabled in the workspace (Previews) |
-| Job schedule, Databricks App, Auto Loader, the API writing decisions to Delta, Genie space, permissions and masks | **Not built.** These are the target |
+| Raw layer: the 23 sheets, `events_raw` and `_manifest` in `workspace.maingau_raw` | **Built:** `scripts/databricks_sync.py upload` |
+| Engine reads from Databricks (`MAINGAU_DATA_SOURCE=databricks`) | **Built**, with fallback to `data/`. Live check: 1,505 files, 0 differences against the local build |
+| **The engine as a Databricks Job** `maingau-nba-nightly`: `validate_data`, then `decide_and_publish`, on serverless compute | **Built:** `scripts/databricks_deploy.py job --run`. Unity Catalog lineage shows the job reading `maingau_raw` and writing `maingau_nba`. The 02:00 schedule starts paused |
+| Results layer in `workspace.maingau_nba`: worklist, options, blocks, cards, journeys, customer memory, learning impact, run info, with column descriptions | **Built:** written by the job (or by `publish` after a local build) |
+| **Decisions flow back:** `decision_log` and `service_feedback` are Delta record tables | **Built:** the API appends every approval, override, rejection and agent reaction, and the job turns them into customer memory on its next run. Publish never overwrites them |
+| **Genie space** "MAINGAU Next Best Action" over the results | **Built:** `scripts/databricks_deploy.py genie`, with instructions, sample questions and example SQL |
+| **The dashboard as a Databricks App** `maingau-nba` | **Built:** `scripts/databricks_deploy.py app`. It reads through the attached SQL warehouse as its own service principal, which gets Unity Catalog grants |
+| SQL functions `customer_360`, `next_best_actions`, `why_blocked`, `action_group` | **Built** and callable in SQL |
+| Managed MCP server over those functions | **Not available on Free Edition** (previews cannot be enabled; the server answers "not enabled"). Works unchanged on a paid workspace |
+| Auto Loader for events, column masks | **Not built.** These are the target |
 
 **How the source works:**
 - Every cell is stored as the text pandas reads from the workbook, and a hidden `_row` column keeps the order. `nba/data.py` then parses Databricks data exactly as it parses the file.
@@ -106,7 +111,7 @@ The run never mixes the two sources. `nba.build` prints which source it read and
    ```sql
    SELECT * FROM workspace.maingau_nba.next_best_actions('MG-100068');
    ```
-8. **MCP.** Run `python scripts/databricks_sync.py check --mcp`. It lists the tools at `https://<host>/api/2.0/mcp/functions/workspace/maingau_nba` and calls `customer_360` for MG-100068. If it reports "not available", a workspace admin enables **Managed MCP Servers** under **Settings → Previews**. Whether Free Edition offers this preview is not documented.
+8. **MCP.** Run `python scripts/databricks_sync.py check --mcp`. It lists the tools at `https://<host>/api/2.0/mcp/functions/workspace/maingau_nba` and calls `customer_360` for MG-100068. Managed MCP is a preview, and **Free Edition cannot enable previews**: there the check reports "not enabled". On a paid workspace an admin switches on **Managed MCP Servers** under username → **Previews**.
 
 Settings live in `config/databricks.yaml`: catalog, schemas, volume, warehouse and timeout. `MAINGAU_DATABRICKS_*` variables override them.
 
@@ -114,3 +119,44 @@ Settings live in `config/databricks.yaml`: catalog, schemas, volume, warehouse a
 - Non-commercial use only.
 - A daily compute quota; when it is used up, the run falls back to `data/`.
 - One small SQL warehouse, which the code picks automatically.
+
+## 5. Run it on Databricks
+
+| Command | What it does |
+|---|---|
+| `python scripts/databricks_deploy.py job --run` | Uploads the engine to `/Workspace/Users/<you>/maingau-nba`, creates or updates the job `maingau-nba-nightly`, runs it and waits (about 3–4 minutes) |
+| `python scripts/databricks_deploy.py run` | Runs the job again |
+| `python scripts/databricks_deploy.py genie [--ask "question"]` | Creates or updates the Genie space; `--ask` asks it a question and prints the SQL and the answer |
+| `cd web && npm run build`, then `python scripts/databricks_deploy.py app` | Deploys the dashboard and API as the App `maingau-nba`. On Free Edition the App stops after 24 hours: start it again in **Compute → Apps** |
+| `MAINGAU_DATA_SOURCE=databricks uvicorn api.app:app --port 8000` | The local API on Databricks data; approvals also go to `maingau_nba.decision_log` |
+
+**How the job works** (`scripts/databricks_job.py`):
+- Inside the job, SQL runs through the job's own Spark session (`nba.lakehouse.SparkWarehouse`). That is why lineage names the job.
+- There is no fallback in the job. If the raw layer cannot be read, the run fails.
+- **`validate_data`** runs the data contract; an ERROR stops the run.
+- **`decide_and_publish`** does five things:
+  1. reads `decision_log` and `service_feedback` from Delta;
+  2. learns customer memory (code only, no AI);
+  3. decides for all 750 customers;
+  4. publishes the tables;
+  5. re-applies the column descriptions.
+
+## 6. Demo script (about 3 minutes)
+
+1. **The data is in Databricks.** Open Catalog → `workspace.maingau_raw`: the 23 source tables, `events_raw` and `_manifest`. *"MAINGAU's customer data lives in Unity Catalog. Our engine reads it from there."*
+2. **Databricks runs the engine.** Open Jobs & Pipelines → `maingau-nba-nightly` → **Run now**. Show the two tasks and the output of `decide_and_publish`:
+   - feedback read from Delta;
+   - 74 memory entries learned;
+   - 750 customers decided in about 30 seconds.
+
+   Then open `maingau_nba.worklist` → **Lineage**: the job reads `maingau_raw` and writes `maingau_nba`.
+3. **The results, governed.** Open `maingau_nba.nba_options` → Sample data, and run `SELECT * FROM workspace.maingau_nba.next_best_actions('MG-100068')` in the SQL editor.
+4. **Ask in plain language.** Open the Genie space "MAINGAU Next Best Action" and ask:
+   - *"Which offers bring the most expected value in total?"*
+   - *"Why is StromWärme blocked for so many customers?"*
+
+   Genie shows its SQL. *"The AI reads only the tables Unity Catalog grants it."*
+5. **The app runs on Databricks.** Open the App `maingau-nba` (Compute → Apps). Approve a group or one customer.
+6. **Decisions flow back.** Run `SELECT * FROM workspace.maingau_nba.decision_log ORDER BY ts DESC`: the approval is there within seconds. *"The next nightly run learns from it."* Optionally reject one with "customer upset", then run the job again: that customer's proposal is held back.
+
+Say: *"Shown on our own Databricks Free Edition workspace with the mock data; MAINGAU would point it at their master view."* Do not say it is integrated with MAINGAU's Databricks. Rehearse the Genie questions: it is an AI and can phrase SQL differently.

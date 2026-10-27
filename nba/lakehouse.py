@@ -157,16 +157,19 @@ class Warehouse:
             raise LakehouseError("this workspace has no SQL warehouse")
         return warehouses[0].id
 
-    def query(self, statement: str) -> tuple[list[str], list[list[str | None]]]:
-        """Column names and rows; every value comes back as text or None (JSON_ARRAY format)."""
+    def query(self, statement: str, params: dict[str, str | None] | None = None) -> tuple[list[str], list[list[str | None]]]:
+        """Column names and rows; every value comes back as text or None (JSON_ARRAY format). `params` fill
+        :name markers as STRING values."""
         from databricks.sdk.service.sql import (
-            Disposition, ExecuteStatementRequestOnWaitTimeout, Format, StatementState,
+            Disposition, ExecuteStatementRequestOnWaitTimeout, Format, StatementParameterListItem, StatementState,
         )
 
         api = self.client.statement_execution
+        parameters = [StatementParameterListItem(name=k, value=v, type="STRING") for k, v in (params or {}).items()]
         resp = api.execute_statement(statement=statement, warehouse_id=self.warehouse_id, wait_timeout="30s",
                                      on_wait_timeout=ExecuteStatementRequestOnWaitTimeout.CONTINUE,
-                                     format=Format.JSON_ARRAY, disposition=Disposition.INLINE)
+                                     format=Format.JSON_ARRAY, disposition=Disposition.INLINE,
+                                     parameters=parameters or None)
         deadline = time.monotonic() + self.timeout_s
         while resp.status.state in (StatementState.PENDING, StatementState.RUNNING):
             if time.monotonic() > deadline:
@@ -189,6 +192,45 @@ class Warehouse:
 
     def put(self, path: str, data: bytes) -> None:
         self.client.files.upload(path, io.BytesIO(data), overwrite=True)
+
+
+def _spark_text(v) -> str | None:
+    """A Spark value as the text the Statement Execution API returns."""
+    if v is None or isinstance(v, str):
+        return v
+    return ("true" if v else "false") if isinstance(v, bool) else str(v)
+
+
+class SparkWarehouse:
+    """The same two operations inside a Databricks job: SQL through the job's Spark session (so Unity Catalog
+    lineage records the job as the reader of maingau_raw and the writer of maingau_nba), files through /Volumes."""
+
+    warehouse_id = "job compute"
+
+    def __init__(self, spark=None):
+        if spark is None:
+            from pyspark.sql import SparkSession
+
+            spark = SparkSession.builder.getOrCreate()
+        self.spark = spark
+
+    def query(self, statement: str, params: dict[str, str | None] | None = None) -> tuple[list[str], list[list[str | None]]]:
+        df = self.spark.sql(statement, args=params) if params else self.spark.sql(statement)
+        return list(df.columns), [[_spark_text(v) for v in row] for row in df.collect()]
+
+    def put(self, path: str, data: bytes) -> None:
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
+        Path(path).write_bytes(data)
+
+
+def on_databricks_compute() -> bool:
+    """True inside a Databricks job or notebook (not in a Databricks App, which has no Spark)."""
+    return bool(os.environ.get("DATABRICKS_RUNTIME_VERSION"))
+
+
+def connect(s: Settings):
+    """Spark inside a Databricks job, the SQL warehouse anywhere else (laptop, API, Databricks App)."""
+    return SparkWarehouse() if on_databricks_compute() else Warehouse(s)
 
 
 def write_table(wh, s: Settings, schema: str, table: str, columns: list[tuple[str, str]], rows: list[dict],
@@ -314,7 +356,9 @@ def _resolve() -> tuple[RawData | None, dict]:
     if s.source == "local":
         return None, {"source": "local", "detail": "config/databricks.yaml source: local"}
     try:
-        return (raw := read_raw(Warehouse(s), s)), {"source": "databricks", "detail": raw.detail}
+        wh = connect(s)
+        _state["wh"], _state["settings"] = wh, s
+        return (raw := read_raw(wh, s)), {"source": "databricks", "detail": raw.detail}
     except Exception as exc:  # anything at all (missing SDK, auth, network, tables): the local files are the backup
         reason = " ".join(str(exc).split())[:300] or type(exc).__name__
         log.warning("Databricks source unavailable, using the local files instead: %s", reason)
@@ -327,6 +371,13 @@ def remote_raw() -> RawData | None:
     if "raw" not in _state:
         _state["raw"], _state["status"] = _resolve()
     return _state["raw"]
+
+
+def connection():
+    """(warehouse, settings) this process reads Databricks with; only after remote_raw() succeeded."""
+    if remote_raw() is None:
+        raise LakehouseError(f"not connected to Databricks: {status()['detail']}")
+    return _state["wh"], _state["settings"]
 
 
 def status() -> dict:
@@ -367,6 +418,11 @@ DECISION_COLUMNS = [
     ("entry_json", "STRING"),
 ]
 MEMORY_COLUMNS = [("customer_id", "STRING"), ("entry_json", "STRING")]
+SERVICE_FEEDBACK_COLUMNS = [("customer_id", "STRING"), ("feedback_id", "STRING"), ("shown_at", "STRING"),
+                            ("agent_action", "STRING"), ("suggested_offer_id", "STRING"), ("row_json", "STRING")]
+LEARN_IMPACT_COLUMNS = [("eval_time", "STRING"), ("learn_impact_json", "STRING")]
+# Written by people through the API and read back by the nightly job: publish never replaces them.
+RECORD_TABLES = {"decision_log": DECISION_COLUMNS, "service_feedback": SERVICE_FEEDBACK_COLUMNS}
 RUN_COLUMNS = [("eval_time", "STRING"), ("n_customers", "BIGINT"), ("data_source", "STRING"),
                ("data_source_detail", "STRING"), ("published_at", "STRING"), ("versions_json", "STRING")]
 
@@ -441,6 +497,9 @@ def result_tables(out_dir: str | Path) -> dict[str, tuple[list[tuple[str, str]],
     decisions = [{"customer_id": r["customer_id"], "entry_json": _text(r["entry"]),
                   **{k: r["entry"].get(k) for k, _ in DECISION_COLUMNS[1:-1]}} for r in _jsonl(out / "decision_log.jsonl")]
     memory = [{"customer_id": r.get("customer_id"), "entry_json": _text(r)} for r in _jsonl(out / "customer_memory.jsonl")]
+    service = [service_feedback_row(r) for r in _jsonl(out / "service_feedback.jsonl")]
+    impact_path = out / "learn_impact.json"
+    impact = json.loads(impact_path.read_text(encoding="utf-8")) if impact_path.exists() else None
     source = json.loads((out / "data_source.json").read_text(encoding="utf-8")) if (out / "data_source.json").exists() else {}
     first = json.loads(cards[0]["card_json"]) if cards else {"meta": {}}
     run = [{"eval_time": first["meta"].get("eval_time"), "n_customers": len(cards),
@@ -456,8 +515,62 @@ def result_tables(out_dir: str | Path) -> dict[str, tuple[list[tuple[str, str]],
         "customer_journey": (JOURNEY_COLUMNS, journeys, "The Customer 360 journey per customer (JSON)"),
         "decision_log": (DECISION_COLUMNS, decisions, "Approvals, overrides and rejections (append-only log of the API)"),
         "customer_memory": (MEMORY_COLUMNS, memory, "What people said no to, per customer (nba.ai feedback)"),
+        "service_feedback": (SERVICE_FEEDBACK_COLUMNS, service, "Service agents' reactions to suggested offers (Customer 360)"),
+        "learn_impact": (LEARN_IMPACT_COLUMNS,
+                         [{"eval_time": first["meta"].get("eval_time"), "learn_impact_json": _text(impact)}] if impact is not None else [],
+                         "What the feedback loop learned and which decisions it changed"),
         "run_info": (RUN_COLUMNS, run, "The build these tables come from"),
     }
+
+
+# Column descriptions for people and for Genie (re-applied on every publish, because each run recreates the tables).
+_OFFER = "offer ID, e.g. P-EN-03 (names in maingau_raw.product_catalog)"
+COLUMN_COMMENTS = {
+    "worklist": {
+        "customer_id": "MAINGAU customer ID, e.g. MG-100068",
+        "archetype": "segment A0-A5: A0 other, A1 smart eco-system adopter, A2 traditional energy loyalist, A3 EV driver, "
+                     "A4 retention risk (do no harm), A5 growing connected household",
+        "urgency_tier": "P1 most urgent ... P5 least urgent; sort by tier, then urgency_score descending",
+        "urgency_score": "higher = more urgent within a tier",
+        "top_reason": "the main reason this customer is on the worklist, with the signal or rule ID in brackets",
+        "chosen_offer": f"proposed {_OFFER}; NO_ACTION = do not contact",
+        "chosen_tuple": "proposed action as offer|channel|tone, e.g. P-EN-02|newsletter_email|sie",
+        "channel": "channel of the proposed action: outbound_call (phone), sms, email, newsletter_email, app_push, "
+                   "portal_popup, service_agent (handled by a service agent)",
+        "tone": "du (informal) or sie (formal)",
+        "delta_clv": "expected change of customer lifetime value in EUR if the action is sent, after contact cost",
+        "p_accept": "probability that the customer accepts the offer, 0 to 1",
+        "contact_cost": "cost of the contact in EUR",
+        "clv_eur": "customer lifetime value today in EUR",
+        "churn": "probability that the customer leaves within 12 months, 0 to 1",
+        "flags": "warnings such as service_critical, negative_clv, contact_fatigue, top_clv",
+        "outlier": "true if a flag marks a special case that needs a second look",
+        "exclusions": "active exclusions that block every sales offer (dunning, cancellation, open ticket, ...)",
+        "deferred_until": "set when the action has to wait (contact cap or a business rule) until this time",
+    },
+    "nba_options": {
+        "rank": "1 = best allowed action for this customer, by expected delta_clv",
+        "chosen": "true for the action proposed to the marketer",
+        "offer_id": _OFFER,
+        "delta_clv": "expected change of customer lifetime value in EUR, after contact cost",
+        "p_accept": "probability that the customer accepts, 0 to 1",
+        "why": "plain-language reasons this action fits",
+        "notes": "caveats: low confidence, assumptions, data quality",
+    },
+    "nba_blocked": {
+        "offer_id": _OFFER,
+        "rule_id": "why it is blocked: CONSENT-CHANNEL / CONSENT-PROFILING missing consent, EXCL-* exclusion "
+                   "(dunning, open ticket, cancellation), CONTACT-CAP too many contacts, HOLDING-PRECONDITION already "
+                   "owns it or lacks a prerequisite, CHANNEL-AVAILABLE no address/app, ECON-NONPOSITIVE not worth it, "
+                   "BUSINESS-RULE a Rule Center limit, DATA-MISSING not enough data",
+        "reason": "the blocking reason in plain language",
+    },
+    "decision_log": {
+        "action": "approved, overridden or rejected by a person",
+        "actor": "who decided",
+        "reason_code": "coded reason for a rejection or override (feeds the customer memory)",
+    },
+}
 
 
 def _function(s: Settings, name: str, params: list[tuple[str, str, str]], returns: list[tuple[str, str]],
@@ -510,10 +623,78 @@ def publish(wh, s: Settings, out_dir: str | Path) -> dict[str, int]:
     counts = {}
     tables = result_tables(out_dir)
     for table, (columns, rows, comment) in tables.items():
+        if table in RECORD_TABLES and table_exists(wh, s, table):
+            continue  # the API appends to it and the nightly job reads it back: never overwritten by a build
         counts[table] = write_table(wh, s, s.out_schema, table, columns, conform(rows, columns), comment)
+        names = {c for c, _ in columns}
+        for col, text in COLUMN_COMMENTS.get(table, {}).items():
+            if col in names:
+                wh.query(f"ALTER TABLE {s.out(table)} ALTER COLUMN {q(col)} COMMENT {lit(text)}")
     for sql in mcp_functions(s, tables["worklist"][0]).values():
         wh.query(sql)
     return counts
+
+
+def table_exists(wh, s: Settings, table: str) -> bool:
+    _, rows = wh.query(f"SHOW TABLES IN {q(s.catalog)}.{q(s.out_schema)} LIKE {lit(table)}")
+    return bool(rows)
+
+
+def decision_row(customer_id: str, entry: dict) -> dict:
+    return {"customer_id": customer_id, "entry_json": _text(entry), **{k: entry.get(k) for k, _ in DECISION_COLUMNS[1:-1]}}
+
+
+def service_feedback_row(row: dict) -> dict:
+    return {"row_json": _text(row), **{k: row.get(k) for k, _ in SERVICE_FEEDBACK_COLUMNS[:-1]}}
+
+
+def insert_row(wh, s: Settings, table: str, row: dict) -> None:
+    """Append one row to a record table (created if missing); values travel as parameters, never as SQL text."""
+    columns = RECORD_TABLES[table]
+    spec = ", ".join(f"{q(c)} {t}" for c, t in columns)
+    wh.query(f"CREATE TABLE IF NOT EXISTS {s.out(table)} ({spec})")
+    shaped = conform([row], columns)[0]
+    params = {f"p{i}": shaped[c] for i, (c, _) in enumerate(columns)}
+    wh.query(f"INSERT INTO {s.out(table)} ({', '.join(q(c) for c, _ in columns)}) "
+             f"VALUES ({', '.join(':' + k for k in params)})", params)
+
+
+_writer = None
+
+
+def record(table: str, row: dict) -> bool:
+    """Append a row to decision_log / service_feedback in Databricks, in the background and in order, when this
+    process reads its data from Databricks. Returns whether it was queued; a failure is logged, never raised
+    (the local JSONL log stays the API's own record)."""
+    global _writer
+    if status()["source"] != "databricks":
+        return False
+    if _writer is None:
+        from concurrent.futures import ThreadPoolExecutor
+
+        _writer = ThreadPoolExecutor(max_workers=1, thread_name_prefix="lakehouse-writer")
+
+    def write():
+        try:
+            insert_row(_state["wh"], _state["settings"], table, row)
+        except Exception as exc:  # the decision is already in the local log
+            log.warning("could not write to %s in Databricks: %s", table, " ".join(str(exc).split())[:200])
+
+    _writer.submit(write)
+    return True
+
+
+def read_records(wh, s: Settings) -> tuple[list[dict], list[dict]]:
+    """decision_log as {customer_id, entry} envelopes and service_feedback rows, as the feedback step reads them."""
+    found = {t: table_exists(wh, s, t) for t in RECORD_TABLES}
+    decisions, service = [], []
+    if found["decision_log"]:
+        _, rows = wh.query(f"SELECT `customer_id`, `entry_json` FROM {s.out('decision_log')} ORDER BY `ts`")
+        decisions = [{"customer_id": cid, "entry": json.loads(entry)} for cid, entry in rows if cid and entry]
+    if found["service_feedback"]:
+        _, rows = wh.query(f"SELECT `row_json` FROM {s.out('service_feedback')} ORDER BY `shown_at`")
+        service = [json.loads(r[0]) for r in rows if r[0]]
+    return decisions, service
 
 
 # --- managed MCP ---------------------------------------------------------------------------------------------

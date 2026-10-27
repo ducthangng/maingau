@@ -1117,10 +1117,15 @@ The connection is to our own Databricks Free Edition workspace loaded with the m
   - With `databricks`, `load_workbook()` / `load_events()` read the raw layer, and `nba/data.py` parses it exactly like the file. The output is byte-identical (1,504 files, 0 differences).
   - Any failure uses `data/` for the whole run, with one warning. Sources are never mixed.
   - `nba.build` prints the source and writes `out/data_source.json`.
-- **Results layer:** `scripts/databricks_sync.py publish` writes `<catalog>.maingau_nba`:
-  - tables: `worklist`, `nba_options`, `nba_blocked`, `customer_cards`, `customer_journey`, `decision_log`, `customer_memory`, `run_info`;
-  - four read-only SQL functions that the managed MCP server lists as tools: `customer_360`, `next_best_actions`, `why_blocked`, `action_group`.
-- **Credentials:** `DATABRICKS_HOST` / `DATABRICKS_TOKEN` or `~/.databrickscfg`, never in the repo.
+- **Results layer:** `<catalog>.maingau_nba`, written by the job or by `scripts/databricks_sync.py publish`:
+  - tables: `worklist`, `nba_options`, `nba_blocked`, `customer_cards`, `customer_journey`, `customer_memory`, `learn_impact`, `run_info`, with column descriptions;
+  - record tables `decision_log` and `service_feedback`: the API appends every decision and agent reaction, the job reads them back as feedback, and publishing never overwrites them;
+  - four read-only SQL functions: `customer_360`, `next_best_actions`, `why_blocked`, `action_group`. A managed MCP server would list them as tools, but Free Edition cannot enable that preview.
+- **On Databricks** (`scripts/databricks_deploy.py`):
+  - the job `maingau-nba-nightly` runs `validate_data`, then `decide_and_publish`, on serverless compute. Unity Catalog lineage shows it reading `maingau_raw` and writing `maingau_nba`;
+  - the Genie space "MAINGAU Next Best Action" answers questions over the results;
+  - the App `maingau-nba` hosts the dashboard and API.
+- **Credentials:** `DATABRICKS_HOST` / `DATABRICKS_TOKEN` in the git-ignored `.env` (or `~/.databrickscfg`), never in the repo.
 
 ## 7. Tasks: three agents in parallel
 
@@ -1353,8 +1358,8 @@ Customer facts below were verified in the workbook on 26 Oct. "Spec expects" is 
 ## 11. Out of scope
 
 - Real sending and live MAINGAU systems.
-- A production Databricks deployment: the Job schedule, Databricks App, Auto Loader, decisions written to Delta, and permissions. The architecture slide describes this target.
-- What exists is a connection to our own Free Edition workspace with the mock data (§6.18). It is not a MAINGAU integration, and the slide must not claim one.
+- A production Databricks deployment for MAINGAU, including Auto Loader for events and column masks.
+- What exists runs on our own Free Edition workspace with the mock data (§6.18): the job, the results and decision tables, Genie and the App. It is not a MAINGAU integration, and the slide must not claim one.
 - Online learning or reinforcement learning. Learning is presented as a concept: a holdout design and Bayesian updates of p with versioning.
 - A graph database, embeddings or an LLM reasoner. The KG is small and lives in YAML + NetworkX.
 - Personalised prices, and causal uplift claims based on the mock history.

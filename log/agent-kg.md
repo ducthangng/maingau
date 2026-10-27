@@ -1002,3 +1002,56 @@ Claude Code (Opus) on Windows, in the user's checkout `E:\Projects\maingau`. On 
   - spec-versus-data conflicts.
 - **Part 2, rules the team added:** 184 rows, each with a file:line reference. 103 are "Detail" rows: MAINGAU gave the rule and the team chose the numbers. Example: the spec only says "n < 30 → low"; the team added high ≥ 100 / medium ≥ 30, and only at offer × channel × tone.
 - **Part 3:** 13 team choices to confirm with MAINGAU, in order of how much they move the demo numbers.
+
+## 2026-10-27 · Databricks as a platform (job, decisions back, Genie, App) · feat/databricks-env
+
+**Goal:** Make Databricks do the work, not just store data. The engine runs as a Databricks Job, decisions flow back into Delta, Genie answers questions over the results, and the dashboard runs as a Databricks App. Everything runs on the user's Free Edition workspace with the mock data.
+
+**Done:**
+- **Credentials and safety**
+  - `.env` support: `lakehouse.load_settings()` loads it. `.env.example` has a Databricks section.
+  - `tests/conftest.py` forces `MAINGAU_DATA_SOURCE=local`.
+  - The user had pasted host and token into `.env.example`. I restored it before any commit, and checked that the host string is in no commit.
+- **Raw layer on the live workspace**
+  - The user's manual upload matched the workbook. As the user chose, I replaced it in place.
+  - Live bug: Spark `read_files` skips files starting with `_`, so `_manifest` came out empty. Data files are now `t-<table>.jsonl`, and a test guards it.
+- **`nba/lakehouse.py`**
+  - `SparkWarehouse`: SQL through the job's Spark session, so lineage records the job. `connect()` picks Spark on Databricks compute and the SQL warehouse elsewhere.
+  - Parameterised SQL.
+  - Record tables `decision_log` and `service_feedback`, which publish never overwrites; `insert_row` (values only as parameters); `record()` (a background writer, only when the process reads Databricks); `read_records()`.
+  - `learn_impact` and `service_feedback` are published.
+  - Column descriptions are applied on every publish.
+- **`api/app.py`**: every decision and service reaction also goes to Delta via `lakehouse.record` (two lines).
+- **`scripts/databricks_job.py`**: the job entry point.
+  - `--step validate` runs the data contract.
+  - `--step decide` reads Delta feedback, runs `--learn`, builds all 750 customers and publishes.
+- **`scripts/databricks_deploy.py`**:
+  - `job [--run]` / `run`: uploads the code to the workspace and creates the job with two serverless tasks and a paused 02:00 schedule.
+  - `genie [--ask]`: creates the space through the API (serialized space v2: tables, instructions, sample questions, example SQL).
+  - `app`: uploads the code and `web/dist`, creates the App with the SQL warehouse resource, grants Unity Catalog access to the App's service principal, and deploys.
+- **`scripts/databricks_app.py`**: the API and the built dashboard on `DATABRICKS_APP_PORT`, a single-page-app fallback, and warm-up at start.
+- **Docs and README**: `docs/databricks.md` §3 status, §5 commands, §6 demo script; README §6.18 and §11.
+
+**Verified (live, on the user's Free Edition workspace):**
+- `check`: identical to `data/`, every cell and event line.
+- A build from Databricks against a local build: 1,505 files, 0 differ.
+- Job run 776432400586763: SUCCESS.
+  - `validate_data`: 0 errors, 7 warnings.
+  - `decide_and_publish`: 74 memory entries, 750 customers in about 30 s.
+- Lineage: `worklist` upstream = job 18886079742786; `customer_master` downstream = the same job.
+- Write-back: an API approval appeared in `maingau_nba.decision_log` within about 3 s. The test row was deleted, and the test-created `out/decision_log.jsonl` removed.
+- Genie: correct SQL for value per offer and for P-EN-03 blocks. After instruction fixes (P-SV-01 is not a sales offer; `outbound_call` = phone), phone + SMS = 18 customers, €257.90.
+- App `maingau-nba` deployed and RUNNING. Its service principal ran 25 of 25 raw-layer queries, all FINISHED.
+- `tests/test_lakehouse.py`: 16 passed.
+
+**Not done / limits:**
+- Managed MCP: Free Edition cannot enable previews; the server answers "not enabled".
+- The App's UI was not opened from here. Apps only accept browser login, so the user checks it in the browser.
+- Free Edition stops the App after 24 h.
+
+**Issues / risks:**
+- Genie is an AI: rehearse the demo questions.
+- Upgrading `databricks-sdk` in a serverless job breaks core packages (ERROR_CORE_PACKAGE_VERSION_CHANGE). It is left out of the job's dependencies.
+- Python tasks run without `__file__`, so the job gets `--repo`.
+
+**Next session starts with:** open the App in the browser, approve once, and see the row in `decision_log`. Then rehearse `docs/databricks.md` §6.

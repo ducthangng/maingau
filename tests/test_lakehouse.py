@@ -42,8 +42,18 @@ class FakeWarehouse:
             return v
         return json.dumps(v) if isinstance(v, (list, dict, bool)) else str(v)
 
-    def query(self, sql):
+    def query(self, sql, params=None):
         self.statements.append(sql)
+        if m := re.match(r"SHOW TABLES IN (\S+) LIKE '([^']+)'", sql):
+            return ["tableName"], [[m[2]]] if f"{m[1]}.`{m[2]}`" in self.tables else []
+        if m := re.match(r"CREATE TABLE IF NOT EXISTS (\S+) \((.+)\)$", sql):
+            self.tables.setdefault(m[1], (self._cols(m[2]), []))
+            return [], []
+        if m := re.match(r"INSERT INTO (\S+) \((.+?)\) VALUES \((.+)\)$", sql):
+            assert params is not None and "'" not in m[3]  # values only ever travel as parameters
+            cols = self._cols(m[2])
+            self.tables[m[1]][1].append(dict(zip(cols, (params[k.strip()[1:]] for k in m[3].split(", ")))))
+            return [], []
         if m := re.match(r"CREATE OR REPLACE TABLE (\S+) COMMENT '(?:[^'\\]|\\.)*' AS SELECT (.+?) FROM read_files\('([^']+)'", sql):
             rows = [json.loads(line) for line in self.files[m[3]].decode("utf-8").splitlines()]
             self.tables[m[1]] = (self._cols(m[2]), rows)
@@ -59,7 +69,7 @@ class FakeWarehouse:
             cols, order = self._cols(m[1]), m[3].strip("`")
             rows = sorted(self.tables[m[2]][1], key=lambda r: r[order])
             return cols, [[self._text(r.get(c)) for c in cols] for r in rows]
-        elif not sql.startswith("CREATE "):
+        elif not sql.startswith(("CREATE ", "ALTER TABLE ")):
             raise AssertionError(f"fake warehouse does not understand: {sql[:80]}")
         return [], []
 
@@ -251,3 +261,44 @@ def test_mcp_replies_as_json_or_server_sent_events():
     assert lh._rpc_result("") == {}
     with pytest.raises(lh.LakehouseError):
         lh._rpc_result('{"jsonrpc":"2.0","id":3,"error":{"code":-32601,"message":"no"}}')
+
+
+def test_decision_log_is_a_record_table_that_publish_never_overwrites(build_dir):
+    wh = FakeWarehouse()
+    lh.publish(wh, SETTINGS, build_dir)
+    first = list(wh.tables[SETTINGS.out("decision_log")][1])
+    entry = {"ts": "2026-10-02T10:00:00", "actor": "Ben", "action": "rejected", "tuple_id": "P-EN-02|email|sie",
+             "reason": "customer upset; it's not the time", "reason_code": "customer_upset"}
+    lh.insert_row(wh, SETTINGS, "decision_log", lh.decision_row("MG-100096", entry))
+    lh.publish(wh, SETTINGS, build_dir)  # a later build must keep what the API appended
+    rows = wh.tables[SETTINGS.out("decision_log")][1]
+    assert rows[: len(first)] == first and rows[-1]["customer_id"] == "MG-100096" and rows[-1]["actor"] == "Ben"
+    decisions, service = lh.read_records(wh, SETTINGS)  # the nightly job's feedback, in the build's envelope shape
+    assert decisions[-1] == {"customer_id": "MG-100096", "entry": entry} and service == []
+
+
+def test_record_writes_only_when_this_process_reads_databricks(monkeypatch):
+    monkeypatch.setattr(lh, "load_settings", lambda *a, **k: lh.Settings(source="local"))
+    lh.reset()
+    assert lh.record("decision_log", lh.decision_row("MG-100001", {"ts": "t"})) is False
+    lh.reset()
+
+
+def test_spark_backend_returns_text_like_the_sql_api(tmp_path):
+    class Frame:
+        columns = ["n", "flag", "x", "s", "none"]
+
+        def collect(self):
+            return [(3, True, 0.5, "a", None)]
+
+    class Spark:
+        def sql(self, statement, args=None):
+            self.seen = (statement, args)
+            return Frame()
+
+    spark = Spark()
+    wh = lh.SparkWarehouse(spark)
+    assert wh.query("SELECT 1", {"p0": "v"}) == (Frame.columns, [["3", "true", "0.5", "a", None]])
+    assert spark.seen == ("SELECT 1", {"p0": "v"})
+    wh.put(str(tmp_path / "sub" / "t-x.jsonl"), b"{}\n")
+    assert (tmp_path / "sub" / "t-x.jsonl").read_bytes() == b"{}\n"

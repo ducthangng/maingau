@@ -26,6 +26,7 @@ from nba.contracts import (
     CustomerCard, DecisionLogEntry, DecisionRequest, IndexRow, Journey, NO_ACTION, RuleChange, RuleCreate, RulesFile,
     ServiceFeedbackRow, Summary, TupleRef, tuple_id,
 )
+from nba import lakehouse
 from nba.data import DEFAULT_WORKBOOK, REPO
 from nba.engine.assemble import build_chosen, checklist_for, evaluate_candidates, valuation_scores, value_candidate
 from nba.engine.config import MissingDataError
@@ -323,6 +324,8 @@ def create_app(*, workbook=DEFAULT_WORKBOOK, out_dir=REPO / "out", p_mode=None, 
                 scores=valuation_scores(target.valuation) if target else {},
             )
             store.append(customer_id, entry)
+            # Databricks as the system of record when the API reads from it (the nightly job learns from it)
+            lakehouse.record("decision_log", lakehouse.decision_row(customer_id, entry.model_dump(mode="json")))
             return entry
 
     # ------------------------------------------------------------ Rule Center (docs/rule-center.md §6)
@@ -434,6 +437,7 @@ def create_app(*, workbook=DEFAULT_WORKBOOK, out_dir=REPO / "out", p_mode=None, 
             raise HTTPException(422, f"shown_at must be an ISO timestamp, got {row.shown_at!r}") from exc
         with lock:
             feedback_log.add(row.model_dump(mode="json"))
+            lakehouse.record("service_feedback", lakehouse.service_feedback_row(row.model_dump(mode="json")))
         return row
 
     @app.get("/api/customers/{customer_id}/service-feedback", response_model=list[ServiceFeedbackRow])
