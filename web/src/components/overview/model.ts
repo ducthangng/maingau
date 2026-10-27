@@ -37,6 +37,7 @@ export interface SegmentStat {
   name: string;
   customers: number;
   total: number;
+  valued: number; // rows with a ΔCLV; 0 means "not enough data", never €0
   customersPct: number;
   totalPct: number;
 }
@@ -46,6 +47,7 @@ export interface ActionStat {
   name: string;
   customers: number;
   total: number;
+  valued: number; // rows with a ΔCLV; 0 means "not enough data", never €0
   waiting: number;
   reasons: ReasonCount[];
   segments: SegmentStat[];
@@ -124,11 +126,14 @@ export function buildOverview(rows: IndexRow[]): Overview {
       cur.count += 1;
       reasons.set(key, cur);
     }
-    const seg = new Map<SegmentKey, { customers: number; total: number }>(SEGMENT_KEYS.map((k) => [k, { customers: 0, total: 0 }]));
+    const seg = new Map<SegmentKey, { customers: number; total: number; valued: number }>(
+      SEGMENT_KEYS.map((k) => [k, { customers: 0, total: 0, valued: 0 }]),
+    );
     for (const r of list) {
       const s = seg.get(segmentKey(r))!;
       s.customers += 1;
       s.total += r.delta_clv ?? 0;
+      if (typeof r.delta_clv === "number") s.valued += 1;
     }
     const keys = [...SEGMENT_KEYS];
     const custPct = largestRemainder(keys.map((k) => seg.get(k)!.customers));
@@ -139,6 +144,7 @@ export function buildOverview(rows: IndexRow[]): Overview {
         name: k === NOT_PERSONALISED ? SEGMENT_FALLBACK.NP : names.get(k) ?? SEGMENT_FALLBACK[k],
         customers: seg.get(k)!.customers,
         total: seg.get(k)!.total,
+        valued: seg.get(k)!.valued,
         customersPct: custPct[i],
         totalPct: totalPct[i],
       }))
@@ -148,6 +154,7 @@ export function buildOverview(rows: IndexRow[]): Overview {
       name: offerName(offer),
       customers: list.length,
       total: list.reduce((a, r) => a + (r.delta_clv ?? 0), 0),
+      valued: list.filter((r) => typeof r.delta_clv === "number").length,
       waiting: list.filter((r) => !!r.deferred_until).length,
       reasons: [...reasons.values()].sort((a, b) => b.count - a.count || a.key.localeCompare(b.key)),
       segments,
@@ -183,9 +190,11 @@ export function reasonLine(reason: ReasonCount, summary: Summary | null): Reason
   }
   const signal = reason.signal ? summary?.signal_labels?.[reason.signal] ?? null : null;
   const need = reason.need ? summary?.need_labels?.[reason.need] ?? null : null;
-  const text = [signal, need].filter(Boolean).join(" → ");
   const code = [reason.signal, reason.need].filter(Boolean).join(" → ");
-  return { text: text || "not enough data", title: `${code} · ${n}`, general: false, missing: !text };
+  // Both halves or nothing: a lone label would read like a complete reason (older or mismatched summary).
+  const missing = (!!reason.signal && !signal) || (!!reason.need && !need) || (!signal && !need);
+  const text = missing ? "not enough data" : [signal, need].filter(Boolean).join(" → ");
+  return { text, title: `${code} · ${n}`, general: false, missing };
 }
 
 // ---------------------------------------------------------------- Worklist links (§5)

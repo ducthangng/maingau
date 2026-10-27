@@ -7,6 +7,7 @@ import { SERVICE_LINK, buildOverview } from "../components/overview/model";
 import { Sourced } from "../components/Source";
 import { asOf, colSrc } from "../components/worklist/model";
 import { loadIndex, loadSummary, useLoad } from "../lib/data";
+import { NOT_ENOUGH } from "../lib/format";
 
 /**
  * Orchestration home (prompts/ui-overview.md): which actions bring the most value and why, how each
@@ -48,7 +49,9 @@ export default function Overview() {
     return () => window.removeEventListener("keydown", onKey);
   }, [open, setOpen]);
 
-  if (index.status === "loading") return <p className="py-12 text-center text-neutral-500">Loading overview…</p>;
+  // Wait for the summary too: without its labels every reason would flash "not enough data".
+  if (index.status === "loading" || summaryState.status === "loading")
+    return <p className="py-12 text-center text-neutral-500">Loading overview…</p>;
   if (index.status === "error")
     return <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">Could not load the overview: {index.error}</div>;
   if (!model) return null;
@@ -64,13 +67,16 @@ export default function Overview() {
           the Worklist.
         </p>
         <p className="mt-2 text-sm tabular-nums text-neutral-500">
-          {model.actions.length} actions ·{" "}
+          <Sourced src={countSrc} updatedAt={summary?.eval_time} sources={summary?.sources}>
+            {model.actions.length} actions
+          </Sourced>{" "}
+          ·{" "}
           <Sourced src={countSrc} updatedAt={summary?.eval_time} sources={summary?.sources}>
             {model.customers} customers
           </Sourced>{" "}
           ·{" "}
           <Sourced src={valueSrc} updatedAt={asOf(summary, valueSrc)} sources={summary?.sources}>
-            {wholeEur(model.total)}
+            {model.actions.some((a) => a.valued) ? wholeEur(model.total) : NOT_ENOUGH}
           </Sourced>{" "}
           expected ΔCLV
         </p>

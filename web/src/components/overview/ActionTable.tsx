@@ -110,7 +110,10 @@ export default function ActionTable({
               .filter(Boolean)
               .join("\n");
             const customers = (
-              <span title={customersTitle} className="inline-flex cursor-help items-center gap-1.5 tabular-nums text-neutral-800">
+              <span
+                title={customersTitle}
+                className="inline-flex cursor-help items-center gap-1.5 tabular-nums text-neutral-800 decoration-neutral-300 decoration-dotted underline-offset-4 hover:underline"
+              >
                 <Users size={14} className="text-neutral-400" aria-hidden />
                 {a.customers}
               </span>
@@ -137,9 +140,9 @@ export default function ActionTable({
                   <div className="hidden pt-0.5 text-sm md:block">{customers}</div>
                   <div className="min-w-0 text-right md:text-left">
                     <Sourced src={valueSrc} updatedAt={asOf(summary, valueSrc)} sources={summary?.sources}>
-                      <span className="text-[15px] font-semibold tabular-nums text-neutral-900">{wholeEur(a.total)}</span>
+                      <span className="text-[15px] font-semibold tabular-nums text-neutral-900">{a.valued ? wholeEur(a.total) : NOT_ENOUGH}</span>
                     </Sourced>
-                    <ValueBar value={a.total} max={maxTotal} className="mt-1.5" />
+                    {a.valued > 0 && <ValueBar value={a.total} max={maxTotal} className="mt-1.5" />}
                   </div>
                   <div className="col-span-2 col-start-2 min-w-0 md:col-span-1 md:col-start-auto">
                     <Reasons reasons={a.reasons} summary={summary} />

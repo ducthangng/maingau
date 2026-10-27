@@ -1,10 +1,11 @@
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, EyeOff } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { Summary } from "../../types/contracts";
 import { Sourced } from "../Source";
 import { ValueBar } from "../viz";
 import { asOf, colSrc } from "../worklist/model";
 import { NOT_PERSONALISED, segmentLink, type ActionStat, type SegmentStat } from "./model";
+import { NOT_ENOUGH } from "../../lib/format";
 import { wholeEur } from "./format";
 
 // Segment breakdown of one action (prompts/ui-overview.md §5): A0–A5 and Not personalised, each
@@ -17,8 +18,8 @@ const NP_HINT = "No profiling consent: the engine uses general offers without ne
 function SegmentName({ s }: { s: SegmentStat }) {
   return (
     <span className="flex min-w-0 items-center gap-2" title={s.key === NOT_PERSONALISED ? NP_HINT : undefined}>
-      <span className="shrink-0 rounded-md bg-white px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-neutral-600 ring-1 ring-inset ring-neutral-200">
-        {s.key}
+      <span className="inline-flex shrink-0 items-center rounded-md bg-white px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-neutral-600 ring-1 ring-inset ring-neutral-200">
+        {s.key === NOT_PERSONALISED ? <EyeOff size={12} aria-hidden /> : s.key}
       </span>
       <span className="min-w-0 break-words md:truncate">{s.name}</span>
     </span>
@@ -56,11 +57,9 @@ export default function SegmentBreakdown({ action, summary }: { action: ActionSt
                 </span>
                 <span className="min-w-0">
                   <Sourced src={valueSrc} updatedAt={asOf(summary, valueSrc)} sources={summary?.sources}>
-                    <span className="tabular-nums">
-                      {wholeEur(s.total)} · {s.totalPct}%
-                    </span>
+                    <span className="tabular-nums">{s.valued ? `${wholeEur(s.total)} · ${s.totalPct}%` : NOT_ENOUGH}</span>
                   </Sourced>
-                  <ValueBar value={s.totalPct} max={100} className="mt-1" />
+                  {s.valued > 0 && <ValueBar value={s.totalPct} max={100} className="mt-1" />}
                 </span>
                 <ArrowRight size={14} className="text-neutral-400 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100" aria-hidden />
               </Link>

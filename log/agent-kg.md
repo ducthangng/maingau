@@ -755,3 +755,25 @@ Claude Code (Opus) on Windows, in the user's checkout `E:\Projects\maingau`. On 
 - Full suite: 437 passed, 1 skipped.
 
 **For the judge / a person:** after 3 failed charges, MG-100007 gets S2 but still the HEMS sales offer (the service action ranks lower by ΔCLV). Withdrawing profiling changes MG-100005's tone from du to sie.
+
+### Session 20 · 2026-10-27 · Claude Code (Opus) · branch feat/kg
+
+**Goal (user):** check and push the Overview page (feat/cards 0d57ff6).
+
+**Done:**
+- **Merged into `main`** (9e29c7e) after tsc (0 errors), vitest 69/69 and `npm run build` passed on feat/cards.
+- **Review:** 3 lenses, each verified: 12 findings, all low, none affecting the demo numbers. Fixed:
+  - the "NP" chip is replaced by the no-profiling icon;
+  - a missing ΔCLV shows "not enough data", never €0 (`valued` count per action and segment);
+  - a reason with only one label shows "not enough data", never half a sentence;
+  - the page waits for the summary, so reasons no longer flash "not enough data";
+  - the "10 actions" count and the customer count got source tooltips.
+- **Tests:** 5 new (+N other reasons, no NP, missing ΔCLV, half labels, Overview / Worklist nav). Vitest 74/74.
+
+**Gap survey** (6-agent workflow; MCP / Databricks excluded): 34 verified items. The decisions and the work items are in the reply of this session. The ones with the most impact on the demo:
+- Rule Center UI not on main;
+- AI backend choice;
+- p_service_success = 0.5 carries 37% of the act-now ΔCLV;
+- stale need-first number in README §1;
+- deep dive B not in the UI;
+- no pitch deck or demo script yet.
