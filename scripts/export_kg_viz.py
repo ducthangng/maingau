@@ -178,12 +178,12 @@ def customer_graph(view: dict, policy) -> dict:
 
 ONTOLOGY_COLUMNS = ["Customer", "Data rows", "Instances", "Types & rules", "Needs", "Offers", "Channels"]
 ONTOLOGY_COL = {"Customer": 0, "Contract": 1, "Device": 1, "Order": 1, "Ticket": 1, "Session": 1, "Action": 1, "Campaign": 1,
-                "Signal": 2, "Consent": 2, "Exclusion": 2, "SignalType": 3, "ConsentType": 3, "ExclusionRule": 3,
+                "Signal": 2, "Consent": 2, "Exclusion": 2, "Feedback": 2, "SignalType": 3, "ConsentType": 3, "ExclusionRule": 3,
                 "Archetype": 3, "Need": 4, "Offer": 5, "Channel": 6}
 
 
 def ontology_graph(onto: dict, edges: list[dict]) -> dict:
-    nodes = [{"id": k, "col": ONTOLOGY_COL[k], "kind": "type" if v["layer"] == "policy" else "instance", "label": k,
+    nodes = [{"id": k, "col": ONTOLOGY_COL.get(k, 2), "kind": "type" if v["layer"] == "policy" else "instance", "label": k,
               "sub": f"{v['layer']} layer" + (f" · {v['source']}" if isinstance(v.get("source"), str) else ""),
               "status": None, "detail": {"layer": v["layer"], "id pattern": v.get("id"), "source": v.get("source"),
                                          "properties": v.get("props"), "note": v.get("note")}}

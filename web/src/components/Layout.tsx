@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { TriangleAlert } from "lucide-react";
+import { Network, TriangleAlert } from "lucide-react";
 import { dataMode, loadManifest, loadSummary, useLoad } from "../lib/data";
 import DecisionErrors from "./DecisionErrors";
 import { Bone } from "./Skeleton";
@@ -68,6 +68,18 @@ export default function Layout() {
               </span>
             )}
             {summary.status === "ready" && mode.status !== "loading" ? `Snapshot ${summary.data.eval_time.replace("T", " ")}` : ""}
+            <NavLink
+              to="/kb"
+              className={({ isActive }) =>
+                `inline-flex items-center gap-1 rounded-md px-2 py-1 font-medium ring-1 ring-inset transition-colors duration-150 ${
+                  isActive ? "bg-accent-600 text-white ring-accent-600" : "bg-white text-neutral-700 ring-neutral-200 hover:bg-neutral-50"
+                }`
+              }
+              title="Knowledge Base: decision graphs, policy and ontology"
+            >
+              <Network size={13} aria-hidden />
+              Knowledge Base
+            </NavLink>
           </span>
         </div>
       </header>

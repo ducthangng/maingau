@@ -945,3 +945,23 @@ Claude Code (Opus) on Windows, in the user's checkout `E:\Projects\maingau`. On 
 - tsc 0, vitest 112/112, build.
 - Headless-Chrome screenshots of the Overview, the filtered Groups and Customer 360° MG-100096: palette as intended, nothing clipped in those views.
 - The colour verifier was still running at push time.
+
+### Session 25 · 2026-10-27 · Claude Code (Opus) · branch feat/kg
+
+**Goal (user):** bring the decision-graph artifact into the app, quickly and in the current UI style.
+- A "Knowledge Base" button next to the snapshot.
+- The three views (customer decision, policy, ontology).
+- The customer view as a vertical tree. Decision, expected gain, customer, rules and explanation path become a left column of collapsible sections; the customer chips become a search over the demo customers only.
+- The tree sits on a plain white canvas that zooms.
+
+**Done:**
+- **New page `/kb`** (`pages/KnowledgeBase.tsx`):
+  - `components/kb/LayerGraph.tsx` draws the vertical layered tree. Its connectors are measured from the real card positions, so they still fit when rows wrap or the zoom changes.
+  - `components/kb/ZoomCanvas.tsx` gives the zoom: − / % / + / fit, Ctrl or ⌘ + wheel, drag to pan.
+  - `lib/kb.ts` is the loader.
+- **Header:** the button sits next to the snapshot in `Layout.tsx`.
+- **Data:** `web/public/data/kg_viz.json` (195 KB), from `scripts/export_kg_viz.py`.
+  - The export crashed on the new `Feedback` ontology type; it is now mapped to column 2.
+  - An unknown edge status ("alternative" in the policy graph) now falls back to a plain line; it had blanked the page.
+
+**Verified:** tsc 0, vitest 112/112, build. Headless-Chrome screenshots of the customer (MG-100023), policy and ontology views.
