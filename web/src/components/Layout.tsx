@@ -14,11 +14,13 @@ export default function Layout() {
   const mode = useLoad(dataMode, []);
   const isMock = manifest.status === "ready" && manifest.data?.source === "mock";
   const isC360 = useIsCustomer360();
+  // Customer 360° uses the full screen width so its three cards sit side by side.
+  const width = isC360 ? "max-w-none" : "max-w-[1400px]";
 
   return (
     <div className="min-h-screen">
       <header className="sticky top-0 z-20 border-b border-neutral-200 bg-white/85 backdrop-blur">
-        <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 sm:px-6">
+        <div className={`mx-auto flex ${width} flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 sm:px-6`}>
           <span className="whitespace-nowrap font-semibold tracking-tight">MAINGAU · Next Best Action</span>
           {isMock && (
             <span
@@ -56,7 +58,7 @@ export default function Layout() {
           </span>
         </div>
       </header>
-      <main className="mx-auto max-w-[1400px] px-4 py-6 sm:px-6">
+      <main className={`mx-auto ${width} px-4 py-6 sm:px-6`}>
         <Outlet />
       </main>
       <DecisionErrors />

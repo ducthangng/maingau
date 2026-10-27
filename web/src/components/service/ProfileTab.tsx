@@ -1,13 +1,28 @@
-import type { CustomerCard } from "../../types/contracts";
+import { User } from "lucide-react";
+import type { CustomerCard, Products } from "../../types/contracts";
 import { eur } from "../../lib/format";
+import { mockName } from "../../lib/customerMock";
+import Interaction from "../customer/Interaction";
+import { Label } from "../customer/parts";
 import { channelLabel } from "../nba/ui";
+import { PRODUCT_META } from "../profile/Products";
 import { dateLabel, factV, humanize, openTickets, str } from "./plain";
 
-// Tab 1: Profile (prompts/ui-customer360.md §3.2). Plain facts only: no tier, flags, segment,
-// highlights or data-quality warnings, and never a payment or dunning field.
+// Profile card (prompts/ui-customer360.md §3.2), in the look of the orchestration pop-up's profile
+// column. Plain facts only: no tier, flags, segment, highlights or data-quality warnings, and never
+// a payment or dunning field.
 
 type Item = Record<string, unknown>;
 const v = (item: Item, key: string) => factV(item[key]);
+
+function Fact({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-xs text-neutral-500">{label}</dt>
+      <dd className="truncate">{value === "" || value === null || value === undefined ? "—" : value}</dd>
+    </div>
+  );
+}
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -20,9 +35,9 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-xl border border-neutral-200 bg-white p-4">
-      <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">{title}</h3>
-      {children}
+    <section className="space-y-2.5">
+      <Label>{title}</Label>
+      <div className="rounded-xl bg-white p-4 ring-1 ring-neutral-200">{children}</div>
     </section>
   );
 }
@@ -33,6 +48,9 @@ function sinceYear(card: CustomerCard): string {
   const evalDate = new Date(card.meta.eval_time);
   return `since ${new Date(evalDate.getTime() - years * 365.25 * 86_400_000).getFullYear()}`;
 }
+
+// One-word labels so the product tiles stay on one line, as in the orchestration pop-up.
+const SHORT: Record<string, string> = { smart_living: "Smart", autostrom: "Auto" };
 
 const yesNo = (x: unknown) => (x === true ? "yes" : x === false ? "no" : "");
 const LANGUAGE: Record<string, string> = { de: "German", en: "English" };
@@ -72,57 +90,47 @@ export default function ProfileTab({ card }: { card: CustomerCard }) {
   const channels = card.profile.channels.filter((c) => c.channel !== "service_agent");
 
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
-      <div className="space-y-4">
-        <Card title="Customer details">
-          <dl className="divide-y divide-neutral-100">
-            <Field label="Customer" value={sinceYear(card)} />
-            <Field label="City" value={str(h.city?.v)} />
-            <Field label="Household" value={h.household_size?.v ? `${h.household_size.v} people` : ""} />
-            <Field label="Portal account" value={yesNo(h.digital?.portal_account?.v)} />
-            <Field label="App" value={yesNo(h.digital?.app_installed?.v)} />
-            <Field label="Language" value={LANGUAGE[str(h.digital?.language?.v)] ?? str(h.digital?.language?.v)} />
-            <Field label="Customer type" value="Private" />
-          </dl>
-        </Card>
-
-        <Card title={`Open tickets (${tickets.length})`}>
-          {tickets.length === 0 ? (
-            <p className="text-sm text-neutral-500">No open ticket.</p>
-          ) : (
-            <ul className="space-y-2">
-              {tickets.map((t) => (
-                <li key={t.id} className="rounded-lg bg-neutral-50 px-3 py-2 text-sm">
-                  <span className="font-medium">{humanize(t.title.replace(/^Ticket:\s*/, ""))}</span>
-                  <span className="text-neutral-600"> · opened {dateLabel(t.date)}</span>
-                  {t.detail && <span className="block text-neutral-600">{t.detail}</span>}
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
-
-        <Card title="Consent">
-          <p className="mb-2 text-sm">
-            Personalised offers: <span className="font-medium">{profiling ? "yes" : "no"}</span>
-          </p>
-          <ul className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-            {channels.map((c) => (
-              <li key={c.channel} className="flex items-center gap-2">
-                <span className={c.allowed ? "text-neutral-900" : "text-neutral-400"} aria-hidden>
-                  {c.allowed ? "✓" : "–"}
-                </span>
-                <span className={c.allowed ? "text-neutral-900" : "text-neutral-500"}>
-                  {channelLabel(c.channel)}
-                  <span className="sr-only">{c.allowed ? ": may be contacted" : ": no contact"}</span>
-                </span>
-              </li>
-            ))}
-          </ul>
-        </Card>
+    <div className="flex flex-col gap-7">
+      <div className="flex items-center gap-3">
+        <div className="grid size-14 shrink-0 place-items-center rounded-2xl bg-white text-neutral-300 ring-1 ring-neutral-200" aria-hidden>
+          <User size={28} />
+        </div>
+        <div className="min-w-0">
+          <p className="text-lg font-semibold tracking-tight">{mockName(card.customer_id)}</p>
+          <p className="truncate text-sm text-neutral-500 tabular-nums">{card.customer_id}</p>
+        </div>
       </div>
 
-      <Card title="Products and contracts">
+      <dl className="grid grid-cols-2 gap-x-5 gap-y-3 rounded-xl bg-white p-4 text-sm ring-1 ring-neutral-200">
+        <Fact label="Customer" value={sinceYear(card)} />
+        <Fact label="City" value={str(h.city?.v)} />
+        <Fact label="Household" value={h.household_size?.v ? `${h.household_size.v} people` : ""} />
+        <Fact label="Language" value={LANGUAGE[str(h.digital?.language?.v)] ?? str(h.digital?.language?.v)} />
+        <Fact label="Portal account" value={yesNo(h.digital?.portal_account?.v)} />
+        <Fact label="App" value={yesNo(h.digital?.app_installed?.v)} />
+      </dl>
+
+      <Interaction card={card} />
+
+      <section className="space-y-2.5">
+        <Label>Products</Label>
+        <div className="flex flex-wrap gap-1">
+          {(Object.keys(PRODUCT_META) as (keyof Products)[]).map((l) => {
+            const held = !!p[l]?.held;
+            const Icon = PRODUCT_META[l].icon;
+            return (
+              <span key={l} className="flex w-11 flex-col items-center gap-1" title={`${PRODUCT_META[l].label}: ${held ? "in use" : "not used"}`}>
+                <span
+                  className={`grid size-8 place-items-center rounded-lg ${held ? "bg-emerald-500 text-white" : "bg-white text-neutral-400 ring-1 ring-inset ring-neutral-200"}`}
+                >
+                  <Icon size={15} aria-hidden />
+                </span>
+                <span className="w-full truncate text-center text-[10px] text-neutral-600">{SHORT[l] ?? PRODUCT_META[l].label}</span>
+              </span>
+            );
+          })}
+        </div>
+        <div className="rounded-xl bg-white px-4 ring-1 ring-neutral-200">
         <Row title="Energy" empty={!energy.length} summary={energy.map((i) => `${str(v(i, "tariff"))} · ${humanize(v(i, "status"))}`).join(", ")}>
           {energy.map((i, k) => {
             const days = v(i, "guarantee_days_left");
@@ -187,6 +195,42 @@ export default function ProfileTab({ card }: { card: CustomerCard }) {
             ))}
           </ul>
         </Row>
+        </div>
+      </section>
+
+      <Card title={`Open tickets (${tickets.length})`}>
+        {tickets.length === 0 ? (
+          <p className="text-sm text-neutral-500">No open ticket.</p>
+        ) : (
+          <ul className="space-y-2">
+            {tickets.map((t) => (
+              <li key={t.id} className="rounded-lg bg-neutral-50 px-3 py-2 text-sm">
+                <span className="font-medium">{humanize(t.title.replace(/^Ticket:\s*/, ""))}</span>
+                <span className="text-neutral-600"> · opened {dateLabel(t.date)}</span>
+                {t.detail && <span className="block text-neutral-600">{t.detail}</span>}
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+
+      <Card title="Consent">
+        <p className="mb-2 text-sm">
+          Personalised offers: <span className="font-medium">{profiling ? "yes" : "no"}</span>
+        </p>
+        <ul className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+          {channels.map((c) => (
+            <li key={c.channel} className="flex items-center gap-2">
+              <span className={c.allowed ? "text-emerald-600" : "text-neutral-400"} aria-hidden>
+                {c.allowed ? "✓" : "–"}
+              </span>
+              <span className={c.allowed ? "text-neutral-900" : "text-neutral-500"}>
+                {channelLabel(c.channel)}
+                <span className="sr-only">{c.allowed ? ": may be contacted" : ": no contact"}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
       </Card>
     </div>
   );

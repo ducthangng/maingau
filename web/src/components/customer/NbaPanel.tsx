@@ -21,7 +21,7 @@ export function ruleText(r: HardRule): string {
   return `No contact until ${r.value}`;
 }
 
-const scopeText = (r: HardRule) =>
+export const scopeText = (r: HardRule) =>
   r.scope === "customer" ? "this customer" : r.scope === "segment" ? `segment ${r.targetLabel ?? r.target}` : "all customers";
 
 const MARKETING_CHANNELS = ["newsletter_email", "email", "portal_popup", "app_push", "sms", "outbound_call"];
@@ -185,7 +185,7 @@ function HardRules({ card, rules }: { card: CustomerCard; rules: HardRule[] }) {
 
 /* ---------------------------------------------------------------- ranking */
 
-interface Option {
+export interface Option {
   tuple: string;
   cand?: Candidate;
   alt?: Alternative;
@@ -343,7 +343,7 @@ function recordFor(card: CustomerCard, action: DecisionAction, target: Option, w
 }
 
 // Common reasons for choosing another option than the engine's #1; "Other" needs a note.
-const OVERRIDE_REASONS = [
+export const OVERRIDE_REASONS = [
   "Customer asked for this",
   "Better channel for this customer",
   "More relevant right now",
@@ -351,16 +351,16 @@ const OVERRIDE_REASONS = [
   "Other",
 ];
 
-interface Why {
+export interface Why {
   preset: string;
   note: string;
 }
 
-const whyOk = (w: Why) => !!w.preset && (w.preset !== "Other" || !!w.note.trim());
-const whyText = (w: Why) => (w.preset === "Other" ? w.note.trim() : w.note.trim() ? `${w.preset}: ${w.note.trim()}` : w.preset);
+export const whyOk = (w: Why) => !!w.preset && (w.preset !== "Other" || !!w.note.trim());
+export const whyText = (w: Why) => (w.preset === "Other" ? w.note.trim() : w.note.trim() ? `${w.preset}: ${w.note.trim()}` : w.preset);
 
 /** Justification right under a newly chosen option: a reason dropdown and a short note. Approve is at the bottom. */
-function OverrideNote({ why, onChange }: { why: Why; onChange: (w: Why) => void }) {
+export function OverrideNote({ why, onChange }: { why: Why; onChange: (w: Why) => void }) {
   return (
     <div className="flex items-center gap-2 border-t border-accent-100 px-3.5 py-2 pl-12">
       <select
@@ -395,7 +395,7 @@ function OverrideNote({ why, onChange }: { why: Why; onChange: (w: Why) => void 
  * The one place to act, for whichever option is selected. Approve on #1 approves the proposal; Approve
  * on another option saves an override with the reason picked under it. A saved override can be deleted.
  */
-function DecisionBox({ card, top, sel, lock, why }: { card: CustomerCard; top: Option; sel: Option; lock: HardRule | undefined; why: Why }) {
+export function DecisionBox({ card, top, sel, lock, why }: { card: CustomerCard; top: Option; sel: Option; lock: HardRule | undefined; why: Why }) {
   const decisions = useDecisions();
   const latest = useMemo(
     () => latestByCustomer(decisions.filter((d) => d.customer_id === card.customer_id)).get(card.customer_id),
