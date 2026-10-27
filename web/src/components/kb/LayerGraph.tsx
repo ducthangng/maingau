@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 import {
   Ban,
   Box,
+  Check,
   Database,
   Gift,
   Layers,
@@ -30,7 +31,7 @@ const KIND_ICON: Record<string, LucideIcon> = {
   type: Layers,
 };
 
-type LineStatus = EdgeStatus | "alternative";
+type LineStatus = EdgeStatus;
 
 const EDGE_STYLE: Record<LineStatus, { stroke: string; width: number; dash?: string }> = {
   chosen: { stroke: "var(--color-accent-600)", width: 2 },
@@ -43,13 +44,15 @@ const EDGE_STYLE: Record<LineStatus, { stroke: string; width: number; dash?: str
 function nodeClass(n: KbNode, selected: boolean): string {
   const base = "relative flex w-44 min-w-0 items-start gap-2 rounded-xl border bg-white px-3 py-2 text-left shadow-sm transition-[box-shadow,background-color] duration-150 hover:bg-neutral-50";
   const status =
-    n.status === "chosen" || n.path
-      ? "border-accent-600"
-      : n.status === "blocked"
-        ? "border-dashed border-red-300 text-neutral-500"
-        : n.status === "waiting"
-          ? "border-dashed border-neutral-400"
-          : "border-neutral-200";
+    n.status === "chosen"
+      ? "border-2 border-accent-600 shadow-md"
+      : n.path
+        ? "border-accent-600"
+        : n.status === "blocked"
+          ? "border-dashed border-red-300 text-neutral-500"
+          : n.status === "waiting"
+            ? "border-dashed border-neutral-400"
+            : "border-neutral-200";
   return `${base} ${status} ${selected ? "ring-2 ring-inset ring-accent-500" : ""}`;
 }
 
@@ -58,6 +61,8 @@ const lineStatus = (s: string): LineStatus => (s in EDGE_STYLE ? (s as LineStatu
 
 interface Line {
   key: string;
+  from: string;
+  to: string;
   d: string;
   status: LineStatus;
   label?: string;
@@ -68,10 +73,13 @@ interface Line {
 export default function LayerGraph({
   graph,
   selected,
+  trace = null,
   onSelect,
 }: {
   graph: KbGraph;
   selected: string | null;
+  /** The boxes upstream of the selected one: they stay lit, the rest of the graph fades. */
+  trace?: Set<string> | null;
   onSelect: (node: KbNode) => void;
 }) {
   const box = useRef<HTMLDivElement>(null);
@@ -79,7 +87,11 @@ export default function LayerGraph({
   const [lines, setLines] = useState<Line[]>([]);
   const [size, setSize] = useState({ w: 0, h: 0 });
 
-  const rows = graph.columns.map((title, col) => ({ title, nodes: graph.nodes.filter((n) => n.col === col) })).filter((r) => r.nodes.length);
+  // Boxes on the chosen path lead their row, so the chosen line runs down one side instead of behind other cards.
+  const onPath = (n: KbNode) => Number(!(n.status === "chosen" || n.path));
+  const rows = graph.columns
+    .map((title, col) => ({ title, nodes: graph.nodes.filter((n) => n.col === col).sort((a, b) => onPath(a) - onPath(b)) }))
+    .filter((r) => r.nodes.length);
 
   useLayoutEffect(() => {
     const el = box.current;
@@ -102,11 +114,14 @@ export default function LayerGraph({
         const bend = Math.max(18, Math.abs(y2 - y1) / 2);
         const c1 = down ? y1 + bend : y1 - bend;
         const c2 = down ? y2 - bend : y2 + bend;
-        out.push({ key: `${i}`, d: `M ${a.x} ${y1} C ${a.x} ${c1}, ${b.x} ${c2}, ${b.x} ${y2}`, status: lineStatus(e.status), label: e.label,
-                   lx: (a.x + b.x) / 2, ly: (y1 + y2) / 2 });
+        // The label sits a quarter along the curve, clear of the heading above the next row.
+        const t = 0.25;
+        const at3 = (p0: number, p1: number, p2: number, p3: number) => (1 - t) ** 3 * p0 + 3 * (1 - t) ** 2 * t * p1 + 3 * (1 - t) * t ** 2 * p2 + t ** 3 * p3;
+        out.push({ key: `${i}`, from: e.from, to: e.to, d: `M ${a.x} ${y1} C ${a.x} ${c1}, ${b.x} ${c2}, ${b.x} ${y2}`, status: lineStatus(e.status), label: e.label,
+                   lx: at3(a.x, a.x, b.x, b.x), ly: at3(y1, c1, c2, y2) });
       }
       setLines(out);
-      setSize({ w: el.scrollWidth, h: el.scrollHeight });
+      setSize({ w: el.offsetWidth, h: el.offsetHeight }); // not scrollWidth: that counts the old svg and never shrinks
     };
     measure();
     const ro = new ResizeObserver(measure);
@@ -119,7 +134,7 @@ export default function LayerGraph({
 
   return (
     <div ref={box} className="relative">
-      <svg className="pointer-events-none absolute inset-0" width={size.w} height={size.h} aria-hidden>
+      <svg className="pointer-events-none absolute inset-0 overflow-visible" width={size.w} height={size.h} aria-hidden>
         <defs>
           {(Object.keys(EDGE_STYLE) as LineStatus[]).map((s) => (
             <marker key={s} id={`kb-arrow-${s}`} viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto">
@@ -128,15 +143,15 @@ export default function LayerGraph({
           ))}
         </defs>
         {ordered.map((l) => (
-          <path key={l.key} d={l.d} fill="none" stroke={EDGE_STYLE[l.status].stroke} strokeWidth={EDGE_STYLE[l.status].width}
+          <path key={l.key} d={l.d} opacity={trace && !(trace.has(l.from) && trace.has(l.to)) ? 0.15 : 1} fill="none" stroke={EDGE_STYLE[l.status].stroke} strokeWidth={EDGE_STYLE[l.status].width}
                 strokeDasharray={EDGE_STYLE[l.status].dash} markerEnd={`url(#kb-arrow-${l.status})`} />
         ))}
         {ordered
           .filter((l) => l.status === "chosen" && l.label)
           .map((l) => (
-            <g key={`t${l.key}`}>
-              <rect x={l.lx - 3.2 * (l.label?.length ?? 0) - 6} y={l.ly - 8} width={6.4 * (l.label?.length ?? 0) + 12} height={16} rx={8} fill="white" />
-              <text x={l.lx} y={l.ly + 3.5} textAnchor="middle" fontSize="10.5" fill="var(--color-accent-700)">
+            <g key={`t${l.key}`} opacity={trace && !(trace.has(l.from) && trace.has(l.to)) ? 0.15 : 1}>
+              <rect x={l.lx - 3.4 * (l.label?.length ?? 0) - 8} y={l.ly - 9} width={6.8 * (l.label?.length ?? 0) + 16} height={18} rx={9} fill="var(--color-accent-600)" />
+              <text x={l.lx} y={l.ly + 3.5} textAnchor="middle" fontSize="10.5" fontWeight="600" fill="white" style={{ fontVariantNumeric: "tabular-nums" }}>
                 {l.label}
               </text>
             </g>
@@ -162,7 +177,7 @@ export default function LayerGraph({
                     onClick={() => onSelect(n)}
                     aria-pressed={selected === n.id}
                     title={n.sub ? `${n.label} · ${n.sub}` : n.label}
-                    className={nodeClass(n, selected === n.id)}
+                    className={`${nodeClass(n, selected === n.id)} ${trace && !trace.has(n.id) ? "opacity-35" : ""}`}
                   >
                     <span
                       className={`mt-0.5 grid size-6 shrink-0 place-items-center rounded-md ${
@@ -171,6 +186,11 @@ export default function LayerGraph({
                     >
                       <Icon size={13} aria-hidden />
                     </span>
+                    {n.status === "chosen" && (
+                      <span className="absolute -top-2.5 right-2 inline-flex items-center gap-0.5 rounded-full bg-accent-600 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-white">
+                        <Check size={9} strokeWidth={3} aria-hidden /> Chosen
+                      </span>
+                    )}
                     <span className="min-w-0">
                       <span className="block truncate text-[13px] font-medium text-neutral-900">{n.label}</span>
                       {n.sub && <span className="line-clamp-2 text-[11px] leading-snug text-neutral-500">{n.sub}</span>}

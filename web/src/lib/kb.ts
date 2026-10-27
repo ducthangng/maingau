@@ -2,7 +2,7 @@
 // the decision graphs of the demo customers. A static file in both modes; regenerate it with the script.
 
 export type NodeStatus = "chosen" | "blocked" | "waiting" | null;
-export type EdgeStatus = "plain" | "chosen" | "blocked" | "waiting";
+export type EdgeStatus = "plain" | "chosen" | "alternative" | "blocked" | "waiting";
 
 export interface KbNode {
   id: string;

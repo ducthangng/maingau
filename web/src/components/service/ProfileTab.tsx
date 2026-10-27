@@ -84,6 +84,30 @@ function Row({ title, summary, empty, children }: { title: string; summary: stri
   );
 }
 
+/** The row of six product tiles (filled = in use); also the Knowledge Base's profile card. */
+export function ProductTiles({ products: p }: { products: Products }) {
+  // Same compact row of six 44 px tiles as the pop-up, but the tracks may shrink, so the row never
+  // overflows the column; below 14rem of column it breaks into two rows of three.
+  return (
+    <div className="grid grid-cols-[repeat(6,minmax(0,2.75rem))] gap-1 @max-[14rem]:grid-cols-3">
+      {(Object.keys(PRODUCT_META) as (keyof Products)[]).map((l) => {
+        const held = !!p[l]?.held;
+        const Icon = PRODUCT_META[l].icon;
+        return (
+          <span key={l} className="flex min-w-0 flex-col items-center gap-1" title={`${PRODUCT_META[l].label}: ${held ? "in use" : "not used"}`}>
+            <span
+              className={`grid size-8 place-items-center rounded-lg ${held ? "bg-accent-600 text-white" : "border border-neutral-200 bg-white text-neutral-400"}`}
+            >
+              <Icon size={15} aria-hidden />
+            </span>
+            <span className="w-full truncate text-center text-[10px] text-neutral-600">{SHORT[l] ?? PRODUCT_META[l].label}</span>
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
 function Contract({ children }: { children: React.ReactNode }) {
   return <dl className="mb-2 rounded-lg bg-neutral-50 px-3 py-1.5 last:mb-0">{children}</dl>;
 }
@@ -136,24 +160,7 @@ export default function ProfileTab({ card }: { card: CustomerCard }) {
 
       <section className="space-y-2.5">
         <Label>Products</Label>
-        {/* Same compact row of six 44 px tiles as the pop-up, but the tracks may shrink, so the row
-            never overflows the column; below 14rem of column it breaks into two rows of three. */}
-        <div className="grid grid-cols-[repeat(6,minmax(0,2.75rem))] gap-1 @max-[14rem]:grid-cols-3">
-          {(Object.keys(PRODUCT_META) as (keyof Products)[]).map((l) => {
-            const held = !!p[l]?.held;
-            const Icon = PRODUCT_META[l].icon;
-            return (
-              <span key={l} className="flex min-w-0 flex-col items-center gap-1" title={`${PRODUCT_META[l].label}: ${held ? "in use" : "not used"}`}>
-                <span
-                  className={`grid size-8 place-items-center rounded-lg ${held ? "bg-accent-600 text-white" : "border border-neutral-200 bg-white text-neutral-400"}`}
-                >
-                  <Icon size={15} aria-hidden />
-                </span>
-                <span className="w-full truncate text-center text-[10px] text-neutral-600">{SHORT[l] ?? PRODUCT_META[l].label}</span>
-              </span>
-            );
-          })}
-        </div>
+        <ProductTiles products={p} />
         <div className={LIST}>
         <Row title="Energy" empty={!energy.length} summary={energy.map((i) => `${str(v(i, "tariff"))} · ${humanize(v(i, "status"))}`).join(", ")}>
           {energy.map((i, k) => {
