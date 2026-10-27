@@ -406,6 +406,36 @@ A service agent's reaction to a suggested offer in Customer 360° (`web/src/lib/
 - **422** when the body's `customer_id` differs from the path, for an unknown `suggested_offer_id`, a `shown_at` that is not an ISO timestamp, or a value outside the lists above.
 - **Feedback step:** `POST /api/ai/feedback` and `python -m nba.ai feedback` read the workbook's `service_nba_feedback` plus these rows (once per `feedback_id`). A dismissed or declined offer becomes customer memory for that customer, e.g. *declined* → pause that offer for 90 days, *annoyed* or *customer upset* → pause all sales for 30 days. The next decision uses it (rule ID `MEMORY`).
 
+### 3.9 `/api/campaigns/{campaign_id}`: campaign fast-forward (simulated outcomes)
+
+The Campaigns pop-up's **Fast forward 14 days** (`web/src/lib/outcomes.ts`, `nba/learn/outcomes.py`). A campaign approved in the UI is never sent, so this simulates the 14 days after the send. For each contacted member, a seeded draw (campaign id + customer id) against the engine's own chance p decides whether the customer bought:
+
+- expected ΔCLV = p·(CLV_buy − CLV_no) + (CLV_no − CLV_now) − cost
+- actual ΔCLV = (CLV_buy if bought, else CLV_no) − CLV_now − cost
+
+The control group (`holdout: true`) was not sent, so it gets `status: "control"` and no actual ΔCLV. Each simulated send becomes a delivered `nba_action_history` row (`decision_source: "campaign_fast_forward"`) in the history the engine learns from, so the track record k, the look-alike model and `GET /api/learn/impact` all use it. Each sent customer also gets a customer memory entry (`out/customer_memory.jsonl`, `source: "campaign_outcome"`, rule `MEMORY`) that pauses the offer for that customer: bought → 365 days, dismissed → 90, no response → 30. Their next best action therefore moves on (the POST response's `impact` lists each change with a sentence), while the control group keeps its proposal. The memory is written before the outcome record and repaired from `campaign_outcomes.jsonl` on every start, so the two files cannot drift apart. The new history rows also change the propensity version, so earlier approvals show as *proposed* again; the page marks the campaign's own decisions as settled. Results are stored in `out/campaign_outcomes.jsonl` (one record per campaign) and replayed when the API starts; `scripts/reset_demo.sh` moves the file away.
+
+| Method | Path | Body | Returns |
+|---|---|---|---|
+| `POST` | `/fast-forward` | `{"user": "reviewer", "members": [{"customer_id": "MG-100068", "tuple_id": "P-EN-02\|email\|sie", "holdout": false}]}` | the record below plus `already` (true when the campaign already had one: once per campaign) |
+| `GET` | `/outcomes` | — | the stored record; **404** before the first fast-forward |
+
+```json
+{"campaign": "CMP-1761557400000", "sent_at": "2026-09-30T23:59:59", "horizon_days": 14,
+ "outcomes": [{"customer_id": "MG-100068", "tuple_id": "P-EN-02|email|sie", "contacted": true, "status": "bought",
+               "p": 0.0791, "expected_delta_clv": 13.19, "actual_delta_clv": 151.4, "response": "clicked"}],
+ "totals": {"simulated": 36, "bought": 20, "expected_bought": 18.0, "expected_delta_clv": 2741.99, "actual_delta_clv": 2782.21},
+ "learned": [{"tuple_id": "P-EN-02|email|sie", "k_before": 0.91, "k_after": 0.97, "p_before": 0.072, "p_after": 0.077}]}
+```
+
+`status` is `bought`, `not_bought`, `control` or `not_valued` (the action is no longer a candidate for that customer). **422** for an empty `user` or `members`. In static mode the page runs the same formula on the exported cards, and nothing learns from it.
+
+### 3.10 `GET /api/kb`: Knowledge Base (live)
+
+The Knowledge Base page (`/kb`): the ontology, the policy layer and the decision graphs of the demo customers (`nba/kg/viz.py`, `DEMO`; MG-100133 first, the page's default). Built from the API's current runtime, so customer memory, campaign fast-forwards and Rule Center edits are included, and cached until that state changes. It shows the engine's decision; a reviewer's approval or override is on the customer page. Static mode reads `web/public/data/kg_viz.json` from `scripts/export_kg_viz.py`, which uses the engine as configured, without the API's state files.
+
+`POST /api/kb/generate` rebuilds it from the live runtime and also saves it as `web/public/data/kg_viz.json` (written to a temporary file, then renamed). The page's **Generate knowledge base** button calls it when there is no knowledge base, and **Regenerate from the engine** when it is showing the file because the API has no `GET /api/kb`. In that case the page falls back to the file rather than showing an error.
+
 ## 4. Errors
 
 | Status | Body | When |

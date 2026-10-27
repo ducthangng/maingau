@@ -578,6 +578,19 @@ class DecisionRequest(Model):
     tuple: Optional[TupleRef] = None  # required for "override"
 
 
+class CampaignMember(Model):
+    customer_id: str
+    tuple_id: str  # "<offer_id>|<channel>|<tone>" the campaign approved
+    holdout: bool = False  # control group: not sent, so no outcome
+
+
+class FastForwardRequest(Model):
+    """POST /api/campaigns/{id}/fast-forward: the campaign's members (from the UI's decision log)."""
+
+    user: str
+    members: list[CampaignMember]
+
+
 class ServiceFeedbackRow(Model):
     """POST /api/customers/{id}/service-feedback: a service agent's reaction to a suggested offer, in the shape
     of the workbook's service_nba_feedback (web/src/lib/serviceFeedback.ts); read by nba.ai.feedback."""

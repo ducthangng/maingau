@@ -195,7 +195,7 @@ describe("Campaign details", () => {
     expect(html).not.toContain('data-campaign-member="MG-3"');
     expect(text).toContain("Contacted");
     expect(text).toContain("Control group");
-    expect(html).toContain('href="/customer/MG-1"');
+    expect(html).toContain('href="/worklist?c=MG-1"');
   });
 
   it("makes every row of the list open its details", () => {

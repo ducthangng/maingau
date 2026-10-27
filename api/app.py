@@ -2,8 +2,9 @@
 
 The append-only JSONL uses {customer_id, entry} envelopes; each entry is a
 DecisionLogEntry. This keeps customer routing out of the shared entry model.
-Rule Center edits are a second append-only log (rule_versions.jsonl, docs/rule-center.md §6), and the
-service agents' reactions a third (service_feedback.jsonl, read by the feedback step).
+Rule Center edits are a second append-only log (rule_versions.jsonl, docs/rule-center.md §6), the
+service agents' reactions a third (service_feedback.jsonl, read by the feedback step), and campaign fast-forwards
+a fourth (campaign_outcomes.jsonl: simulated outcomes, added to the history the engine learns from).
 """
 from __future__ import annotations
 
@@ -23,7 +24,7 @@ from fastapi.responses import JSONResponse
 from api.replay import replay_preview
 
 from nba.contracts import (
-    CustomerCard, DecisionLogEntry, DecisionRequest, IndexRow, Journey, NO_ACTION, RuleChange, RuleCreate, RulesFile,
+    CustomerCard, DecisionLogEntry, DecisionRequest, FastForwardRequest, IndexRow, Journey, NO_ACTION, RuleChange, RuleCreate, RulesFile,
     ServiceFeedbackRow, Summary, TupleRef, tuple_id,
 )
 from nba.data import DEFAULT_WORKBOOK, REPO
@@ -37,9 +38,11 @@ from nba.engine.rule_registry import RuleEditError, custom_rule, next_custom_id,
 from nba.engine.rulecenter import Evaluator
 from nba.engine.runtime import Runtime, index_rows, summary
 from nba.kg.journey import build_journey, lookups as journey_lookups
+from nba.learn import outcomes as campaign_outcomes
 from nba.learn.impact import feedback_impact, learning_impact
 from nba.kg.rules import check_tuple, generate_candidates, is_profiled
 from nba.kg.signals import extract_signals
+from nba.kg.viz import DEMO as KB_CUSTOMERS, export as kb_export
 
 try:  # POSIX file locks; on Windows the in-process RLock below is the guard (Q-KG-23)
     import fcntl
@@ -168,7 +171,8 @@ def checked_tuple(runtime, cid, ref):
     return target
 
 
-def create_app(*, workbook=DEFAULT_WORKBOOK, out_dir=REPO / "out", p_mode=None, runtime=None):
+def create_app(*, workbook=DEFAULT_WORKBOOK, out_dir=REPO / "out", p_mode=None, runtime=None,
+               kb_file=REPO / "web" / "public" / "data" / "kg_viz.json"):
     app = FastAPI(title="MAINGAU NBA", version="0.2.0")
     app.add_middleware(CORSMiddleware, allow_origins=CORS_ORIGINS, allow_methods=["GET", "POST", "PUT", "DELETE"],
                        allow_headers=["*"])
@@ -178,6 +182,7 @@ def create_app(*, workbook=DEFAULT_WORKBOOK, out_dir=REPO / "out", p_mode=None, 
     store, rule_log, lock = DecisionStore(out_dir), JsonlStore(Path(out_dir) / "rule_versions.jsonl"), RLock()
     feedback_log = ServiceFeedbackStore(Path(out_dir) / "service_feedback.jsonl")
     memory_path = Path(out_dir) / "customer_memory.jsonl"  # feedback memory per customer (nba.ai.feedback)
+    outcome_log = JsonlStore(Path(out_dir) / "campaign_outcomes.jsonl")  # one fast-forward per campaign
 
     @app.exception_handler(RuleEditError)
     async def refused_edit(request, exc: RuleEditError):
@@ -206,8 +211,10 @@ def create_app(*, workbook=DEFAULT_WORKBOOK, out_dir=REPO / "out", p_mode=None, 
         with lock:
             if app.state.base is None:  # state is set only after a complete replay
                 base = app.state.runtime or Runtime.load(workbook, p_mode=p_mode)
+                base = campaign_outcomes.with_outcomes(base, outcome_log.records())
                 records = rule_log.records()
                 rt, skipped = with_ops(base, records)
+                campaign_outcomes.remember(outcome_log.records(), memory_path)
                 for i, why in sorted(skipped.items()):
                     log.warning("%s: version %s skipped, it no longer applies: %s", rule_log.path,
                                 records[i].get("version", "?"), why)
@@ -419,6 +426,76 @@ def create_app(*, workbook=DEFAULT_WORKBOOK, out_dir=REPO / "out", p_mode=None, 
             if cached is None or cached[0] is not rt:
                 app.state.learn_impact = (rt, learning_impact(rt))
             return app.state.learn_impact[1]
+
+    # ------------------------------------------------------------ Campaign fast-forward (nba/learn/outcomes.py)
+
+    def stored_outcome(campaign_id):
+        return next((r for r in outcome_log.records() if r.get("campaign") == campaign_id), None)
+
+    @app.post("/api/campaigns/{campaign_id}/fast-forward")
+    def fast_forward(campaign_id: str, body: FastForwardRequest):
+        """Simulate the 14 days after the send: who of the contacted bought, and the actual ΔCLV. The control group
+        gets no outcome. The outcomes join the history, so k and the look-alike model learn from them. Once per
+        campaign: a second call returns the stored result."""
+        if not body.user.strip():
+            raise HTTPException(422, "user must not be empty")
+        if not campaign_id.strip() or len(campaign_id) > 80:
+            raise HTTPException(422, "campaign id must be 1–80 characters")
+        if not body.members:
+            raise HTTPException(422, "a campaign without members has nothing to fast-forward")
+        with lock:
+            rt = context()
+            if (done := stored_outcome(campaign_id)) is not None:
+                return {**done, "already": True}
+            sent_at = next(iter(rt.states.values())).eval_time
+            outcomes = campaign_outcomes.simulate(rt, campaign_id, [m.model_dump() for m in body.members], sent_at)
+            record = {"campaign": campaign_id, "by": body.user.strip(),
+                      "simulated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                      "sent_at": sent_at.isoformat(), "horizon_days": campaign_outcomes.HORIZON_DAYS,
+                      "outcomes": outcomes, "totals": campaign_outcomes.totals(outcomes)}
+            base = campaign_outcomes.with_outcomes(app.state.base, [record])
+            updated, _ = with_ops(base, rule_log.records())
+            record["learned"] = campaign_outcomes.learned(rt, updated, outcomes)
+            # Memory first: it is idempotent and repaired on start, so a crash before the record is never half-applied.
+            remembered = campaign_outcomes.remember([record], memory_path)
+            outcome_log.add(record)
+            app.state.base, app.state.runtime = base, updated.with_memory(memory_path)
+            # The sent customers' next best action, now that their outcome is known
+            record["impact"] = feedback_impact(rt, app.state.runtime, [m["customer_id"] for m in remembered])
+            return {**record, "already": False}
+
+    @app.get("/api/campaigns/{campaign_id}/outcomes")
+    def campaign_outcome(campaign_id: str):
+        """The stored fast-forward of a campaign (404 before the first one)."""
+        if (done := stored_outcome(campaign_id)) is None:
+            raise HTTPException(404, "This campaign has not been fast-forwarded")
+        return done
+
+    def kb_live(rebuild=False):
+        with lock:
+            rt = context()
+            cached = getattr(app.state, "kb", None)
+            if rebuild or cached is None or cached[0] is not rt:
+                app.state.kb = (rt, kb_export(rt, [c for c in KB_CUSTOMERS if c in rt.states]))
+            return app.state.kb[1]
+
+    @app.get("/api/kb")
+    def knowledge_base():
+        """The Knowledge Base page (nba/kg/viz.py) from the live runtime: the demo customers' decision graphs include
+        customer memory, campaign outcomes and Rule Center edits. Static mode reads web/public/data/kg_viz.json."""
+        return kb_live()
+
+    @app.post("/api/kb/generate")
+    def generate_knowledge_base():
+        """Rebuild the Knowledge Base from the live runtime and save it as the static file (kb_file), so static mode and
+        a page that cannot reach GET /api/kb show the same graph. Written to a temporary file first, then renamed."""
+        data = kb_live(rebuild=True)
+        path = Path(kb_file)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_name(path.name + ".tmp")
+        tmp.write_text(json.dumps(data, ensure_ascii=False, default=str, separators=(",", ":")), encoding="utf-8")
+        os.replace(tmp, path)
+        return data
 
     @app.post("/api/customers/{customer_id}/service-feedback", response_model=ServiceFeedbackRow)
     def add_service_feedback(customer_id: str, row: ServiceFeedbackRow):

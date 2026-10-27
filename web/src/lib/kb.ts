@@ -1,5 +1,5 @@
-// Knowledge Base data (scripts/export_kg_viz.py → public/data/kg_viz.json): the ontology, the policy layer and
-// the decision graphs of the demo customers. A static file in both modes; regenerate it with the script.
+// Knowledge Base data (nba/kg/viz.py): the ontology, the policy layer and the decision graphs of the demo customers.
+// API mode: GET /api/kb, built from the live engine. Static mode: public/data/kg_viz.json (scripts/export_kg_viz.py).
 
 import { API_BASE, dataMode } from "./data";
 
@@ -90,17 +90,48 @@ export interface KnowledgeBase {
   customers: Record<string, KbCustomer>;
 }
 
-let cache: Promise<KnowledgeBase> | null = null;
+/** Where the page's data came from: the API's live engine, or the generated file (static mode, or an API without /api/kb). */
+export interface KbLoad {
+  kb: KnowledgeBase;
+  source: "live" | "file";
+}
 
-export function loadKnowledgeBase(): Promise<KnowledgeBase> {
-  if (!cache) {
-    cache = fetch(`${import.meta.env.BASE_URL}data/kg_viz.json`).then((res) => {
-      if (!res.ok) throw new Error(`kg_viz.json: HTTP ${res.status}`);
-      return res.json() as Promise<KnowledgeBase>;
-    });
-    cache.catch(() => (cache = null)); // a failed load is retried next time
+const STATIC_KB = `${import.meta.env.BASE_URL}data/kg_viz.json`;
+
+async function getKb(url: string): Promise<KnowledgeBase | null> {
+  const res = await fetch(url);
+  // A static host answers a missing file with index.html (vercel.json rewrite): that is "no file" too.
+  if (res.status === 404 || !res.headers.get("content-type")?.includes("json")) return null;
+  if (!res.ok) throw new Error(`knowledge base: HTTP ${res.status}`);
+  return res.json() as Promise<KnowledgeBase>;
+}
+
+/** Thrown when there is no knowledge base anywhere yet; the page then offers to generate it. */
+export class NoKnowledgeBase extends Error {
+  constructor() {
+    super("No knowledge base has been generated yet.");
   }
-  return cache;
+}
+
+/** API `GET /api/kb` (live: memory, campaign outcomes and rule edits included); the generated `data/kg_viz.json` when
+ *  the API has no such route (started before it existed) or in static mode. Asked again on every visit; the API caches. */
+export async function loadKnowledgeBase(): Promise<KbLoad> {
+  if ((await dataMode()) === "api") {
+    const live = await getKb(`${API_BASE}/api/kb`);
+    if (live) return { kb: live, source: "live" };
+  }
+  const file = await getKb(STATIC_KB);
+  if (file) return { kb: file, source: "file" };
+  throw new NoKnowledgeBase();
+}
+
+/** API `POST /api/kb/generate`: build the knowledge base from the live engine and save it as `data/kg_viz.json`. */
+export async function generateKnowledgeBase(): Promise<void> {
+  if ((await dataMode()) !== "api") throw new Error("Generating needs the API: start it, or run the export script below.");
+  const res = await fetch(`${API_BASE}/api/kb/generate`, { method: "POST" });
+  if (res.status === 404 || res.status === 405)
+    throw new Error("The API running now is older than this page and cannot generate it: restart the API, or run the export script below.");
+  if (!res.ok) throw new Error(`Generating the knowledge base failed: HTTP ${res.status}`);
 }
 
 // ---------------------------------------------------------------- learning impact (nba/learn/impact.py)
@@ -136,6 +167,11 @@ export interface LearnImpact {
 }
 
 let impactCache: Promise<LearnImpact> | null = null;
+
+/** The next loadLearnImpact() asks again (after a campaign fast-forward taught the API new outcomes). */
+export function invalidateLearnImpact() {
+  impactCache = null;
+}
 
 /** API `GET /api/learn/impact`, static `data/learn_impact.json` (written by nba.build). */
 export function loadLearnImpact(): Promise<LearnImpact> {

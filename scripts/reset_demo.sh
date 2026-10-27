@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Put the demo back to its starting state (docs/nba-guide.md §6.10). Nothing is deleted: the API's state files
-# (decisions, Rule Center edits, customer memory, service feedback) are moved to out/_reset_<time>/.
+# (decisions, Rule Center edits, customer memory, service feedback, campaign fast-forwards) are moved to out/_reset_<time>/.
 #   scripts/reset_demo.sh                  reset, then learn the starting memory from the workbook (API = static export)
 #   scripts/reset_demo.sh --no-memory      reset to "nothing learned yet"
 #   scripts/reset_demo.sh --restore-inputs also put data/, config/, kg/ and web/public/data back to the committed version
@@ -18,7 +18,7 @@ done
 
 keep="out/_reset_$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$keep"
-for f in decision_log.jsonl rule_versions.jsonl customer_memory.jsonl service_feedback.jsonl; do
+for f in decision_log.jsonl rule_versions.jsonl customer_memory.jsonl service_feedback.jsonl campaign_outcomes.jsonl; do
   if [ -f "out/$f" ]; then mv "out/$f" "$keep/"; echo "moved out/$f -> $keep/"; fi
 done
 

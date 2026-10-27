@@ -46,6 +46,7 @@ export interface Decision {
   group: string | null; // chosen_tuple of a bulk approval
   holdout: boolean; // true = kept as control, not exported for sending
   campaign?: string | null; // id of the campaign an "Approve everything" created; missing on older records
+  settled?: string | null; // when the campaign was fast-forwarded (lib/outcomes.ts): sent, no longer the current decision
 }
 
 let cached: Decision[] | null = null;
@@ -165,6 +166,14 @@ async function syncToApi(added: Decision[]) {
   setErrors([...errors, ...failed]);
 }
 
+/** A fast-forwarded campaign is done: its decisions stay in the log but no longer count as the customer's current one,
+ *  so the customer shows the engine's new proposal (the API remembered the outcome). */
+export function settleCampaign(campaign: string, at: string) {
+  const list = read();
+  if (!list.some((d) => d.campaign === campaign && !d.settled)) return;
+  write(list.map((d) => (d.campaign === campaign && !d.settled ? { ...d, settled: at } : d)));
+}
+
 export function clearDecisions() {
   write([]);
 }
@@ -187,10 +196,13 @@ export function useDecisions(): Decision[] {
   return useSyncExternalStore(subscribe, read, () => []);
 }
 
-/** Latest decision per customer (the log itself is append-only). */
+/** Latest decision per customer (the log itself is append-only); a settled campaign's decision no longer counts. */
 export function latestByCustomer(list: Decision[]): Map<string, Decision> {
   const out = new Map<string, Decision>();
-  for (const d of list) out.set(d.customer_id, d);
+  for (const d of list) {
+    if (d.settled) out.delete(d.customer_id);
+    else out.set(d.customer_id, d);
+  }
   return out;
 }
 

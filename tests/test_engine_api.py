@@ -12,7 +12,7 @@ from nba.engine.runtime import Runtime
 @pytest.fixture
 def client(tmp_path, tables, states, policy, pop):
     runtime = Runtime(tables, dict(states), pop, policy, load_config(tables))
-    app = create_app(runtime=runtime, out_dir=tmp_path)
+    app = create_app(runtime=runtime, out_dir=tmp_path, kb_file=tmp_path / 'kg_viz.json')
     with TestClient(app) as client:
         yield client, runtime, tmp_path
 
@@ -109,3 +109,56 @@ def test_replay_preview_redecides_affected_customers_without_mutating_snapshot(c
     assert revisions == {cid: state.revision for cid, state in runtime.states.items()}
     assert not (directory / 'decision_log.jsonl').exists()
     assert api.post('/api/replay', params={'until': '2026-09-01T00:00:00'}).status_code == 422
+
+
+def test_campaign_fast_forward_simulates_contacted_only_and_feeds_learning(client):
+    api, runtime, directory = client
+    rows = [r for r in api.get('/api/customers').json() if r['chosen_offer'] != 'NO_ACTION' and not r['service_mode']][:30]
+    members = [{'customer_id': r['customer_id'], 'tuple_id': r['chosen_tuple'], 'holdout': i % 5 == 0} for i, r in enumerate(rows)]
+    body = {'user': 'reviewer', 'members': members}
+    assert api.get('/api/campaigns/CMP-1/outcomes').status_code == 404
+    first = api.post('/api/campaigns/CMP-1/fast-forward', json=body).json()
+    assert not first['already'] and first['totals']['control'] == 6 and first['totals']['simulated'] == 24
+    for o in first['outcomes']:
+        if o['status'] == 'control':
+            assert 'actual_delta_clv' not in o
+        else:
+            assert o['status'] in {'bought', 'not_bought'}
+            assert o['actual_delta_clv'] > o['expected_delta_clv'] if o['status'] == 'bought' else o['actual_delta_clv'] < o['expected_delta_clv']
+    assert first['learned'] and all(x['k_after'] is not None for x in first['learned'])
+    # Once per campaign; the same draw on every call, and the outcomes are in the history the engine learns from
+    again = api.post('/api/campaigns/CMP-1/fast-forward', json=body).json()
+    assert again['already'] and again['outcomes'] == first['outcomes']
+    assert api.get('/api/campaigns/CMP-1/outcomes').json()['totals'] == first['totals']
+    history = api.app.state.runtime.cfg.history
+    assert sum(r['decision_source'] == 'campaign_fast_forward' for r in history) == 24
+    assert len(history) == len(runtime.cfg.history) + 24
+    assert len((directory / 'campaign_outcomes.jsonl').read_text().splitlines()) == 1
+    # Every sent customer's outcome is remembered for that customer, so the next decision moves on; control is left alone
+    memory = [json.loads(x) for x in (directory / 'customer_memory.jsonl').read_text().splitlines()]
+    sent = {o['customer_id'] for o in first['outcomes'] if o['status'] != 'control'}
+    assert {m['customer_id'] for m in memory} == sent and all(m['source'] == 'campaign_outcome' for m in memory)
+    for m in members:
+        now = api.get(f"/api/customers/{m['customer_id']}").json()['chosen']
+        moved = (now['tuple_id'], now.get('deferred_until')) != (m['tuple_id'], None)
+        assert moved == (m['customer_id'] in sent), m
+    assert {x['customer_id'] for x in first['impact']} == sent
+
+
+def test_knowledge_base_is_live(client):
+    """GET /api/kb follows the API's state: after MG-100133 was sent their offer, the graph shows the new decision."""
+    api, _, _ = client
+    cid = 'MG-100133'
+    before = api.get('/api/kb').json()['customers'][cid]['chosen']['tuple']
+    assert before == api.get(f'/api/customers/{cid}').json()['chosen']['tuple_id']
+    api.post('/api/campaigns/CMP-KB/fast-forward', json={'user': 'reviewer', 'members': [{'customer_id': cid, 'tuple_id': before}]})
+    now = api.get(f'/api/customers/{cid}').json()['chosen']['tuple_id']
+    assert now != before and api.get('/api/kb').json()['customers'][cid]['chosen']['tuple'] == now
+
+
+def test_generate_knowledge_base_writes_the_static_file(client):
+    api, _, directory = client
+    assert not (directory / 'kg_viz.json').exists()
+    made = api.post('/api/kb/generate').json()
+    assert 'MG-100133' in made['customers']
+    assert json.loads((directory / 'kg_viz.json').read_text())['customers'].keys() == made['customers'].keys()

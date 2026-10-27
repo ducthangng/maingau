@@ -4,6 +4,7 @@ import type { Summary } from "../../types/contracts";
 import type { Campaign } from "../../lib/campaigns";
 import { signedEur, tupleLabel } from "../../lib/format";
 import { useDecisions } from "../../lib/decisions";
+import { useOutcomes } from "../../lib/outcomes";
 import { Num } from "./Num";
 import CampaignDetail, { fmtDate } from "./CampaignDetail";
 
@@ -16,6 +17,7 @@ const TD = "px-3 py-2.5 align-top";
 export default function CampaignList({ campaigns, summary }: { campaigns: Campaign[]; summary: Summary | undefined }) {
   const rows = [...campaigns].reverse();
   const decisions = useDecisions();
+  const outcomes = useOutcomes();
   const [openId, setOpenId] = useState<string | null>(null);
   const open = rows.find((c) => c.id === openId);
   return (
@@ -33,7 +35,7 @@ export default function CampaignList({ campaigns, summary }: { campaigns: Campai
         <p className="mt-3 text-sm text-neutral-500">No campaign yet: use Approve everything or Approve group to create one.</p>
       ) : (
         <div className="mt-3 overflow-x-auto">
-          <table className="w-full min-w-[640px] text-sm">
+          <table className="w-full min-w-[720px] text-sm">
             <thead className="border-b border-neutral-200">
               <tr>
                 <th className={TH}>Campaign</th>
@@ -42,6 +44,7 @@ export default function CampaignList({ campaigns, summary }: { campaigns: Campai
                 <th className={`${TH} text-right`}>Contacted</th>
                 <th className={`${TH} text-right`}>Control group</th>
                 <th className={`${TH} text-right`}>Σ ΔCLV</th>
+                <th className={`${TH} text-right`}>Actual Σ ΔCLV</th>
                 <th className="w-8" />
               </tr>
             </thead>
@@ -76,6 +79,15 @@ export default function CampaignList({ campaigns, summary }: { campaigns: Campai
                   </td>
                   <td className={`${TD} text-right`}>
                     <Num col="delta_clv" value={c.delta_clv} format={signedEur} summary={summary} />
+                  </td>
+                  <td className={`${TD} text-right tabular-nums`}>
+                    {outcomes[c.id] ? (
+                      <span className={outcomes[c.id].totals.actual_delta_clv < 0 ? "text-red-700" : ""} title="Simulated with Fast forward">
+                        {signedEur(outcomes[c.id].totals.actual_delta_clv)}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-neutral-400">not yet</span>
+                    )}
                   </td>
                   <td className={`${TD} text-right`}>
                     <ChevronRight size={14} className="text-neutral-400 transition-transform duration-150 group-hover:translate-x-0.5" aria-hidden />

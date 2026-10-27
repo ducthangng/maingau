@@ -1,18 +1,18 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
-import { ChevronDown, Search } from "lucide-react";
+import { ChevronDown, Loader2, RefreshCw, Search, Sparkles } from "lucide-react";
 import LayerGraph from "../components/kb/LayerGraph";
 import LearningView from "../components/kb/LearningView";
 import ZoomCanvas from "../components/kb/ZoomCanvas";
 import { OFFER_NAME } from "../components/worklist/model";
 import { channelLabel, toneLabel } from "../components/nba/ui";
 import { mockName } from "../lib/customerMock";
-import { useLoad } from "../lib/data";
+import { dataMode, useLoad } from "../lib/data";
 import { eur, pct, signedEur } from "../lib/format";
-import { loadKnowledgeBase, type KbCustomer, type KbGraph, type KbNode, type KnowledgeBase as KB } from "../lib/kb";
+import { generateKnowledgeBase, loadKnowledgeBase, type KbCustomer, type KbGraph, type KbNode, type KnowledgeBase as KB } from "../lib/kb";
 
-// Knowledge Base (scripts/export_kg_viz.py): how the engine got from a customer's data to the decision, the policy
-// layer behind every rule, and the ontology. Demo view over the 8 demo customers; read only.
+// Knowledge Base (nba/kg/viz.py; live from GET /api/kb, else the generated data/kg_viz.json): how the engine got from a
+// customer's data to the decision, the policy layer behind every rule, and the ontology. Demo customers; read only.
 
 type View = "customer" | "policy" | "ontology" | "learning";
 const VIEWS: { id: View; label: string }[] = [
@@ -275,17 +275,32 @@ function Selected({ node, customer }: { node: KbNode | null; customer?: KbCustom
   );
 }
 
+/** Shown when the URL names no customer (?c=); must be one of scripts/export_kg_viz.py's DEMO customers. */
+const DEFAULT_CUSTOMER = "MG-100133";
+
 export default function KnowledgeBase() {
-  const kb = useLoad(loadKnowledgeBase, []);
+  const [rev, setRev] = useState(0); // bumped after "Generate" to load again
+  const kb = useLoad(loadKnowledgeBase, [rev]);
+  const mode = useLoad(dataMode, []);
+  const api = mode.status === "ready" && mode.data === "api";
   const [params, setParams] = useSearchParams();
   const [selected, setSelected] = useState<KbNode | null>(null);
   const view = (VIEWS.some((v) => v.id === params.get("view")) ? params.get("view") : "customer") as View;
-  const data = kb.status === "ready" ? kb.data : null;
+  const data = kb.status === "ready" ? kb.data.kb : null;
   const ids = useMemo(() => (data ? Object.keys(data.customers) : []), [data]);
-  const cid = data && params.get("c") && data.customers[params.get("c")!] ? params.get("c")! : ids[0];
+  const fallback = data?.customers[DEFAULT_CUSTOMER] ? DEFAULT_CUSTOMER : ids[0];
+  const cid = data && params.get("c") && data.customers[params.get("c")!] ? params.get("c")! : fallback;
 
   if (kb.status === "loading") return <p className="py-12 text-center text-neutral-500">Loading the knowledge base…</p>;
-  if (kb.status === "error") return <p className="text-red-700">Could not load the knowledge base: {kb.error}</p>;
+  if (kb.status === "error")
+    return (
+      <div className="space-y-6">
+        <header className="max-w-3xl">
+          <h1 className="text-2xl font-semibold tracking-tight text-neutral-900">Knowledge Base</h1>
+        </header>
+        <GeneratePanel api={api} problem={kb.error} onDone={() => setRev((n) => n + 1)} />
+      </div>
+    );
   if (!data) return null;
 
   const customer = view === "customer" ? data.customers[cid] : undefined;
@@ -310,8 +325,13 @@ export default function KnowledgeBase() {
         <p className="mt-2 text-sm tabular-nums text-neutral-500">
           Snapshot {m.eval_time.replace("T", " ").slice(0, 16)} · {m.customers} customers · {m.act_now} act now · {m.waiting} waiting · {m.no_action} no action ·
           rules {m.rule_set_version}
+          {kb.status === "ready" && (kb.data.source === "live" ? " · live from the engine" : " · from the generated file")}
         </p>
       </header>
+
+      {kb.status === "ready" && kb.data.source === "file" && api && (
+        <GeneratePanel api compact onDone={() => setRev((n) => n + 1)} />
+      )}
 
       <div className="flex flex-wrap items-center gap-3">
         <div className="inline-flex rounded-lg bg-neutral-100 p-0.5" role="tablist" aria-label="Knowledge base view">
@@ -365,5 +385,71 @@ export default function KnowledgeBase() {
       </div>
       )}
     </div>
+  );
+}
+
+const KB_SCRIPT = ".venv/bin/python scripts/export_kg_viz.py --out web/public/data/kg_viz.json";
+
+/** No knowledge base to show (or only an old file): build it from the live engine (POST /api/kb/generate). */
+function GeneratePanel({ api, compact = false, problem, onDone }: { api: boolean; compact?: boolean; problem?: string; onDone: () => void }) {
+  const [running, setRunning] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const run = async () => {
+    setRunning(true);
+    setError(null);
+    try {
+      await generateKnowledgeBase();
+      onDone();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setRunning(false);
+    }
+  };
+  const button = (
+    <button
+      type="button"
+      onClick={run}
+      disabled={running || !api}
+      className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-accent-600 px-3.5 py-2 text-sm font-medium text-white transition-colors duration-150 hover:bg-accent-700 disabled:cursor-not-allowed disabled:bg-neutral-300"
+    >
+      {running ? <Loader2 className="size-4 animate-spin" aria-hidden /> : compact ? <RefreshCw className="size-4" aria-hidden /> : <Sparkles className="size-4" aria-hidden />}
+      {running ? "Generating…" : compact ? "Regenerate from the engine" : "Generate knowledge base"}
+    </button>
+  );
+  const hint = (
+    <p className="mt-2 text-xs text-neutral-500">
+      Without the API: <code className="rounded bg-neutral-100 px-1 py-0.5 font-mono text-[11px] text-neutral-700">{KB_SCRIPT}</code>
+    </p>
+  );
+  if (compact)
+    return (
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gold-400/40 bg-gold-50 px-4 py-3">
+        <p className="text-sm text-neutral-800">
+          Showing the generated file, which may be older than the engine's current decisions (the API has no live Knowledge Base; restart it to get one).
+          {error && <span className="mt-1 block text-red-700" role="alert">{error}</span>}
+        </p>
+        {button}
+      </div>
+    );
+  return (
+    <section className="max-w-2xl rounded-2xl border border-neutral-200 bg-white p-6" aria-labelledby="kb-empty-title">
+      <h2 id="kb-empty-title" className="text-[15px] font-semibold text-neutral-900">
+        No knowledge base yet
+      </h2>
+      <p className="mt-1 text-sm text-neutral-600">
+        Generate it from the engine: the ontology, the policy layer and the decision graph of each demo customer, with everything the
+        engine has learned so far.
+      </p>
+      <div className="mt-4">{button}</div>
+      {!api && <p className="mt-2 text-xs text-neutral-500">The API is not reachable, so it cannot be generated from here.</p>}
+      {error && (
+        <p className="mt-2 text-sm text-red-700" role="alert">
+          {error}
+        </p>
+      )}
+      {hint}
+      {problem && <p className="mt-3 text-[11px] text-neutral-400">Details: {problem}</p>}
+    </section>
   );
 }

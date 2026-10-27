@@ -66,6 +66,12 @@ export const loadCard = (id: string) => load<CustomerCard>(`card:${id}`, `/api/c
 export const loadManifest = () =>
   dataMode().then((mode) => (mode === "api" ? null : getJSON<Manifest>(`${STATIC_BASE}/manifest.json`).catch(() => null)));
 
+/** Drop every cached response (index, summary, cards): the API just learned from new outcomes, so every chance can move. */
+export function invalidateAll() {
+  cache.clear();
+  probe = null;
+}
+
 /** Drop a cached card so the next load shows the decision the API just stored. */
 export function invalidateCard(id: string) {
   cache.delete(`card:${id}`);

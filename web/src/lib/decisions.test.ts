@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { parseDecisions, REJECT_REASONS, rejectText, toRequest, type Decision } from "./decisions";
+import { latestByCustomer, parseDecisions, REJECT_REASONS, rejectText, toRequest, type Decision } from "./decisions";
 
 // What a reject / override sends to POST /api/customers/{id}/decision: the coded reason
 // (DecisionRequest.reason_code) the feedback memory acts on, not only a free-text note.
@@ -81,5 +81,22 @@ describe("reject reasons", () => {
     expect(rejectText("wrong_channel", " prefers letters ")).toBe("Wrong channel: prefers letters");
     expect(rejectText("other", "moving abroad")).toBe("moving abroad");
     expect(rejectText("other", "")).toBe("Other");
+  });
+});
+
+describe("settled campaigns", () => {
+  it("a fast-forwarded campaign's decision no longer counts as the customer's current one", () => {
+    const base = { action: "approved" as const, tuple_id: "P|email|du", from_tuple: "P|email|du", reason: null, reviewer: "r", delta_clv: 1, p_accept: 0.1, group: null, holdout: false };
+    const list = [
+      { ...base, id: "A@1", customer_id: "A", ts: "1", campaign: "CMP-1" },
+      { ...base, id: "A@2", customer_id: "A", ts: "2", campaign: "CMP-2", settled: "3" },
+      { ...base, id: "B@1", customer_id: "B", ts: "1", campaign: "CMP-2", settled: "3" },
+      { ...base, id: "C@1", customer_id: "C", ts: "1", campaign: "CMP-2", settled: "3" },
+      { ...base, id: "C@4", customer_id: "C", ts: "4", action: "rejected" as const },
+    ];
+    const latest = latestByCustomer(list);
+    expect(latest.has("A")).toBe(false);
+    expect(latest.has("B")).toBe(false);
+    expect(latest.get("C")?.id).toBe("C@4");
   });
 });
