@@ -14,6 +14,7 @@ const MODELS = {
   index_row: "IndexRow",
   summary: "Summary",
   decision_request: "DecisionRequest",
+  journey: "Journey",
 };
 
 // Pydantic puts a title on every property; json-schema-to-typescript would turn each one

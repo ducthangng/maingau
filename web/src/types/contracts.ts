@@ -6,6 +6,7 @@ export interface Contracts {
   index_row: IndexRow;
   summary: Summary;
   decision_request: DecisionRequest;
+  journey: Journey;
 }
 /**
  * This interface was referenced by `Contracts`'s JSON-Schema
@@ -148,6 +149,7 @@ export interface PSource {
   baseline_control?: number | null;
   conv_control?: number;
   conv_treated?: number;
+  k?: number | null;
   level: "offer_channel_tone" | "offer_channel" | "offer" | "global" | "assumption";
   mode: "uplift" | "rate" | "assumption";
   n_control?: number;
@@ -207,6 +209,18 @@ export interface DecisionLogEntry {
   actor: string;
   from_tuple?: string | null;
   reason?: string | null;
+  reason_code?:
+    | (
+        | "already_has_product"
+        | "customer_upset"
+        | "no_time"
+        | "not_relevant"
+        | "wrong_channel"
+        | "wrong_timing"
+        | "data_wrong"
+        | "other"
+      )
+    | null;
   rules_applied?: string[];
   scores?: {
     [k: string]: number;
@@ -683,6 +697,18 @@ export interface Summary {
 export interface DecisionRequest {
   action: "approve" | "override" | "reject";
   reason?: string | null;
+  reason_code?:
+    | (
+        | "already_has_product"
+        | "customer_upset"
+        | "no_time"
+        | "not_relevant"
+        | "wrong_channel"
+        | "wrong_timing"
+        | "data_wrong"
+        | "other"
+      )
+    | null;
   tuple?: TupleRef | null;
   user: string;
 }
@@ -694,4 +720,48 @@ export interface TupleRef {
   channel: "newsletter_email" | "email" | "portal_popup" | "app_push" | "sms" | "outbound_call" | "service_agent";
   offer_id: string;
   tone: "du" | "sie";
+}
+/**
+ * This interface was referenced by `Contracts`'s JSON-Schema
+ * via the `definition` "Journey".
+ */
+export interface Journey {
+  counts: {
+    [k: string]: number;
+  };
+  customer_id: string;
+  eval_time: string;
+  events: JourneyEvent[];
+  months: number;
+}
+/**
+ * Unset fields are left out of the JSON. The static export also drops `src` and `facts` (API only).
+ *
+ * This interface was referenced by `Contracts`'s JSON-Schema
+ * via the `definition` "JourneyEvent".
+ */
+export interface JourneyEvent {
+  date: string;
+  detail?: string | null;
+  facts?: {
+    [k: string]: unknown;
+  };
+  flags?: string[];
+  future?: boolean;
+  id: string;
+  reaction?: string | null;
+  ref?: string | null;
+  src?: string | null;
+  title: string;
+  type:
+    | "contract"
+    | "milestone"
+    | "consent"
+    | "proposal"
+    | "ticket"
+    | "order"
+    | "newsletter"
+    | "agent_suggestion"
+    | "charging"
+    | "portal";
 }

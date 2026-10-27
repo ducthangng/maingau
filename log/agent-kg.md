@@ -684,3 +684,13 @@ Claude Code (Opus) on Windows, in the user's checkout `E:\Projects\maingau`. On 
 
 **Verified:** 7 new tests (`tests/test_kg_journey.py`); full suite 429 passed.
 - **Follow-up (user):** the static budget is now one limit of 30 MB for `web/public/data` (was 20 MB for the cards plus 4.5 MB for journeys); regenerating the static cards from `main` is allowed. Test, README §13.2, `docs/api.md`, `docs/nba-guide.md` and `docs/rule-center.md` updated.
+
+### Session 16 · 2026-10-27 · Claude Code (Opus) · branch feat/kg
+
+**Goal (user):** review the Customer 360° UI (feat/cards, by Siga), push it, then make the journey tab use the journey document.
+
+**Done:**
+- Merged `origin/feat/cards` into `main` (e137a9b) after vitest 37/37, `npm run build` and pytest 429/429 passed on feat/cards. Orchestration pages and components unchanged.
+- **Journey tab:** `web/src/lib/journey.ts` (new) loads `GET /api/customers/{id}/journey`, static `data/journey/{id}.json`. `JourneyTab` shows all nine chips (newsletters, past proposals, agent suggestions, tickets, orders, charging, portal, contracts, consent) with detail, reaction and neutral flag tags. It falls back to the card timeline if the journey cannot be loaded.
+- `npm run types` now also generates `Journey` (the regeneration also brought in `PSource.k` and `reason_code`).
+- **Tests:** 2 new vitest cases: every customer's journey renders all chips with no CLV, tier, flag, segment or payment wording; the fallback works. 39/39 pass; build passes.

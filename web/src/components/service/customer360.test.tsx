@@ -2,9 +2,9 @@ import { readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import type { CustomerCard } from "../../types/contracts";
+import type { CustomerCard, Journey } from "../../types/contracts";
 import ActionsTab from "./ActionsTab";
-import JourneyTab from "./JourneyTab";
+import JourneyTab, { fromTimeline, JourneyList } from "./JourneyTab";
 import { dateLabel, notRecommended, sortedActions } from "./plain";
 import ProfileTab from "./ProfileTab";
 import ServiceStrip from "./ServiceStrip";
@@ -14,6 +14,9 @@ import ServiceStrip from "./ServiceStrip";
 
 const DIR = fileURLToPath(new URL("../../../public/data/customers/", import.meta.url));
 const load = (id: string) => JSON.parse(readFileSync(`${DIR}${id}.json`, "utf8")) as CustomerCard;
+const JOURNEY_DIR = fileURLToPath(new URL("../../../public/data/journey/", import.meta.url));
+const loadJourney = (id: string) => JSON.parse(readFileSync(`${JOURNEY_DIR}${id}.json`, "utf8")) as Journey;
+const journeyText = (id: string) => text(renderToStaticMarkup(<JourneyList events={loadJourney(id).events} />));
 
 function text(html: string): string {
   return html
@@ -61,6 +64,11 @@ describe("Customer 360° acceptance customers", () => {
     expect(s.strip).toContain("MAINGAU Autostrom");
     expect(s.strip).toContain("Portal pop-up");
     expect(s.strip).toMatch(/bought a Wallbox .* no Autostrom contract/);
+    const journey = journeyText("MG-100023");
+    expect(journey).toMatch(/Newsletters 13 .*Past proposals 3 .*Portal 16/);
+    expect(journey).toContain("Offer MAINGAU Autostrom via newsletter email");
+    expect(journey).toContain("tone Sie");
+    expect(journey).toMatch(/Customer reaction: not opened/);
   });
 
   it("MG-100112: no personalised offers, StromAktiv by phone, Sie", () => {
@@ -90,5 +98,27 @@ describe("every customer", () => {
     }
     expect(ids.length).toBeGreaterThan(0);
     expect(leaks).toEqual([]);
+  });
+
+  it("journey: every event type somewhere, no CLV, tier, flags, segment or payment wording", () => {
+    const leaks: string[] = [];
+    const chips = new Set<string>();
+    for (const id of ids) {
+      const t = journeyText(id);
+      for (const m of t.matchAll(/(Newsletters|Past proposals|Agent suggestions|Tickets|Orders|Charging|Portal|Contracts|Consent) \d+/g)) chips.add(m[1]);
+      const m = t.match(new RegExp(`.{0,30}(?:${FORBIDDEN.source}|\\bCLV\\b).{0,30}`, "i"));
+      if (m) leaks.push(`${id}: …${m[0]}…`);
+    }
+    expect(chips.size).toBe(9);
+    expect(leaks).toEqual([]);
+  });
+
+  it("journey tab waits for the journey, and falls back to the card timeline", () => {
+    const card = load("MG-100186");
+    expect(text(renderToStaticMarkup(<JourneyTab card={card} />))).toContain("Loading the journey");
+    const fallback = text(renderToStaticMarkup(<JourneyList events={(card.timeline ?? []).map(fromTimeline)} />));
+    expect(fallback).toMatch(/Tickets \d+/);
+    expect(fallback).toMatch(/Ticket: complaint/i);
+    expect(fallback).not.toMatch(new RegExp(FORBIDDEN.source, "i"));
   });
 });
