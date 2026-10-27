@@ -333,6 +333,9 @@ def ai_scenarios(rt, llm: LLM, n: int = 8, pool_size: int = 24, catalog_products
                "signals": {sid: s.label for sid, s in rt.policy.signals.items()}}
     answer = llm.structured(TESTER_SYSTEM, payload, _tester_schema(pool, rules, sorted(rt.policy.signals), products), effort="medium")
     out, notes = [], []
+    if answer is None:
+        notes.append(f"AI tester ({llm.name}) gave no answer: the backend timed out, is unreachable or sent no valid JSON "
+                     "(see the warning in the log); seed scenarios only")
     for i, s in enumerate((answer or {}).get("scenarios", [])[:n]):
         t = s.get("event_type")
         if s.get("customer_id") not in pool or t not in EVENT_TYPES:

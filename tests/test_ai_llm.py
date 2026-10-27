@@ -136,3 +136,27 @@ def test_tls_uses_a_ca_bundle_even_without_system_certificates():
     ctx = llm_mod._ssl_context()
     assert ctx.verify_mode.name == "CERT_REQUIRED" and ctx.check_hostname
     assert ctx.cert_store_stats()["x509_ca"] > 100  # certifi's roots are loaded (a python.org build has none by default)
+
+
+def test_an_unreachable_gateway_fails_fast():
+    import socket
+    import time
+
+    s = socket.socket()
+    s.bind(("127.0.0.1", 0))
+    port = s.getsockname()[1]
+    s.close()  # nothing listens on this port: the connection is refused at once
+    llm = HessianLLM(url=f"http://127.0.0.1:{port}/v1", key="k")
+    start = time.perf_counter()
+    assert llm.structured("s", {}, SCHEMA) is None and llm.enabled is False
+    assert time.perf_counter() - start < 6
+
+
+def test_the_reachability_check_runs_once(gateway):
+    gw = gateway()
+    llm = HessianLLM(url=gw.url, key="k")
+    llm.structured("s", {}, SCHEMA)
+    assert llm.checked is True
+    llm.url = "http://127.0.0.1:9/v1"  # not checked again: the first check is remembered for the run
+    llm.structured("s", {}, SCHEMA)
+    assert llm.checked is True

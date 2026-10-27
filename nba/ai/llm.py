@@ -14,9 +14,11 @@ import json
 import logging
 import os
 import re
+import socket
 import ssl
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -116,9 +118,23 @@ class HessianLLM(LLM):
             raise RuntimeError("HAI_API_KEY is not set (export it or put it in .env)")
         self.model = model or os.environ.get("HAI_MODEL", "").strip() or HESSIAN_MODELS[0]
         self.url = (url or os.environ.get("HAI_BASE_URL", "").strip() or HESSIAN_URL).rstrip("/")
-        self.timeout, self.mode = timeout, self.MODES[0]
+        self.timeout, self.mode, self.checked = timeout, self.MODES[0], False
+
+    def _reachable(self) -> None:
+        """Before the first request: can this network open a connection to the gateway at all? The gateway only
+        accepts some networks; without this check an unreachable gateway hangs each run for the OS connect
+        timeout (about 75 s) before the code result is used."""
+        if self.checked:
+            return
+        parts = urllib.parse.urlsplit(self.url)
+        try:
+            socket.create_connection((parts.hostname, parts.port or (443 if parts.scheme == "https" else 80)), timeout=5).close()
+        except OSError as exc:
+            raise RuntimeError(f"cannot reach {parts.hostname} from this network ({exc}); check the Wi-Fi or VPN") from exc
+        self.checked = True
 
     def _post(self, body: dict) -> dict:
+        self._reachable()
         req = urllib.request.Request(f"{self.url}/chat/completions", data=json.dumps(body).encode(),
                                      headers={"Content-Type": "application/json", "Authorization": f"Bearer {self.key}"})
         for attempt in range(3):  # a busy gateway (429, 5xx) gets two more tries; anything else fails at once
