@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, Lock } from "lucide-react";
+import { ChevronDown, LifeBuoy, Lock } from "lucide-react";
 import type { Candidate, CustomerCard } from "../../types/contracts";
 import { useHardRules, violation, type HardRule } from "../../lib/hardRules";
 import { pct, signedEur } from "../../lib/format";
@@ -36,19 +36,34 @@ function OptionRow({
   const top = n === 1;
   const v = c.valuation;
   const lines = [...(c.why ?? []), ...(c.notes ?? [])].map((l) => noPayment(l));
+  // Full text of the two lines, kept in `title` because a long one is clamped to two lines.
+  const headline = `${c.offer_name} via ${channelLabel(c.channel)} · ${toneLabel(c.tone)}`;
+  const reason = lock
+    ? `Locked: ${ruleText(lock)} (${scopeText(lock)})`
+    : `${reasonOf(c)}${c.deferred_until ? ` · possible from ${dateLabel(c.deferred_until)}` : ""}`;
 
   return (
+    // Static edge is a 1px border (never clipped); the selected state is an inset ring, so nothing is
+    // drawn outside the row. The border turns transparent when selected so the ring is the one edge.
     <li
-      className={`rounded-xl ring-1 transition-[box-shadow,background-color] duration-150 ${
+      className={`rounded-xl border transition-[box-shadow,background-color,border-color] duration-150 ${
         selected
           ? top
-            ? "bg-emerald-50/70 ring-2 ring-emerald-500"
-            : "bg-accent-50/60 ring-2 ring-accent-500"
-          : "bg-white ring-neutral-200 hover:bg-neutral-50 hover:shadow-sm"
+            ? "border-transparent bg-emerald-50/70 ring-2 ring-inset ring-emerald-500"
+            : "border-transparent bg-accent-50/60 ring-2 ring-inset ring-accent-500"
+          : "border-neutral-200 bg-white hover:bg-neutral-50 hover:shadow-sm"
       } ${lock ? "opacity-60" : ""}`}
     >
       <div className="flex items-center gap-3 px-3.5 py-2.5">
-        <button type="button" onClick={onSelect} aria-pressed={selected} className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left">
+        {/* Inset focus outline (the row sits in the column's scroll box); the padding and matching
+            negative margin keep the outline off the content without moving it. `!` because the global
+            :focus-visible rule in index.css is unlayered and would otherwise win over the utility. */}
+        <button
+          type="button"
+          onClick={onSelect}
+          aria-pressed={selected}
+          className="-mx-1.5 -my-1 flex min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-lg px-1.5 py-1 text-left focus-visible:-outline-offset-2!"
+        >
           <span
             className={`grid size-6 shrink-0 place-items-center rounded-md text-xs font-semibold tabular-nums ${
               top ? "bg-emerald-600 text-white" : selected ? "bg-accent-600 text-white" : "bg-neutral-100 text-neutral-600"
@@ -57,18 +72,18 @@ function OptionRow({
             {n}
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm font-medium text-neutral-900">
+            <span className="line-clamp-2 break-words text-sm font-medium text-neutral-900" title={headline}>
               {c.offer_name} via {channelLabel(c.channel)} <span className="font-normal text-neutral-400">· {toneLabel(c.tone)}</span>
             </span>
-            <span className="flex items-center gap-1 truncate text-xs text-neutral-500">
-              {lock && <Lock size={11} className="shrink-0" aria-hidden />}
-              <span className="truncate">
+            <span className="flex items-start gap-1 text-xs text-neutral-500">
+              {lock && <Lock size={11} className="mt-0.5 shrink-0" aria-hidden />}
+              <span className="line-clamp-2 min-w-0 break-words" title={reason}>
                 {lock ? `Locked: ${ruleText(lock)} (${scopeText(lock)})` : reasonOf(c)}
                 {!lock && c.deferred_until && <> · possible from {dateLabel(c.deferred_until)}</>}
               </span>
             </span>
           </span>
-          <span className="hidden w-20 shrink-0 sm:block" title="Expected value, relative to the other options">
+          <span className="hidden w-20 shrink-0 @sm:block" title="Expected value, relative to the other options">
             <ValueBar value={v?.delta_clv ?? 0} max={maxDelta} tone={top ? "green" : selected ? "accent" : "muted"} />
           </span>
         </button>
@@ -77,7 +92,7 @@ function OptionRow({
           onClick={() => setOpen((x) => !x)}
           aria-expanded={open}
           aria-label={open ? "Hide details" : "Show details"}
-          className={`grid size-6 shrink-0 place-items-center rounded-md transition-colors duration-150 ${open ? "bg-neutral-900 text-white" : "text-neutral-400 hover:bg-neutral-100 hover:text-neutral-800"}`}
+          className={`grid size-6 shrink-0 place-items-center rounded-md transition-colors duration-150 focus-visible:-outline-offset-2! ${open ? "bg-neutral-900 text-white" : "text-neutral-400 hover:bg-neutral-100 hover:text-neutral-800"}`}
         >
           <ChevronDown size={14} className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`} aria-hidden />
         </button>
@@ -137,15 +152,19 @@ export default function ActionsTab({ card }: { card: CustomerCard }) {
   return (
     <div className="grid gap-6">
       <section className="space-y-3">
-        <div className="flex items-baseline gap-2">
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
           <h3 className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Suggested actions ({options.length})</h3>
           <span className="text-xs text-neutral-400">best first · click one to choose</span>
         </div>
         {chosen.service_mode && (
-          <p className="rounded-xl bg-amber-50 px-4 py-2.5 text-sm text-amber-900 ring-1 ring-amber-200">Resolve the service issue first.</p>
+          // A border (never clipped) and the service icon, so the colour is not the only signal.
+          <p className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900">
+            <LifeBuoy size={15} className="mt-0.5 shrink-0 text-amber-600" aria-hidden />
+            <span className="min-w-0 break-words">Resolve the service issue first.</span>
+          </p>
         )}
         {options.length === 0 ? (
-          <p className="rounded-xl bg-white p-6 text-sm text-neutral-600 ring-1 ring-neutral-200">
+          <p className="rounded-xl border border-neutral-200 bg-white p-6 text-sm break-words text-neutral-600">
             No offer right now: {noOfferReason(card)}.
           </p>
         ) : (
@@ -165,8 +184,9 @@ export default function ActionsTab({ card }: { card: CustomerCard }) {
           </ol>
         )}
         {top && sel && (
-          <div className="overflow-hidden rounded-xl ring-1 ring-neutral-200">
-            <DecisionBox card={card} top={top} sel={sel} lock={lockOf(sel)} why={why} />
+          // A normal list card around the in-card decision box (not the pop-up's sticky footer).
+          <div className="rounded-xl border border-neutral-200 bg-white">
+            <DecisionBox card={card} top={top} sel={sel} lock={lockOf(sel)} why={why} variant="inline" />
           </div>
         )}
       </section>
@@ -176,9 +196,9 @@ export default function ActionsTab({ card }: { card: CustomerCard }) {
         {blocked.length === 0 ? (
           <p className="text-sm text-neutral-500">Nothing ruled out.</p>
         ) : (
-          <ul className="divide-y divide-neutral-100 rounded-xl bg-white ring-1 ring-neutral-200">
+          <ul className="divide-y divide-neutral-100 rounded-xl border border-neutral-200 bg-white">
             {blocked.map((b) => (
-              <li key={`${b.subject}|${b.text}`} className="px-4 py-2.5 text-sm">
+              <li key={`${b.subject}|${b.text}`} className="px-4 py-2.5 text-sm break-words">
                 <span className="font-medium text-neutral-900">{b.subject}</span>
                 <span className="block text-neutral-600">{b.text}</span>
               </li>

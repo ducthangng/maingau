@@ -485,11 +485,33 @@ export function RejectBar({
   );
 }
 
+// Opt-in in-card look of the decision box (Customer 360°, prompts/ui-polish.md §3.2): not sticky, no top
+// border or blur, the status line on its own row, buttons full width in a narrow container and
+// right-aligned from @sm. The default "popup" keeps every class of the pop-up's sticky footer.
+const INLINE_BOX = "space-y-2.5 px-4 py-3";
+const INLINE_ROW = "flex flex-col gap-2 @sm:flex-row @sm:flex-wrap @sm:items-center @sm:justify-end @sm:gap-3";
+const INLINE_BTN = " w-full @sm:w-auto";
+
 /**
  * The one place to act, for whichever option is selected. Approve on #1 approves the proposal; Approve
  * on another option saves an override with the reason picked under it. A saved override can be deleted.
  */
-export function DecisionBox({ card, top, sel, lock, why }: { card: CustomerCard; top: Option; sel: Option; lock: HardRule | undefined; why: Why }) {
+export function DecisionBox({
+  card,
+  top,
+  sel,
+  lock,
+  why,
+  variant = "popup",
+}: {
+  card: CustomerCard;
+  top: Option;
+  sel: Option;
+  lock: HardRule | undefined;
+  why: Why;
+  variant?: "popup" | "inline";
+}) {
+  const inline = variant === "inline";
   const decisions = useDecisions();
   const latest = useMemo(
     () => latestByCustomer(decisions.filter((d) => d.customer_id === card.customer_id)).get(card.customer_id),
@@ -518,10 +540,10 @@ export function DecisionBox({ card, top, sel, lock, why }: { card: CustomerCard;
   const overriddenTo = overridden ? (card.candidates ?? []).find((c) => c.tuple_id === overridden.tuple_id) : undefined;
 
   return (
-    <section className="sticky bottom-0 space-y-2.5 border-t border-neutral-200 bg-white/95 px-6 py-4 backdrop-blur md:px-8">
+    <section className={inline ? INLINE_BOX : "sticky bottom-0 space-y-2.5 border-t border-neutral-200 bg-white/95 px-6 py-4 backdrop-blur md:px-8"}>
       {overridden && (
         <div className="flex items-center gap-2 rounded-lg bg-accent-50 px-3 py-2 text-xs text-accent-800">
-          <span className="min-w-0 flex-1 truncate">
+          <span className={inline ? "min-w-0 flex-1 break-words" : "min-w-0 flex-1 truncate"}>
             Overridden to{" "}
             <span className="font-medium">
               {overriddenTo
@@ -548,19 +570,19 @@ export function DecisionBox({ card, top, sel, lock, why }: { card: CustomerCard;
       ) : rejecting ? (
         <RejectBar why={rejectWhy} onChange={setRejectWhy} onReject={reject} onCancel={() => setRejecting(false)} />
       ) : (
-        <div className="flex flex-wrap items-center justify-end gap-3">
+        <div className={inline ? INLINE_ROW : "flex flex-wrap items-center justify-end gap-3"}>
           {latest && !overridden ? (
-            <span className="mr-auto">
+            <span className={inline ? "w-full" : "mr-auto"}>
               <StatusChip status={status.status} label={status.label} />
             </span>
           ) : !isTop && !canApprove ? (
-            <span className="mr-auto text-xs text-neutral-500">Pick a reason under your choice to approve it.</span>
+            <span className={inline ? "w-full text-xs text-neutral-500" : "mr-auto text-xs text-neutral-500"}>Pick a reason under your choice to approve it.</span>
           ) : null}
           {isTop && (
             <button
               type="button"
               onClick={() => setRejecting(true)}
-              className={`${btn} bg-white text-red-700 ring-1 ring-inset ring-neutral-300 hover:bg-red-50 focus-visible:ring-red-300`}
+              className={`${btn} bg-white text-red-700 ring-1 ring-inset ring-neutral-300 hover:bg-red-50 focus-visible:ring-red-300${inline ? INLINE_BTN : ""}`}
             >
               Reject…
             </button>
@@ -569,7 +591,7 @@ export function DecisionBox({ card, top, sel, lock, why }: { card: CustomerCard;
             type="button"
             onClick={approve}
             disabled={!canApprove}
-            className={`${btn} text-white ${isTop ? "bg-emerald-600 hover:bg-emerald-700 focus-visible:ring-emerald-400" : "bg-accent-600 hover:bg-accent-700 focus-visible:ring-accent-400"}`}
+            className={`${btn} text-white ${isTop ? "bg-emerald-600 hover:bg-emerald-700 focus-visible:ring-emerald-400" : "bg-accent-600 hover:bg-accent-700 focus-visible:ring-accent-400"}${inline ? INLINE_BTN : ""}`}
           >
             <Check size={16} strokeWidth={2.5} className="mr-1.5" aria-hidden />
             Approve

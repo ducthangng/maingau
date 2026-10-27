@@ -55,9 +55,11 @@ export function JourneyList({ events }: { events: JourneyEvent[] }) {
   const [filter, setFilter] = useState<Group | null>(null);
   const shown = filter ? events.filter((e) => groupOf(e) === filter) : events;
 
+  // Static outline as a border (ui-polish.md §2); the focus outline is drawn inside the chip so the
+  // column's scroll box never clips it. The chips wrap onto more lines, never scroll sideways.
   const chip = (active: boolean) =>
-    `rounded-full px-3 py-1 text-sm transition-colors duration-150 ${
-      active ? "bg-neutral-900 text-white" : "bg-white text-neutral-600 ring-1 ring-neutral-200 hover:bg-neutral-50"
+    `rounded-full border px-3 py-1 text-sm transition-colors duration-150 focus-visible:-outline-offset-2! ${
+      active ? "border-neutral-900 bg-neutral-900 text-white" : "border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50"
     }`;
 
   return (
@@ -78,19 +80,27 @@ export function JourneyList({ events }: { events: JourneyEvent[] }) {
       {shown.length === 0 ? (
         <p className="rounded-xl border border-neutral-200 bg-white p-6 text-center text-sm text-neutral-500">Nothing recorded in the last 12 months.</p>
       ) : (
-        <ol className="relative space-y-1 border-l border-neutral-200 pl-5">
+        // ml-1.5: the timeline dot sits outside the list's left edge, so the list keeps it (and its
+        // halo) clear of the column's scroll edge. The halo is now a white border inside the dot's box
+        // (same size and place as the old ring-4), matching the white column card.
+        <ol className="relative ml-1.5 space-y-1 border-l border-neutral-200 pl-5">
           {shown.map((e) => (
-            <li key={e.id} className="relative rounded-lg px-3 py-2 hover:bg-white">
-              <span className="absolute -left-[25px] top-3.5 size-2 rounded-full bg-neutral-300 ring-4 ring-neutral-50" aria-hidden />
+            <li key={e.id} className="relative rounded-lg px-3 py-2 hover:bg-neutral-50">
+              <span
+                className="absolute -left-[29px] top-[calc(0.875rem-4px)] size-[calc(0.5rem+8px)] rounded-full border-4 border-white bg-neutral-300 bg-clip-padding"
+                aria-hidden
+              />
               <div className="flex flex-wrap items-baseline justify-between gap-x-4">
-                <p className="text-sm font-medium text-neutral-900">{e.title}</p>
-                <p className="text-xs tabular-nums text-neutral-500">
+                <p className="line-clamp-2 min-w-0 break-words text-sm font-medium text-neutral-900" title={e.title}>
+                  {e.title}
+                </p>
+                <p className="shrink-0 text-xs tabular-nums text-neutral-500">
                   {e.future ? "upcoming · " : ""}
                   {dateLabel(e.date)}
                 </p>
               </div>
-              {e.detail && <p className="text-sm text-neutral-600">{e.detail}</p>}
-              {e.reaction && <p className="text-sm text-neutral-700">Customer reaction: {e.reaction}</p>}
+              {e.detail && <p className="break-words text-sm text-neutral-600">{e.detail}</p>}
+              {e.reaction && <p className="break-words text-sm text-neutral-700">Customer reaction: {e.reaction}</p>}
               <p className="flex flex-wrap items-center gap-1.5 text-[11px] text-neutral-400">
                 {GROUP_LABEL[groupOf(e)]}
                 {(e.flags ?? []).map((f) => (

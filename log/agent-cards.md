@@ -266,3 +266,55 @@ These are kept up to date and edited in place. Status values: `open`, `answered`
 **Handoff:** marketers now land on the Overview; links that meant the Worklist must use `/worklist`.
 
 **Next session starts with:** run the Overview against the live API (`uvicorn api.app:app`) and check the same acceptance numbers.
+
+### Session 4 · 2026-10-27 ≈08:50–10:00 Europe/Berlin · Claude Code (Opus 5.5) + workflow `ui-polish-build` (4 subagents) · branch feat/cards · commits (this commit)
+
+**Goal:** `prompts/ui-polish.md`: bring Customer 360° and the Overview to the Orchestration standard (borders, clipping, responsive). Style and layout only.
+
+**Done:**
+- `pages/Service.tsx` and new `components/service/ServiceColumn.tsx`:
+  - Each column is an Orchestration card (`rounded-2xl border`, 11 px uppercase title) with an `@container` body.
+  - From xl the body scrolls inside the card: `px-4 pb-4 pt-1.5` leaves room for rings and outlines, with `[scrollbar-gutter:stable]`.
+  - A bottom fade (`mask-image`) shows while more content follows (`data-more`, scroll event + ResizeObserver).
+  - The column height is measured: a ResizeObserver sets `--c360-h` from the grid's position, replacing the guessed `17rem`.
+  - Breakpoints: one column below lg; at lg Profile and Next best actions side by side, with the journey full width below; from xl `minmax(17rem,1fr) minmax(17rem,1fr) minmax(24rem,1.6fr)`.
+- Workflow builders (three in parallel, then one integration agent):
+  - `ActionsTab.tsx`:
+    - banner with `border` and LifeBuoy icon;
+    - option rows with `border`; selected `ring-2 ring-inset`, emerald for #1 and accent otherwise;
+    - offer and reason lines `line-clamp-2`; bar from `@sm:`;
+    - `DecisionBox variant="inline"` inside a list card; "Not recommended" with `border` and wrapping.
+  - `NbaPanel.tsx`: only the opt-in `variant` prop; the default (pop-up) renders the same markup, checked with renderToStaticMarkup for 750 customers and 732 state combinations.
+  - `ProfileTab.tsx` and `JourneyTab.tsx`:
+    - `ring-1` → `border`; lists with `divide-y`;
+    - long values wrap or keep the full text in `title`;
+    - product tiles in a shrinking 6-column grid; journey chips wrap.
+  - `SegmentBreakdown.tsx`: `@container`; below `@lg` two lines per segment; from `@lg` today's grid.
+  - `ActionTable.tsx`: offer names `line-clamp-2` instead of `truncate`.
+- Inset focus outline: the global `:focus-visible` rule in `index.css` is unlayered and beats every layered utility. Only the important form `focus-visible:-outline-offset-2!` takes effect. Session 3's Overview row fix used the plain class and therefore never applied; it now uses `!`.
+
+**Verified:**
+- `npx tsc --noEmit` OK; `npm test` → 94 passed (8 files); `npm run build` OK.
+- Acceptance in the browser at 375, 768, 1024, 1280, 1440 and 1920 px for MG-100096, MG-100023, MG-100186 and MG-100068, plus the Overview (P-EN-02 and P-EN-01 open). The checker ran in the page, measuring geometry; it is not committed. Results at every width:
+  - page sideways scroll 0;
+  - no clipped border or ring; no clipped focus outline (inset ones counted only in the `!` form);
+  - no cut text without a `title`;
+  - decision box `static`, `border-top 0`, no backdrop, buttons inside;
+  - fade on while more content follows, off at the bottom.
+  - Column widths: 343 (phone), 721 (768), 478/977/478 (1024), 331/331/530 (1280), 375/375/601 (1440), 508/508/815 (1920).
+- Overview segments: at 375 px 5/5 and 2/2 rows on two lines with one-line names; from 640 px today's single-line grid.
+- Orchestration unchanged: fingerprints of `/worklist`, `/customer/MG-100068` and `/groups` (every element's position, size, borders, shadow, outline, colours normalised to RGBA, font and padding) are identical before and after at all 6 widths (18/18). Two runs in a row showed the fingerprint is not noisy.
+
+**Not done / carried over:**
+- On a phone the sticky Customer 360° strip (`sticky top-14`, about 250 px tall) covers much of the screen. It is sticky on purpose (ui-customer360 §3.1 "always visible") and outside this brief; worth a team decision.
+- Scroll events in the hidden browser pane arrive late, so the fade check fires the scroll event itself.
+
+**Contract changes:** none.
+
+**Questions to consider:** none new.
+
+**Issues / risks:** `index.css` keeps its unlayered `:focus-visible`. Any future inset outline must use the `!` form, or the global rule should move into `@layer base` (that touches Orchestration, so it needs its own check).
+
+**Handoff:** `DecisionBox` has `variant="inline"` for embedded use; the pop-up keeps the default.
+
+**Next session starts with:** a team decision on the phone sticky strip; otherwise wait for the next brief.
