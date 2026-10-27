@@ -578,6 +578,25 @@ class DecisionRequest(Model):
     tuple: Optional[TupleRef] = None  # required for "override"
 
 
+class ServiceFeedbackRow(Model):
+    """POST /api/customers/{id}/service-feedback: a service agent's reaction to a suggested offer, in the shape
+    of the workbook's service_nba_feedback (web/src/lib/serviceFeedback.ts); read by nba.ai.feedback."""
+
+    feedback_id: str
+    ticket_id: Optional[str] = None
+    customer_id: str
+    shown_at: str  # ISO timestamp
+    channel: Literal["phone", "chat"]
+    suggestion_source: str = "nba_engine"
+    suggested_offer_id: str
+    agent_id: str
+    agent_action: Literal["accepted", "dismissed"]
+    dismiss_reason: Optional[Literal["customer_already_has_product", "customer_upset", "no_time", "not_relevant"]] = None
+    offer_mentioned_to_customer: bool = True
+    customer_reaction: Optional[Literal["interested", "declined", "annoyed"]] = None
+    converted_within_14d: Optional[bool] = None
+
+
 # ---------------------------------------------------------------- Rule Center (docs/rule-center.md §6)
 
 ConditionOp = Literal["=", "!=", ">=", "<=", "within_days"]

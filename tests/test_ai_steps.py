@@ -95,10 +95,47 @@ def test_api_feedback_loop(tmp_path, rt):
                                                             "reason_code": "already_has_product"})
     assert r.status_code == 200 and r.json()["reason_code"] == "already_has_product"
     offer = r.json()["from_tuple"].split("|")[0]
+    assert api.get("/api/customers/MG-100068").json()["chosen"]["status"] == "rejected"  # until memory changes it
     learned = api.post("/api/ai/feedback", params={"ai": False}).json()
     mine = [m for m in learned["added"] if m["customer_id"] == "MG-100068"]
     assert mine and mine[0]["kind"] == "pause_offer" and mine[0]["offer_id"] == offer
     card = api.get("/api/customers/MG-100068").json()
     assert not card["chosen"]["tuple_id"].startswith(offer + "|")
+    assert card["chosen"]["status"] == "proposed"  # the rejection was about the old tuple, not the new proposal
     assert any(r["rule_id"] == "MEMORY" for r in card["rules"]["results"])
     assert api.get("/api/ai/review", params={"ai": False}).json()["summary"]["proposals"] > 0
+
+
+# The row Customer 360° posts (web/src/lib/serviceFeedback.ts): the customer declined the suggested offer.
+DECLINED = {"feedback_id": "SF-1761557400000", "ticket_id": None, "customer_id": "MG-100068",
+            "shown_at": "2026-10-27T09:30:00.000Z", "channel": "phone", "suggestion_source": "nba_engine",
+            "suggested_offer_id": "P-EN-02", "agent_id": "anna", "agent_action": "accepted", "dismiss_reason": None,
+            "offer_mentioned_to_customer": True, "customer_reaction": "declined", "converted_within_14d": None}
+
+
+def test_api_service_feedback_becomes_customer_memory(tmp_path, rt):
+    api = TestClient(create_app(runtime=rt, out_dir=tmp_path))
+    path = "/api/customers/MG-100068/service-feedback"
+    assert api.post(path, json=DECLINED).json() == DECLINED
+    assert api.post(path, json=DECLINED).status_code == 200  # a retry is stored but counted once
+    assert api.post("/api/customers/MG-100001/service-feedback", json=DECLINED).status_code == 422  # body ≠ path
+    assert api.post("/api/customers/MG-999999/service-feedback", json={**DECLINED, "customer_id": "MG-999999"}).status_code == 404
+    for bad in ({"agent_action": "ignored"}, {"customer_reaction": "happy"}, {"suggested_offer_id": "P-XX-99"},
+                {"shown_at": "yesterday"}):
+        assert api.post(path, json={**DECLINED, **bad}).status_code == 422, bad
+    assert api.get(path).json() == [DECLINED]
+    learned = api.post("/api/ai/feedback", params={"ai": False}).json()
+    mine = [m for m in learned["added"] if m["source_ref"] == DECLINED["feedback_id"]]
+    assert [(m["customer_id"], m["kind"], m["offer_id"]) for m in mine] == [("MG-100068", "pause_offer", "P-EN-02")]
+
+
+def test_cli_feedback_reads_posted_rows_and_skips_torn_lines(tmp_path):
+    from nba.ai.__main__ import main
+
+    (tmp_path / "service_feedback.jsonl").write_text(json.dumps(DECLINED) + "\n" + json.dumps(DECLINED) + '\n{"feedback_id": "SF-',
+                                                     encoding="utf-8")
+    (tmp_path / "decision_log.jsonl").write_text('{"customer_id": "MG-100068", "entry": {"ts', encoding="utf-8")
+    assert main(["feedback", "--no-ai", "--out", str(tmp_path)]) == 0
+    memory = feedback.read_jsonl(tmp_path / "customer_memory.jsonl")
+    assert [m["offer_id"] for m in memory if m["source_ref"] == DECLINED["feedback_id"]] == ["P-EN-02"]
+    assert feedback.agent_rows([{"feedback_id": "AF-1"}], [{"feedback_id": "AF-1"}, DECLINED]) == [{"feedback_id": "AF-1"}, DECLINED]

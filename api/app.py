@@ -1,12 +1,14 @@
-"""FastAPI decision service. Run: uvicorn api.app:app --port 8000.
+"""FastAPI decision service. Run: uvicorn api.app:app --port 8000 (one worker: the logs are replayed per process).
 
 The append-only JSONL uses {customer_id, entry} envelopes; each entry is a
 DecisionLogEntry. This keeps customer routing out of the shared entry model.
-Rule Center edits are a second append-only log (rule_versions.jsonl, docs/rule-center.md §6).
+Rule Center edits are a second append-only log (rule_versions.jsonl, docs/rule-center.md §6), and the
+service agents' reactions a third (service_feedback.jsonl, read by the feedback step).
 """
 from __future__ import annotations
 
 import json
+import logging
 import os
 from contextlib import contextmanager
 from dataclasses import replace
@@ -16,12 +18,13 @@ from threading import RLock
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from api.replay import replay_preview
 
 from nba.contracts import (
     CustomerCard, DecisionLogEntry, DecisionRequest, IndexRow, Journey, NO_ACTION, RuleChange, RuleCreate, RulesFile,
-    Summary, TupleRef, tuple_id,
+    ServiceFeedbackRow, Summary, TupleRef, tuple_id,
 )
 from nba.data import DEFAULT_WORKBOOK, REPO
 from nba.engine.assemble import build_chosen, checklist_for, evaluate_candidates, valuation_scores, value_candidate
@@ -30,9 +33,7 @@ from nba.ai import feedback as ai_feedback
 from nba.ai.llm import from_env as llm_from_env
 from nba.ai.review import review as ai_review
 from nba.engine.rule_audit import legacy_audit
-from nba.engine.rule_registry import (
-    RuleEditError, custom_rule, entity_catalog, next_custom_id, replay_ops, rules_file,
-)
+from nba.engine.rule_registry import RuleEditError, custom_rule, next_custom_id, replay_ops, rules_file
 from nba.engine.rulecenter import Evaluator
 from nba.engine.runtime import Runtime, index_rows, summary
 from nba.kg.journey import build_journey, lookups as journey_lookups
@@ -45,6 +46,7 @@ except ImportError:  # pragma: no cover - Windows
     fcntl = None
 
 CORS_ORIGINS = os.environ.get("MAINGAU_CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",")
+log = logging.getLogger(__name__)
 
 
 @contextmanager
@@ -59,22 +61,48 @@ def locked(stream, exclusive: bool):
 
 
 class JsonlStore:
-    """Append-only JSON lines, fsync'ed, with a shared lock for reads and an exclusive one for writes."""
+    """Append-only JSON lines, fsync'ed, with a shared lock for reads and an exclusive one for writes.
+
+    Each record is one complete line written at once. A line that cannot be read (a torn last line after a
+    crash, a hand edit) is skipped and logged once; the next record still starts on a line of its own."""
 
     def __init__(self, path):
         self.path = Path(path)
+        self._skipped: set[int] = set()
+
+    def check(self, record) -> None:
+        """Raise ValueError / KeyError / TypeError for a record that must be skipped."""
+        if not isinstance(record, dict):
+            raise TypeError("not a JSON object")
 
     def records(self) -> list[dict]:
         if not self.path.exists():
             return []
-        with self.path.open(encoding="utf-8") as stream, locked(stream, exclusive=False):
-            return [json.loads(line) for line in stream if line.strip()]
+        out = []
+        with self.path.open(encoding="utf-8", errors="replace") as stream, locked(stream, exclusive=False):
+            for n, line in enumerate(stream, 1):
+                if not line.strip():
+                    continue
+                try:
+                    record = json.loads(line)
+                    self.check(record)
+                except (ValueError, KeyError, TypeError) as exc:  # pydantic's ValidationError is a ValueError
+                    if n not in self._skipped:
+                        self._skipped.add(n)
+                        log.warning("%s line %d skipped: %s", self.path, n, str(exc).partition("\n")[0])
+                    continue
+                out.append(record)
+        return out
 
     def add(self, record: dict) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        line = json.dumps(record, ensure_ascii=False, sort_keys=True, allow_nan=False, default=str) + "\n"
-        with self.path.open("a", encoding="utf-8") as stream, locked(stream, exclusive=True):
-            stream.write(line)
+        data = (json.dumps(record, ensure_ascii=False, sort_keys=True, allow_nan=False, default=str) + "\n").encode("utf-8")
+        with self.path.open("a+b") as stream, locked(stream, exclusive=True):
+            if stream.seek(0, os.SEEK_END):
+                stream.seek(-1, os.SEEK_END)
+                if stream.read(1) != b"\n":
+                    data = b"\n" + data  # after a torn last line: keep this record on a line of its own
+            stream.write(data)
             stream.flush()
             os.fsync(stream.fileno())
 
@@ -83,11 +111,24 @@ class DecisionStore(JsonlStore):
     def __init__(self, directory):
         super().__init__(Path(directory) / "decision_log.jsonl")
 
+    def check(self, record) -> None:
+        super().check(record)
+        if not isinstance(record["customer_id"], str):
+            raise TypeError("customer_id is not text")
+        DecisionLogEntry.model_validate(record["entry"])
+
     def entries(self, cid):
         return [DecisionLogEntry.model_validate(r["entry"]) for r in self.records() if r["customer_id"] == cid]
 
     def append(self, cid, entry):
         self.add({"customer_id": cid, "entry": entry.model_dump(mode="json")})
+
+
+class ServiceFeedbackStore(JsonlStore):
+    """service_feedback.jsonl: ServiceFeedbackRow per line (the service agents' reactions in Customer 360°)."""
+
+    def check(self, record) -> None:
+        ServiceFeedbackRow.model_validate(record)
 
 
 def refused(rule_ids, reasons):
@@ -131,28 +172,46 @@ def create_app(*, workbook=DEFAULT_WORKBOOK, out_dir=REPO / "out", p_mode=None, 
     app.add_middleware(CORSMiddleware, allow_origins=CORS_ORIGINS, allow_methods=["GET", "POST", "PUT", "DELETE"],
                        allow_headers=["*"])
     app.state.runtime = runtime
-    app.state.base = None  # (runtime as loaded from the config files, rule edit count it reflects)
+    app.state.base = None  # runtime as loaded from the config files, before the logged Rule Center edits
+    app.state.skipped = {}  # rule log position -> why that logged edit no longer applies
     store, rule_log, lock = DecisionStore(out_dir), JsonlStore(Path(out_dir) / "rule_versions.jsonl"), RLock()
+    feedback_log = ServiceFeedbackStore(Path(out_dir) / "service_feedback.jsonl")
     memory_path = Path(out_dir) / "customer_memory.jsonl"  # feedback memory per customer (nba.ai.feedback)
+
+    @app.exception_handler(RuleEditError)
+    async def refused_edit(request, exc: RuleEditError):
+        return JSONResponse(status_code=exc.status, content={"detail": str(exc)})
 
     def known_ids(rt):
         return frozenset([*rt.policy.compliance, *(rt.cfg.settings.get("business_rules") or {}), "B-02", "B-07"])
 
-    def with_ops(base, ops):
-        """The base runtime with Rule Center edits replayed (config/nba.yaml + config/kg.yaml contact_cap)."""
-        if not ops:
-            return base
+    def with_ops(base, records, new=()):
+        """The base runtime with the logged Rule Center edits, then the `new` operations, replayed (config/nba.yaml
+        + config/kg.yaml contact_cap). A logged edit that no longer applies is skipped; a refused new one raises
+        RuleEditError. Returns (runtime, {log position: why it was skipped})."""
+        skipped = {}
+        known = known_ids(base)
         settings, cap = replay_ops(base.cfg.settings, base.policy.config.get("contact_cap", {}),
-                                   [o["op"] for o in ops], known_ids(base))
+                                   [r.get("op") for r in records], known,
+                                   on_error=lambda i, exc: skipped.setdefault(i, str(exc)))
+        settings, cap = replay_ops(settings, cap, list(new), known)
+        if len(skipped) == len(records) and not new:
+            return base, skipped
         policy = replace(base.policy, config={**base.policy.config, "contact_cap": cap})
-        return base.with_rules(settings={k: settings.get(k) for k in ("business_rules", "custom_rules")}, policy=policy)
+        rt = base.with_rules(settings={k: settings.get(k) for k in ("business_rules", "custom_rules")}, policy=policy)
+        return rt, skipped
 
     def context():
         with lock:
-            if app.state.base is None:
+            if app.state.base is None:  # state is set only after a complete replay
                 base = app.state.runtime or Runtime.load(workbook, p_mode=p_mode)
+                records = rule_log.records()
+                rt, skipped = with_ops(base, records)
+                for i, why in sorted(skipped.items()):
+                    log.warning("%s: version %s skipped, it no longer applies: %s", rule_log.path,
+                                records[i].get("version", "?"), why)
+                app.state.runtime, app.state.skipped = rt.with_memory(memory_path), skipped
                 app.state.base = base
-                app.state.runtime = with_ops(base, rule_log.records()).with_memory(memory_path)
             return app.state.runtime
 
     def customer(cid):
@@ -161,15 +220,15 @@ def create_app(*, workbook=DEFAULT_WORKBOOK, out_dir=REPO / "out", p_mode=None, 
             raise HTTPException(404, "Unknown customer")
         return rt
 
-    def card_with_decisions(cid):
+    def card_with_decisions(cid, entries=None):
         rt = customer(cid)
         card = rt.card(cid)
-        entries = store.entries(cid)
+        entries = store.entries(cid) if entries is None else entries
         card.decision_log += entries
-        current = [e for e in entries if e.state_revision == card.meta.state_revision
+        current = [i for i, e in enumerate(entries) if e.state_revision == card.meta.state_revision
                    and e.versions == card.meta.versions.model_dump()]
         if current:
-            last = current[-1]
+            last = entries[current[-1]]
             if last.action in {"approved", "overridden"} and last.to_tuple and last.to_tuple != NO_ACTION:
                 oid, channel, tone = last.to_tuple.split("|")
                 try:
@@ -184,7 +243,10 @@ def create_app(*, workbook=DEFAULT_WORKBOOK, out_dir=REPO / "out", p_mode=None, 
                 card.checklist = checklist_for(target, card.data_quality)
                 card.alternatives = [a for a in card.alternatives if a.tuple_id != target.tuple_id]
             elif last.action == "rejected":
-                card.chosen.status = "rejected"
+                # Only while the card still shows what was rejected (today's proposal, or a person's approval or
+                # override of it): once customer memory changes the proposal, the new action shows as proposed.
+                if last.from_tuple == card_with_decisions(cid, entries[:current[-1]]).chosen.tuple_id:
+                    card.chosen.status = "rejected"
         return card
 
     @app.get("/api/customers", response_model=list[IndexRow])
@@ -270,13 +332,10 @@ def create_app(*, workbook=DEFAULT_WORKBOOK, out_dir=REPO / "out", p_mode=None, 
             raise HTTPException(422, "by must not be empty")
         with lock:
             context()
-            ops = rule_log.records()
-            try:
-                updated = with_ops(app.state.base, ops + [{"op": op}])
-            except RuleEditError as exc:
-                raise HTTPException(exc.status, str(exc)) from exc
+            records = rule_log.records()
+            updated, _ = with_ops(app.state.base, records, [op])  # validated before anything is logged
             version = updated.cfg.versions(updated.policy).rules
-            rule_log.add({"version": len(ops) + 1, "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            rule_log.add({"version": len(records) + 1, "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
                           "by": by.strip(), "reason": reason, "op": op, "rule_set_version": version})
             app.state.runtime = updated.with_memory(memory_path)
             return rules_view(updated)
@@ -294,9 +353,9 @@ def create_app(*, workbook=DEFAULT_WORKBOOK, out_dir=REPO / "out", p_mode=None, 
     def create_rule(body: RuleCreate):
         with lock:
             rt = context()
-            rid = next_custom_id(rt.cfg.settings, [r["op"] for r in rule_log.records()])
-            rule = custom_rule(body, rid, entity_catalog(rt.tables))
-        return edit({"op": "create", "rule": rule}, body.by, None)
+            rid = next_custom_id(rt.cfg.settings, [r.get("op") for r in rule_log.records()])
+            rule = custom_rule(body, rid, rt.tables)
+            return edit({"op": "create", "rule": rule}, body.by, None)
 
     @app.delete("/api/rules/{rule_id}", response_model=RulesFile)
     def delete_rule(rule_id: str, by: str, reason: str | None = None):
@@ -304,8 +363,10 @@ def create_app(*, workbook=DEFAULT_WORKBOOK, out_dir=REPO / "out", p_mode=None, 
 
     @app.get("/api/rules/versions")
     def rule_versions():
+        """The edit log; an edit that no longer applies (skipped at start) carries `skipped` with the reason."""
         context()
-        return rule_log.records()
+        return [{**r, "skipped": app.state.skipped[i]} if i in app.state.skipped else r
+                for i, r in enumerate(rule_log.records())]
 
     @app.post("/api/rules/whatif")
     def what_if(changes: list[RuleChange | RuleCreate]):
@@ -314,19 +375,16 @@ def create_app(*, workbook=DEFAULT_WORKBOOK, out_dir=REPO / "out", p_mode=None, 
 
         with lock:
             rt = context()
-            ops, history = [], [r["op"] for r in rule_log.records()]
+            ops, history = [], [r.get("op") for r in rule_log.records()]
             for change in changes:
                 if isinstance(change, RuleCreate):
                     rid = next_custom_id(rt.cfg.settings, history + ops)
-                    ops.append({"op": "create", "rule": custom_rule(change, rid, entity_catalog(rt.tables))})
+                    ops.append({"op": "create", "rule": custom_rule(change, rid, rt.tables)})
                 elif not change.rule_id:
                     raise HTTPException(422, "each change needs rule_id")
                 else:
                     ops.append({"op": "update", "rule_id": change.rule_id, "active": change.active, "params": change.params})
-            try:
-                proposed = with_ops(rt, [{"op": o} for o in ops])
-            except RuleEditError as exc:
-                raise HTTPException(exc.status, str(exc)) from exc
+            proposed, _ = with_ops(rt, [], ops)
             return compare(rt, proposed)
 
     # ------------------------------------------------------------ AI steps (nba/ai; any backend or none)
@@ -341,11 +399,33 @@ def create_app(*, workbook=DEFAULT_WORKBOOK, out_dir=REPO / "out", p_mode=None, 
         """Turn new rejections / overrides (and service-agent feedback) into customer memory; the next decision uses it."""
         with lock:
             rt = context()
-            items = ai_feedback.from_decisions(store.records()) + ai_feedback.from_agent_feedback(
-                rt.tables["service_nba_feedback"].to_dict("records"))
+            rows = ai_feedback.agent_rows(rt.tables["service_nba_feedback"].to_dict("records"), feedback_log.records())
+            items = ai_feedback.from_decisions(store.records()) + ai_feedback.from_agent_feedback(rows)
             result = ai_feedback.process(rt, items, memory_path, llm_from_env() if ai else None)
             app.state.runtime = rt.with_memory(memory_path)
             return result
+
+    @app.post("/api/customers/{customer_id}/service-feedback", response_model=ServiceFeedbackRow)
+    def add_service_feedback(customer_id: str, row: ServiceFeedbackRow):
+        """A service agent's reaction to a suggested offer (Customer 360°); the feedback step reads it."""
+        rt = customer(customer_id)
+        if row.customer_id != customer_id:
+            raise HTTPException(422, f"customer_id {row.customer_id} in the body does not match the path ({customer_id})")
+        if row.suggested_offer_id not in rt.policy.offers:
+            raise HTTPException(422, f"Unknown offer {row.suggested_offer_id}")
+        try:
+            datetime.fromisoformat(row.shown_at.replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise HTTPException(422, f"shown_at must be an ISO timestamp, got {row.shown_at!r}") from exc
+        with lock:
+            feedback_log.add(row.model_dump(mode="json"))
+        return row
+
+    @app.get("/api/customers/{customer_id}/service-feedback", response_model=list[ServiceFeedbackRow])
+    def service_feedback(customer_id: str):
+        """The reactions posted for this customer (the workbook's service_nba_feedback rows are not repeated)."""
+        customer(customer_id)
+        return [r for r in ai_feedback.agent_rows([], feedback_log.records()) if r["customer_id"] == customer_id]
 
     @app.get("/api/rules/audit")
     def rule_audit():

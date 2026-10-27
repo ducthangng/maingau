@@ -16,7 +16,7 @@ import yaml
 
 from nba.contracts import Condition, Entity, OperatorOption, RuleNode, RulesFile
 from nba.data import BOOL_COLUMNS, REPO, _is_date_column
-from nba.engine.rulecenter import load_rules, rule_set_version
+from nba.engine.rulecenter import MAX_DAYS, load_rules, rule_set_version
 from nba.kg.contacts import check_sources
 
 CONTRACT_PATH = REPO / "kg" / "data_contract.yaml"
@@ -228,32 +228,52 @@ def apply_op(settings: dict, cap: dict, op: dict, *, known_ids=frozenset()) -> t
         for key in ("max_contacts", "window_days"):
             if isinstance(cap.get(key), bool) or not isinstance(cap.get(key), int) or cap[key] < 1:
                 raise ValueError(f"contact_cap.{key} must be a whole number ≥ 1")
+        if cap["window_days"] > MAX_DAYS:
+            raise ValueError(f"contact_cap.window_days must be a whole number from 1 to {MAX_DAYS}")
     except ValueError as exc:
         raise RuleEditError(422, str(exc)) from exc
     return settings, cap
 
 
-def replay_ops(settings: dict, cap: dict, ops: list[dict], known_ids=frozenset()) -> tuple[dict, dict]:
-    for op in ops:
-        settings, cap = apply_op(settings, cap, op, known_ids=known_ids)
+def replay_ops(settings: dict, cap: dict, ops: list[dict], known_ids=frozenset(), on_error=None) -> tuple[dict, dict]:
+    """Apply `ops` in order. A refused op raises; with `on_error(index, exc)` it is skipped instead (the logged
+    edits replayed at API start: one that no longer applies must not stop the API)."""
+    for i, op in enumerate(ops):
+        try:
+            settings, cap = apply_op(settings, cap, op, known_ids=known_ids)
+        except Exception as exc:  # a malformed logged op can fail in any way
+            if on_error is None:
+                raise
+            on_error(i, exc)
     return settings, cap
 
 
 def next_custom_id(settings: dict, history: list[dict]) -> str:
     """U-<n>, never reused: above every custom ID in the config and in the edit history."""
-    seen = custom_ids(settings) + [o["rule"]["id"] for o in history if o.get("op") == "create"]
+    seen = custom_ids(settings) + [str(o["rule"].get("id")) for o in history if isinstance(o, dict)
+                                   and o.get("op") == "create" and isinstance(o.get("rule"), dict)]
     n = max([int(i.split("-", 1)[1]) for i in seen if i.startswith("U-") and i.split("-", 1)[1].isdigit()] + [0])
     return f"U-{n + 1}"
 
 
-def custom_rule(body, rule_id: str, entities: list[Entity]) -> dict[str, Any]:
-    """RuleCreate -> config dict (ids for sub-rules too); names default to "<entity> · <operator>"."""
+def custom_rule(body, rule_id: str, tables: dict[str, pd.DataFrame]) -> dict[str, Any]:
+    """RuleCreate -> config dict (ids for sub-rules too); names default to "<entity> · <operator>".
+
+    Each condition must name a catalog entity, a column of its sheet and a value (else RuleEditError 422);
+    load_rules checks the rest (operator, numbers, effect) when the edit is applied."""
+    entities = entity_catalog(tables)
     labels = {e.id: e.label for e in entities}
     ops = {(e.id, o.column, o.op, str(o.value)): o.label for e in entities for o in e.operators}
     counter = [0]
 
     def build(node, rid):
         cond = node.condition.model_dump(exclude_none=True)
+        if cond["entity"] not in labels:
+            raise RuleEditError(422, f"unknown entity {cond['entity']!r}; use one of {sorted(labels)}")
+        if cond["column"] not in tables[cond["entity"]].columns:
+            raise RuleEditError(422, f"{cond['entity']} has no column {cond['column']!r}")
+        if cond.get("value") is None:
+            raise RuleEditError(422, f"the condition on {cond['entity']}.{cond['column']} needs a value")
         label = cond.get("label") or ops.get((cond["entity"], cond["column"], cond["op"], str(cond["value"])),
                                              f"{_label(cond['column'])} {cond['op']} {cond['value']}")
         cond["label"] = label

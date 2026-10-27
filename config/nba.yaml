@@ -51,4 +51,18 @@ business_rules:
   B-09: {name: "Max {per_week} calls per week", active: true, kind: channel_capacity, effect: DEFER_UNTIL,
          per_week: {outbound_call: 50}, reason: "{channel} capacity full this week ({limit}); ranked {position} by ΔCLV"}
 # Rules added by marketing (Rule Center page / POST /api/rules). Same shape as rules.json RuleNode with a condition.
-custom_rules: []
+# U-1..U-4 are demo rules, switched off so the default decisions do not change. Switch one on with
+# PUT /api/rules/U-1 {"active": true, "by": "Demo", "reason": "..."} (docs/rule-center.md "Demo rules").
+custom_rules:
+  - {id: U-1, name: "No StromAktiv offers in Köln", hard: false, active: false, effect: BLOCK_OFFER,
+     condition: {entity: customer_master, column: city, op: "=", value: Köln, label: "city is Köln"},
+     children: [{id: U-1.1, active: true, condition: {entity: product_catalog, column: product_id, op: "=", value: P-EN-01,
+                                                      label: "offer is StromAktiv (P-EN-01)"}}]}
+  - {id: U-2, name: "No sales e-mail or newsletter after a complaint", hard: false, active: false, effect: BLOCK_CHANNEL,
+     channels: [email, newsletter_email],
+     condition: {entity: service_interactions, column: category, op: "=", value: complaint, label: "category is complaint"}}
+  - {id: U-3, name: "Hold sales 30 days for customers who are moving", hard: false, active: false, effect: DEFER_UNTIL,
+     days: 30, condition: {entity: service_interactions, column: category, op: "=", value: moving, label: "category is moving"}}
+  - {id: U-4, name: "Born before 1960: no app push, SMS or calls", hard: false, active: false, effect: BLOCK_CHANNEL,
+     channels: [app_push, sms, outbound_call],
+     condition: {entity: customer_master, column: birth_year, op: "<=", value: 1959, label: "birth year ≤ 1959"}}

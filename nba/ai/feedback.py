@@ -3,7 +3,7 @@
 Feedback comes from two places:
 - the decision log, when a person rejects the proposed action or overrides it with another one;
 - the workbook's service_nba_feedback, when a service agent dismissed a suggested offer or the
-  customer declined it.
+  customer declined it, plus the rows agents record in Customer 360° (out/service_feedback.jsonl).
 Code turns each item into a memory entry for that one customer (a Feedback node in the KG): pause the
 offer, block the channel, pause all sales, or flag the customer for review, until a date. The engine
 reads the memory on the next run (nba.engine.rulecenter, rule ID MEMORY), so the same proposal does not
@@ -69,16 +69,25 @@ def _naive(ts) -> datetime | None:
 # ---------------------------------------------------------------- memory store (KG instance layer)
 
 
-def load_memory(path) -> dict[str, list[dict]]:
-    out: dict[str, list[dict]] = {}
+def read_jsonl(path) -> list[dict]:
+    """The records of a JSON-lines file; a line that cannot be decoded (a torn last line) is skipped, not fatal."""
     p = Path(path)
     if not p.exists():
-        return out
+        return []
+    out = []
     for line in p.read_text(encoding="utf-8").splitlines():
         try:
-            m = json.loads(line)
+            record = json.loads(line)
         except json.JSONDecodeError:
-            continue  # a torn last line is skipped, not fatal
+            continue
+        if isinstance(record, dict):
+            out.append(record)
+    return out
+
+
+def load_memory(path) -> dict[str, list[dict]]:
+    out: dict[str, list[dict]] = {}
+    for m in read_jsonl(path):
         out.setdefault(m["customer_id"], []).append(m)
     return out
 
@@ -112,6 +121,19 @@ def from_decisions(records: list[dict]) -> list[dict]:
                       "to_tuple": e.get("to_tuple"), "reason": e.get("reason"), "reason_code": e.get("reason_code"),
                       "predicted_delta_clv": (e.get("scores") or {}).get("delta_clv"), "by": e.get("actor")})
     return items
+
+
+def agent_rows(workbook: list[dict], posted: list[dict]) -> list[dict]:
+    """The workbook's service_nba_feedback plus the rows agents posted through the API
+    (out/service_feedback.jsonl), once per feedback_id (the first one is kept)."""
+    seen, out = set(), []
+    for r in [*workbook, *posted]:
+        fid = r.get("feedback_id")
+        if fid and fid in seen:
+            continue
+        seen.add(fid)
+        out.append(r)
+    return out
 
 
 def from_agent_feedback(rows: list[dict]) -> list[dict]:

@@ -20,6 +20,8 @@ from nba.kg.rules import contact_cap_status
 KINDS = {"channel_frequency", "offer_cooldown", "post_ticket_cooldown", "min_delta_clv", "channel_capacity", "condition"}
 EFFECTS = {"BLOCK_CHANNEL", "BLOCK_OFFER", "BLOCK_ALL_SALES", "BLOCK_ALL_CONTACT", "DEFER_UNTIL",
            "DOWNGRADE_TO_NON_PERSONALISED", "REQUIRE_APPROVAL", "CANCEL_PENDING"}
+CUSTOM_EFFECTS = EFFECTS - {"REQUIRE_APPROVAL", "CANCEL_PENDING"}  # what Evaluator._custom_verdict applies
+MAX_DAYS = 365  # upper bound of every day setting (windows, cooldowns, DEFER_UNTIL days, within_days)
 OPS = {"=", "!=", ">=", "<=", "within_days"}
 MARKETING_CHANNELS = ("newsletter_email", "email", "portal_popup", "app_push", "sms", "outbound_call")
 RESPONSES = {"dismissed", "ignored", "viewed", "clicked"}
@@ -51,10 +53,11 @@ class Rule:
             return self.name
 
 
-def _positive_int(r: dict, key: str, where: str, problems: list[str]) -> None:
+def _positive_int(r: dict, key: str, where: str, problems: list[str], most: int | None = None) -> None:
     v = r.get(key)
-    if isinstance(v, bool) or not isinstance(v, int) or v < 1:
-        problems.append(f"{where}: {key} must be a whole number ≥ 1 (got {v!r})")
+    if isinstance(v, bool) or not isinstance(v, int) or v < 1 or (most is not None and v > most):
+        problems.append(f"{where}: {key} must be a whole number from 1 to {most} (got {v!r})" if most
+                        else f"{where}: {key} must be a whole number ≥ 1 (got {v!r})")
 
 
 def _check_condition(cond, where: str, problems: list[str]) -> None:
@@ -62,8 +65,12 @@ def _check_condition(cond, where: str, problems: list[str]) -> None:
         problems.append(f"{where}: a condition needs entity and column")
     elif cond.get("op") not in OPS:
         problems.append(f"{where}: operator {cond.get('op')!r} is not one of {sorted(OPS)}")
-    elif cond["op"] == "within_days" and (isinstance(cond.get("value"), bool) or not isinstance(cond.get("value"), (int, float))):
-        problems.append(f"{where}: within_days needs a number of days")
+    elif cond.get("value") is None or isinstance(cond["value"], (list, dict)):
+        problems.append(f"{where}: the condition needs one value (text, number or yes/no), got {cond.get('value')!r}")
+    elif cond["op"] == "within_days":
+        _positive_int(cond, "value", f"{where}: within_days", problems, MAX_DAYS)
+    elif cond["op"] in {">=", "<="} and _number(cond["value"]) is None:
+        problems.append(f"{where}: {cond['op']} needs a number, got {cond['value']!r}")
 
 
 def _business(rid: str, r: dict, problems: list[str]) -> Rule:
@@ -75,7 +82,7 @@ def _business(rid: str, r: dict, problems: list[str]) -> Rule:
         problems.append(f"{where}: unknown effect {effect!r}")
     if kind == "channel_frequency":
         _positive_int(r, "max", where, problems)
-        _positive_int(r, "window_days", where, problems)
+        _positive_int(r, "window_days", where, problems, MAX_DAYS)
         if not r.get("channels") or set(r["channels"]) - set(MARKETING_CHANNELS):
             problems.append(f"{where}: channels must be marketing channels {list(MARKETING_CHANNELS)}")
         try:
@@ -84,11 +91,11 @@ def _business(rid: str, r: dict, problems: list[str]) -> Rule:
             problems.append(f"{where}: {exc}")
     elif kind == "offer_cooldown":
         _positive_int(r, "min_responses", where, problems)
-        _positive_int(r, "cooldown_days", where, problems)
+        _positive_int(r, "cooldown_days", where, problems, MAX_DAYS)
         if not r.get("responses") or set(r["responses"]) - RESPONSES:
             problems.append(f"{where}: responses must be from {sorted(RESPONSES)}")
     elif kind == "post_ticket_cooldown":
-        _positive_int(r, "cooldown_days", where, problems)
+        _positive_int(r, "cooldown_days", where, problems, MAX_DAYS)
     elif kind == "min_delta_clv":
         mins = r.get("min_eur") or {}
         if not mins or set(mins) - set(MARKETING_CHANNELS) or any(
@@ -116,8 +123,15 @@ def _custom(r: dict, problems: list[str], where: str = "custom_rules") -> Rule:
         problems.append(f"{where}: needs an id")
     _check_condition(r.get("condition"), where, problems)
     effect = r.get("effect") or "auto"
-    if effect != "auto" and effect not in EFFECTS:
-        problems.append(f"{where}: unknown effect {effect!r}")
+    if effect != "auto" and effect not in CUSTOM_EFFECTS:
+        problems.append(f"{where}: effect {effect!r} is not supported for custom rules; use one of {sorted(CUSTOM_EFFECTS)}")
+    if r.get("name") is not None and (not isinstance(r["name"], str) or not r["name"].strip()):
+        problems.append(f"{where}: name must be text")
+    if "days" in r:
+        _positive_int(r, "days", where, problems, MAX_DAYS)
+    if "channels" in r and (not isinstance(r["channels"], list) or not r["channels"]
+                            or set(map(str, r["channels"])) - set(MARKETING_CHANNELS)):
+        problems.append(f"{where}: channels must be marketing channels {list(MARKETING_CHANNELS)} (got {r['channels']!r})")
     children = tuple(_custom(c, problems, where) for c in r.get("children") or [])
     params = {k: v for k, v in r.items() if k not in {"id", "name", "active", "effect", "hard", "condition", "children"}}
     return Rule(id=rid, name=r.get("name") or rid, tier="custom", kind="condition", effect=effect,
@@ -180,8 +194,10 @@ def value_matches(actual, op: str, value, at: datetime) -> bool:
 
 
 def customer_matches(cond: dict, state, at: datetime) -> bool:
-    """Does any row of this customer's `entity` sheet satisfy the condition?"""
-    rows = state.rows.get(cond["entity"]) or []
+    """Does any row of this customer's `entity` sheet satisfy the condition? A missing column never matches."""
+    rows = [r for r in state.rows.get(cond["entity"]) or [] if cond["column"] in r]
+    if not rows:
+        return False
     value = cond.get("value")
     if cond["entity"] == "consent_status" and isinstance(value, str) and ":" in value:  # "<type>:<status>"
         ctype, status = value.split(":", 1)
@@ -191,7 +207,7 @@ def customer_matches(cond: dict, state, at: datetime) -> bool:
 
 
 def offer_matches(cond: dict, offer: dict) -> bool:
-    return value_matches(offer.get(cond["column"]), cond["op"], cond.get("value"), datetime.min)
+    return cond["column"] in offer and value_matches(offer[cond["column"]], cond["op"], cond.get("value"), datetime.min)
 
 
 def _conditions(rule: Rule) -> list[dict]:

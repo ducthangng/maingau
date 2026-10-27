@@ -7,11 +7,11 @@ import pytest
 from fastapi.testclient import TestClient
 
 from api.app import create_app
-from nba.contracts import NO_ACTION, RulesFile
+from nba.contracts import NO_ACTION, CustomerCard, RulesFile
 from nba.engine.config import load_config
 from nba.engine.rule_audit import legacy_audit
 from nba.engine.rule_registry import RuleEditError, apply_op, next_custom_id, rule_tree
-from nba.engine.rulecenter import Evaluator, load_rules, plan_capacity
+from nba.engine.rulecenter import Evaluator, customer_matches, load_rules, offer_matches, plan_capacity
 from nba.engine.runtime import Runtime
 from nba.state import build_states
 
@@ -163,16 +163,109 @@ def test_api_rule_center(tmp_path, rt):
     assert override.status_code == 409 and "B-08" in override.json()["detail"]["rule_ids"]
     body = {"by": "marketing", "hard": True, "condition": {"entity": "customer_master", "column": "app_installed",
             "op": "=", "value": False}}
-    created = api.post("/api/rules", json=body).json()
-    assert any(n["id"] == "U-1" and n["tier"] == "hard" for n in created["rules"])
-    assert api.delete("/api/rules/U-1", params={"by": "marketing"}).status_code == 200
-    assert api.post("/api/rules", json=body).json()["rules"][-1]["id"] == "U-2"  # never reused
+    created = api.post("/api/rules", json=body).json()  # U-1..U-4 are the demo rules in config/nba.yaml
+    assert any(n["id"] == "U-5" and n["tier"] == "hard" for n in created["rules"])
+    assert api.delete("/api/rules/U-5", params={"by": "marketing"}).status_code == 200
+    assert api.post("/api/rules", json=body).json()["rules"][-1]["id"] == "U-6"  # never reused
     versions = api.get("/api/rules/versions").json()
     assert [v["op"]["op"] for v in versions] == ["create", "delete", "create"] and all(v["by"] == "marketing" for v in versions)
     restarted = TestClient(create_app(runtime=Runtime(rt.tables, rt.states, rt.pop, rt.policy, load_config(rt.tables)),
                                       out_dir=tmp_path))
-    assert [n["id"] for n in restarted.get("/api/rules").json()["rules"] if n["id"].startswith("U-")] == ["U-2"]
+    assert [n["id"] for n in restarted.get("/api/rules").json()["rules"] if n["id"].startswith("U-")] == \
+        ["U-1", "U-2", "U-3", "U-4", "U-6"]
     assert restarted.get("/api/customers/MG-100068").headers["content-type"].startswith("application/json")
+
+
+# Demo rules in config/nba.yaml (docs/rule-center.md "Demo rules"): changed decisions when switched on, as documented
+DEMO = {"U-1": (10, 40), "U-2": (8, 40), "U-3": (50, 120), "U-4": (8, 40)}
+
+
+def _decision(row):
+    return row["chosen_tuple"], (row.get("deferred_until") or "")[:10]
+
+
+@pytest.mark.parametrize("rule_id", sorted(DEMO))
+def test_demo_rules_switch_on_through_the_api(tmp_path, rt, rule_id):
+    api = TestClient(create_app(runtime=rt, out_dir=tmp_path))
+    rules = {n["id"]: n for n in api.get("/api/rules").json()["rules"]}
+    assert rules[rule_id]["active"] is False  # off by default: the default decisions do not change
+    before = {r["customer_id"]: _decision(r) for r in api.get("/api/customers").json()}
+    whatif = api.post("/api/rules/whatif", json=[{"rule_id": rule_id, "active": True}])
+    lo, hi = DEMO[rule_id]
+    assert whatif.status_code == 200 and lo <= whatif.json()["changed"] <= hi, whatif.json()["changed"]
+    on = api.put(f"/api/rules/{rule_id}", json={"active": True, "by": "Demo", "reason": "demo"})
+    assert on.status_code == 200 and next(n for n in on.json()["rules"] if n["id"] == rule_id)["active"]
+    changed = [r["customer_id"] for r in api.get("/api/customers").json() if _decision(r) != before[r["customer_id"]]]
+    assert len(changed) == whatif.json()["changed"]
+    for cid in changed:
+        c = CustomerCard.model_validate(api.get(f"/api/customers/{cid}").json())
+        assert any(r.rule_id == rule_id and r.result in {"block", "defer"} for r in c.rules.results), cid
+        if rule_id != "U-3":  # U-3 holds back (DEFER_UNTIL); the others block tuples
+            assert any(b.rule_center_id == rule_id for b in c.blocked), cid
+
+
+def test_rule_edits_are_validated_before_they_are_logged(tmp_path, rt):
+    api = TestClient(create_app(runtime=rt, out_dir=tmp_path))
+    cond = {"entity": "customer_master", "column": "city", "op": "=", "value": "Köln"}
+    made = api.post("/api/rules", json={"by": "m", "condition": cond, "effect": "DEFER_UNTIL"})
+    assert made.status_code == 200
+    rid = made.json()["rules"][-1]["id"]
+    refused = [
+        ("put", f"/api/rules/{rid}", {"by": "m", "params": {"days": "abc"}}, "days must be a whole number from 1 to 365"),
+        ("put", f"/api/rules/{rid}", {"by": "m", "params": {"days": 0}}, "days must be"),
+        ("put", f"/api/rules/{rid}", {"by": "m", "params": {"days": 400}}, "days must be"),
+        ("put", f"/api/rules/{rid}", {"by": "m", "params": {"channels": ["fax"]}}, "channels must be marketing channels"),
+        ("put", f"/api/rules/{rid}", {"by": "m", "params": {"name": 5}}, "name must be text"),
+        ("put", "/api/rules/B-01", {"by": "m", "params": {"window_days": 400}}, "window_days must be"),
+        ("put", "/api/rules/B-02", {"by": "m", "params": {"window_days": 400}}, "window_days must be"),
+        ("post", "/api/rules", {"by": "m", "condition": {**cond, "entity": "customers"}}, "unknown entity"),
+        ("post", "/api/rules", {"by": "m", "condition": {**cond, "column": "citty", "op": "!="}}, "has no column 'citty'"),
+        ("post", "/api/rules", {"by": "m", "condition": {**cond, "value": None}}, "needs a value"),
+        ("post", "/api/rules", {"by": "m", "condition": cond, "effect": "REQUIRE_APPROVAL"}, "not supported for custom rules"),
+        ("post", "/api/rules", {"by": "m", "condition": cond, "effect": "CANCEL_PENDING"}, "not supported for custom rules"),
+        ("post", "/api/rules", {"by": "m", "condition": {**cond, "op": ">=", "value": "many"}}, ">= needs a number"),
+        ("post", "/api/rules", {"by": "m", "condition": {**cond, "op": "within_days", "value": 999}}, "within_days"),
+        ("post", "/api/rules/whatif", [{"condition": {**cond, "column": "citty"}}], "has no column"),
+        ("post", "/api/rules/whatif", [{"rule_id": rid, "params": {"days": "abc"}}], "days must be"),
+    ]
+    for method, path, body, text in refused:
+        r = getattr(api, method)(path, json=body)
+        assert r.status_code == 422 and text in r.json()["detail"], (path, body, r.json())
+    assert len(api.get("/api/rules/versions").json()) == 1  # nothing refused reached the rule log
+    assert api.put(f"/api/rules/{rid}", json={"by": "m", "params": {"days": 14}}).status_code == 200
+    held = api.get("/api/customers/MG-100001").json()  # Köln: held back 14 days after the snapshot (30.09)
+    assert held["chosen"]["deferred_until"] >= "2026-10-14"
+    assert any(r["rule_id"] == rid and r["result"] == "defer" for r in held["rules"]["results"])
+
+
+def test_a_missing_column_never_matches(rt):
+    state = rt.states["MG-100001"]
+    typo = {"entity": "customer_master", "column": "citty", "op": "!=", "value": "Köln"}
+    assert not customer_matches(typo, state, state.eval_time)
+    assert customer_matches({**typo, "column": "city", "value": "Berlin"}, state, state.eval_time)
+    assert not offer_matches({**typo, "entity": "product_catalog"}, rt.cfg.offers["P-EN-01"])
+
+
+def test_api_starts_with_a_damaged_rule_log(tmp_path, rt):
+    ops = [{"op": "update", "rule_id": "U-2", "active": True}, {"op": "update", "rule_id": "U-99", "active": True},
+           {"op": "update", "rule_id": "U-3", "params": {"days": "abc"}}]  # ok, unknown rule, bad value (older API)
+    log = "".join(json.dumps({"version": i, "by": "Demo", "op": op}) + "\n" for i, op in enumerate(ops, 1))
+    (tmp_path / "rule_versions.jsonl").write_text(log + '{"version": 4, "op": {"op": "upd', encoding="utf-8")  # torn
+    (tmp_path / "decision_log.jsonl").write_text('{"customer_id": "MG-100068", "entry": {"ts": "2026', encoding="utf-8")
+    api = TestClient(create_app(runtime=rt, out_dir=tmp_path))
+    rules = {n["id"]: n for n in api.get("/api/rules").json()["rules"]}
+    assert rules["U-2"]["active"] and not rules["U-3"]["active"]
+    versions = api.get("/api/rules/versions").json()
+    assert [(v["version"], "skipped" in v) for v in versions] == [(1, False), (2, True), (3, True)]
+    assert "unknown rule U-99" in versions[1]["skipped"] and "days" in versions[2]["skipped"]
+    logged = api.get("/api/customers/MG-100068").json()["decision_log"]
+    assert [e["actor"] for e in logged] == ["engine"]  # the torn decision is skipped
+    assert api.post("/api/customers/MG-100068/decision", json={"action": "reject", "user": "r", "reason": "x"}).status_code == 200
+    assert api.put("/api/rules/U-2", json={"by": "Demo", "active": False}).status_code == 200
+    assert [v["version"] for v in api.get("/api/rules/versions").json()] == [1, 2, 3, 4]  # on a line of its own
+    restarted = TestClient(create_app(runtime=rt, out_dir=tmp_path))
+    assert not {n["id"]: n for n in restarted.get("/api/rules").json()["rules"]}["U-2"]["active"]
+    assert len(restarted.get("/api/customers/MG-100068").json()["decision_log"]) == len(logged) + 1
 
 
 def test_api_cors_preflight(tmp_path, rt):

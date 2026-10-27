@@ -28,6 +28,8 @@ The UI can get the data in two ways. Both return **the same JSON shapes**, defin
 ```
 
 - **Base URL:** `http://localhost:8000`. All routes start with `/api`.
+- **One worker:** run a single API process for the demo (no `--workers N`). Each process replays `out/rule_versions.jsonl` once at start and keeps the rules in memory, so a second worker would not see the first one's Rule Center edits until it restarts.
+- **Logs in `out/`:** `decision_log.jsonl`, `rule_versions.jsonl`, `service_feedback.jsonl`, `customer_memory.jsonl`. Each record is one complete line, written at once and fsync'ed. A line that cannot be read (a torn last line after a crash, a hand edit) is skipped with a warning in the server log; the next record still starts on a new line.
 - **Interactive docs:** `http://localhost:8000/docs` (Swagger UI) and `/openapi.json`. A static copy, including `/api/replay`, is in [`docs/openapi.json`](openapi.json).
 - **Cold start:**
   - the first request loads the workbook and builds all 750 cards, which takes about 2 s;
@@ -148,7 +150,7 @@ Each item of `candidates[]` carries what an NBA card needs:
 **Waterfall:** start from `clv_now_model`, not `clv_now_shown`. Starting from the displayed value would turn its rounding error (up to €3.05) into fake gain.
 
 **After a decision**, the card reflects it:
-- `chosen.status` becomes `approved`, `overridden` or `rejected`;
+- `chosen.status` becomes `approved`, `overridden` or `rejected`. `rejected` shows only while the card would still show the rejected tuple (the proposal, or a person's approval or override of it): once customer memory (`POST /api/ai/feedback`) changes the proposal, the new one shows as `proposed`;
 - an override replaces `chosen`, `explanation_path` and `checklist` with the overriding tuple.
 
 An earlier approval **never revives a tuple that is blocked now**. If the customer's state changed (new `meta.state_revision`) or the policy/model versions changed, older decisions stay in `decision_log` but no longer drive `chosen`.
@@ -286,11 +288,19 @@ The same analysis is available offline as `python scripts/replay_demo.py` (`out/
 
 Rules that block or limit actions (docs/rule-center.md). Every edit is appended to `out/rule_versions.jsonl` (version, time, `by`, `reason`, operation, `rule_set_version`) and replayed when the API starts. A decision stores `versions.rules`, so approvals made under older rules stop applying.
 
+**Rule log robustness:**
+- an edit is validated in full before it is logged; a refused edit (403 / 404 / 422) leaves the log unchanged;
+- at start the log is replayed onto a copy of the rules, and the API switches to them only when the replay is complete;
+- a logged edit that no longer applies (an unknown rule, a value an older API accepted) is skipped with a warning in the server log, and `GET /api/rules/versions` shows it with `"skipped": "<reason>"`; the other edits still apply;
+- a torn line is skipped (see §1).
+
+Demo rules U-1…U-4 (switched off) are in `config/nba.yaml`; how to switch them on: docs/rule-center.md §10.
+
 | Method and path | Body / query | Returns |
 |---|---|---|
 | `GET /api/rules` | — | `RulesFile` (`docs/schema/rules.schema.json`): `rule_set_version`, `rules` (tree: C-xx locked, B-xx, U-xx with `children`), `entities` (Field / Operator catalog from the workbook columns) |
 | `PUT /api/rules/{id}` | `RuleChange`: `{"by": "Name", "reason": "...", "active": false, "params": {"max": 3}}` | the new `RulesFile` |
-| `POST /api/rules` | `RuleCreate`: `{"by", "hard", "active", "condition": {"entity", "column", "op", "value"}, "children": [...], "parent"?}` | the new `RulesFile`; IDs `U-<n>` are never reused, sub-rules `U-<n>.<k>` |
+| `POST /api/rules` | `RuleCreate`: `{"by", "hard", "active", "condition": {"entity", "column", "op", "value"}, "effect"?, "children": [...], "parent"?}` | the new `RulesFile`; IDs `U-<n>` are never reused (the first new one is U-5, after the demo rules), sub-rules `U-<n>.<k>`. Set `days` / `channels` afterwards with `PUT` |
 | `DELETE /api/rules/{id}?by=Name&reason=...` | — | the new `RulesFile`. Only rules added here can be removed |
 | `POST /api/rules/whatif` | a list of `RuleChange` (with `rule_id`) and `RuleCreate`. Nothing is saved | `customers`, `changed`, `examples` (10), `rule_set_version` before/after, `before` / `after` totals: act now, waiting, no action, ΔCLV, held tuples by channel / offer, customers per rule |
 | `GET /api/rules/versions` | — | the edit log |
@@ -298,7 +308,8 @@ Rules that block or limit actions (docs/rule-center.md). Every edit is appended 
 
 **Examples on the mock data:**
 - What-if `[{"rule_id": "B-01", "params": {"max": 3}}]`: B-01 customers 328 → 492, 90 decisions change, ΔCLV now €8,897 → €8,617 (about 6 s for 2 × 750 decisions).
-- Hard rule *Customer · app installed is no* with sub-rule *Offer · business line is mobile*: blocks P-MO-01 for MG-100001 (`blocked[].rule_center_id = "U-1"`).
+- Hard rule *Customer · app installed is no* with sub-rule *Offer · business line is mobile*: blocks P-MO-01 for MG-100001 (`blocked[].rule_center_id = "U-5"`).
+- What-if `[{"rule_id": "U-1", "active": true}]` (demo rule: no StromAktiv in Köln): 19 decisions change.
 - Audit: 2,022 sends, 1,496 would be stopped, C-01 829, app push without app 114.
 
 **Refusals:**
@@ -307,7 +318,24 @@ Rules that block or limit actions (docs/rule-center.md). Every edit is appended 
 |---|---|
 | 403 | Switching off or loosening a compliance rule (C-xx) or B-07; deleting a built-in rule |
 | 404 | Unknown rule or parent |
-| 422 | Invalid value (e.g. `max: 0`, an unknown channel or source), switching off B-02 (raise its limit instead), an empty `by` |
+| 422 | Invalid value (e.g. `max: 0`, an unknown channel or source), switching off B-02 (raise its limit instead), an empty `by`, or a custom rule the engine cannot apply (below) |
+
+422 messages for custom rules (`{"detail": "<message>"}`, also from `POST /api/rules/whatif`):
+
+| Input | Message (excerpt) |
+|---|---|
+| `"entity": "customers"` | `unknown entity 'customers'; use one of [...]` |
+| `"column": "citty"` | `customer_master has no column 'citty'` |
+| `"value": null` | `the condition on customer_master.city needs a value` |
+| `"op": ">=", "value": "many"` | `>= needs a number, got 'many'` |
+| `"op": "within_days", "value": 999` | `within_days: value must be a whole number from 1 to 365` |
+| `"effect": "REQUIRE_APPROVAL"` or `"CANCEL_PENDING"` | `effect 'REQUIRE_APPROVAL' is not supported for custom rules; use one of [...]` |
+| `PUT` `"params": {"days": "abc"}` (or 0, 400) | `days must be a whole number from 1 to 365 (got 'abc')` |
+| `PUT` `"params": {"channels": ["fax"]}` | `channels must be marketing channels [...]` |
+| `PUT` `"params": {"name": 5}` | `name must be text` |
+| `PUT /api/rules/B-01` `"params": {"window_days": 400}` | `window_days must be a whole number from 1 to 365 (got 400)`; the same bound for `cooldown_days` and B-02 |
+
+Rule validation messages start with `config/nba.yaml has invalid rule(s):` and name the rule, e.g. `custom_rules.U-5: days must be …`.
 
 **Approvals and held-back actions:**
 - `approve` / `override` also check tier 2 rules.
@@ -349,6 +377,34 @@ What happened to one customer and how they reacted, newest first (`nba/kg/journe
 - Unset fields (`detail`, `reaction`, `flags`, `future`, …) are left out of the JSON.
 - 404 for an unknown customer.
 
+### 3.8 `/api/customers/{customer_id}/service-feedback`: service agents' reactions
+
+A service agent's reaction to a suggested offer in Customer 360° (`web/src/lib/serviceFeedback.ts`). The body is one `ServiceFeedbackRow` (`nba/contracts.py`), the shape of the workbook's `service_nba_feedback`. Rows are appended to `out/service_feedback.jsonl`. Nothing is sent to the customer.
+
+| Method | Body | Returns |
+|---|---|---|
+| `POST` | `ServiceFeedbackRow` | the stored row |
+| `GET` | — | the rows posted for this customer, once per `feedback_id` (the workbook's rows are not repeated) |
+
+```json
+{"feedback_id": "SF-1761557400000", "ticket_id": null, "customer_id": "MG-100068", "shown_at": "2026-10-27T09:30:00.000Z",
+ "channel": "phone", "suggestion_source": "nba_engine", "suggested_offer_id": "P-EN-02", "agent_id": "anna",
+ "agent_action": "accepted", "dismiss_reason": null, "offer_mentioned_to_customer": true,
+ "customer_reaction": "declined", "converted_within_14d": null}
+```
+
+| Field | Values |
+|---|---|
+| `channel` | `phone`, `chat` |
+| `agent_action` | `accepted`, `dismissed` |
+| `dismiss_reason` | `customer_already_has_product`, `customer_upset`, `no_time`, `not_relevant`, `null` |
+| `customer_reaction` | `interested`, `declined`, `annoyed`, `null` |
+| `shown_at` | ISO timestamp |
+
+- **404** `Unknown customer`.
+- **422** when the body's `customer_id` differs from the path, for an unknown `suggested_offer_id`, a `shown_at` that is not an ISO timestamp, or a value outside the lists above.
+- **Feedback step:** `POST /api/ai/feedback` and `python -m nba.ai feedback` read the workbook's `service_nba_feedback` plus these rows (once per `feedback_id`). A dismissed or declined offer becomes customer memory for that customer, e.g. *declined* → pause that offer for 90 days, *annoyed* or *customer upset* → pause all sales for 30 days. The next decision uses it (rule ID `MEMORY`).
+
 ## 4. Errors
 
 | Status | Body | When |
@@ -358,6 +414,8 @@ What happened to one customer and how they reacted, newest first (`nba/kg/journe
 | 422 | `{"detail": "user must not be empty"}` / `"A rejection requires a reason"` / `"An override requires a tuple"` | Missing required input |
 | 422 | FastAPI validation list, e.g. `detail[0].type = "literal_error"`, `loc = ["body", "action"]` | Body does not match `DecisionRequest` (e.g. `"action": "send"`) |
 | 422 | `{"detail": "Use timezone-naive timestamps …"}` / `"Replay cutoff must not precede the source snapshot"` | Invalid `until` for `/api/replay` |
+| 422 | `{"detail": "unknown entity …"}`, `"… has no column …"`, `"… days must be a whole number from 1 to 365 …"`, … | A Rule Center edit the engine cannot apply (§3.6); nothing is logged |
+| 422 | `{"detail": "customer_id MG-… in the body does not match the path (MG-…)"}` / `"Unknown offer …"` / `"shown_at must be an ISO timestamp, …"` | Invalid service feedback (§3.8) |
 
 **Rule IDs in 409 responses**, with suggested UI labels:
 

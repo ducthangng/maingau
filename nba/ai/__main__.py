@@ -46,12 +46,10 @@ def main(argv=None) -> int:
         print(f"{s['proposals']} proposals in {s['clusters']} clusters: {s['ready']} ready, {s['needs_review']} need a person "
               f"(AI: {result['ai']['backend']}, {result['ai']['reviewed']} reviewed) -> {args.out / 'ai_review.json'}")
     else:
-        decisions = []
-        log = args.out / "decision_log.jsonl"
-        if log.exists():
-            decisions = [json.loads(x) for x in log.read_text(encoding="utf-8").splitlines() if x.strip()]
-        items = feedback.from_decisions(decisions) + feedback.from_agent_feedback(
-            rt.tables["service_nba_feedback"].to_dict("records"))
+        decisions = [r for r in feedback.read_jsonl(args.out / "decision_log.jsonl") if isinstance(r.get("entry"), dict)]
+        rows = feedback.agent_rows(rt.tables["service_nba_feedback"].to_dict("records"),
+                                   feedback.read_jsonl(args.out / "service_feedback.jsonl"))
+        items = feedback.from_decisions(decisions) + feedback.from_agent_feedback(rows)
         result = feedback.process(rt, items, memory, llm)
         (args.out / "ai_proposals.json").write_text(json.dumps(result["proposals"], ensure_ascii=False, indent=1), encoding="utf-8")
         print(f"{len(items)} feedback items, {len(result['added'])} new memory entries (AI: {result['ai']['backend']}) -> {memory}; "

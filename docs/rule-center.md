@@ -97,7 +97,7 @@ A waiting action fails the checklist item `contact_cap`, so bulk approval leaves
 | Legacy audit | `nba/engine/rule_audit.py` |
 | Card fields | `CustomerCard.rules`: per-rule result, counters, `counter_line`, e.g. `Email 9/5 (90 d) · Total 1/2 (30 d) · Call 1/1 (90 d) · SMS 0/1 (90 d)`. Also `chosen.deferred_until`, `candidate.deferred_until`, `IndexRow.deferred_until`, `Blocked.rule_center_id` / `until`, `meta.versions.rules` |
 | API | `GET /api/rules`, `PUT /api/rules/{id}`, `POST /api/rules`, `DELETE /api/rules/{id}`, `POST /api/rules/whatif`, `GET /api/rules/versions`, `GET /api/rules/audit` (`docs/api.md` §3.6) |
-| Versions | `out/rule_versions.jsonl`, append-only: version, time, by, reason, operation, `rule_set_version`. Replayed at API start. A decision stores `versions.rules`, so approvals made under older rules stop applying |
+| Versions | `out/rule_versions.jsonl`, append-only: version, time, by, reason, operation, `rule_set_version`. Replayed at API start. A decision stores `versions.rules`, so approvals made under older rules stop applying. Each version is one complete line; a torn line is skipped, and a logged edit that no longer applies is skipped with a warning and marked `skipped` in `GET /api/rules/versions`, so the API always starts |
 | Rule log | `out/rule_log.jsonl` from `nba.build`: per customer, every rule's result, measured values, `rule_set_version`, final action, `deferred_until` |
 | Static page data | `rules.json` (`RulesFile`, `docs/schema/rules.schema.json`, about 41 KB): the rule tree and the Field / Operator catalog built from today's workbook columns (14 entities) |
 | Marketer rulebook | `python -m nba.rules` (`rules.yaml`): new section "Pauses and limits per channel" for B-xx; "newsletters count" on the contact limit is a 🔒 hard rule |
@@ -107,6 +107,13 @@ A waiting action fails the checklist item `contact_cap`, so bulk approval leaves
 - A sub-rule **narrows** its parent: every condition must hold. Conditions on Offer select which offers are hit.
 - The default effect blocks the matching offers, or all sales of matching customers.
 - A sub-rule added under a built-in rule is its own rule, shown under that rule.
+- A customer matches when any row of the entity's sheet meets the condition; each condition of a rule and its sub-rules is checked on its own.
+- **Checked before anything is saved** (422 with the reason, nothing is written to the rule log):
+  - the entity is one of the 14 catalog entities and the column is a column of its sheet (a column missing from the data never matches, even with `!=`);
+  - the value is set; `>=` / `<=` need a number; `within_days` a whole number of days from 1 to 365;
+  - the effect is one the engine applies to custom rules: `BLOCK_OFFER`, `BLOCK_CHANNEL`, `BLOCK_ALL_SALES`, `BLOCK_ALL_CONTACT`, `DEFER_UNTIL`, `DOWNGRADE_TO_NON_PERSONALISED` (`REQUIRE_APPROVAL` and `CANCEL_PENDING` are refused);
+  - `days` (DEFER_UNTIL, default 7) is a whole number from 1 to 365; `channels` (BLOCK_CHANNEL, default all) are marketing channels; `name` is text;
+  - built-in day settings (`window_days`, `cooldown_days`, B-02 `window_days`) are at most 365.
 
 ## 7. Card display (data ready; the UI renders it)
 
@@ -165,3 +172,33 @@ A waiting action fails the checklist item `contact_cap`, so bulk approval leaves
 | R3 | MG-100051 B-05 test | Tested at 01.09 (paused until 23.09); the snapshot shows it over | — | — |
 | R4 | Who builds the page | API + `rules.json` first; the Rule Center card is on the temporary branch `feat/rule-card` | — | — |
 | R5 | B-08 €10 drops low-value calls | Keep €10 | `business_rules.B-08.min_eur` | MG-100112 under uplift would get the call back below €10 |
+
+## 10. Demo rules
+
+Four custom rules in `config/nba.yaml → custom_rules`, **switched off**, so the default decisions do not change. Each one is valid and changes a small, plausible set of decisions. Switch one on for the demo, show its what-if first if you like, and switch it off again afterwards.
+
+| ID | Rule | Condition → effect | Decisions changed when on | What you see |
+|---|---|---|---|---|
+| U-1 | No StromAktiv offers in Köln | Customer · city is Köln, sub-rule U-1.1 Offer · P-EN-01 → BLOCK_OFFER | **19** | The next offer wins, e.g. MG-100660: StromAktiv → Zusatz-SIM by portal pop-up. ΔCLV now €8,898 → €8,797 |
+| U-2 | No sales e-mail or newsletter after a complaint | Service ticket · category is complaint → BLOCK_CHANNEL `email`, `newsletter_email` | **17** | 13 customers whose only channel was e-mail get no action, e.g. MG-100508 (StromGarant newsletter) |
+| U-3 | Hold sales 30 days for customers who are moving | Service ticket · category is moving → DEFER_UNTIL, `days: 30` | **79** | Act now 518 → 461, waiting 146 → 203, held until 30.10 or later (e.g. MG-100139) |
+| U-4 | Born before 1960: no app push, SMS or calls | Customer · birth year ≤ 1959 → BLOCK_CHANNEL `app_push`, `sms`, `outbound_call` | **16** | Another channel is used, e.g. MG-100607: StromAktiv by portal pop-up instead of app push |
+
+Counts are from the mock data at the snapshot (`POST /api/rules/whatif`); `tests/test_engine_rules.py` checks them within 10–40 (U-1), 8–40 (U-2, U-4) and 50–120 (U-3). Customer memory or other rule edits made during the demo can move them a little.
+
+**Preview (nothing is saved):**
+
+```bash
+curl -s -X POST localhost:8000/api/rules/whatif -H 'Content-Type: application/json' \
+  -d '[{"rule_id": "U-1", "active": true}]' | jq '{changed, examples: [.examples[] | {customer_id, before, after}]}'
+```
+
+**Switch on** (logged in `out/rule_versions.jsonl`; the cards change at once):
+
+```bash
+curl -s -X PUT localhost:8000/api/rules/U-1 -H 'Content-Type: application/json' \
+  -d '{"active": true, "by": "Demo", "reason": "Regional campaign stop in Köln"}' > /dev/null
+curl -s localhost:8000/api/customers/MG-100660 | jq '.chosen.tuple_id, [.blocked[] | select(.rule_center_id == "U-1") | .reason]'
+```
+
+**Switch off again:** the same `PUT` with `"active": false`. The other rules work the same way (`U-2`, `U-3`, `U-4`); U-3 can also change its hold, e.g. `"params": {"days": 14}`.
