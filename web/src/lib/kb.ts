@@ -131,7 +131,21 @@ export interface LearnImpact {
   summary: { customers: number; changed: number; by_cause: Record<string, number>; delta_clv: { baseline: number; evidence: number; learned: number } };
   k: { offer: string; channel: string; tone: string; sends: number; bought: number; expected: number; k: number }[];
   memory: { entries: number; active: number; by_kind: Record<string, number>; by_source: Record<string, number> };
-  lookalike: { active: boolean; offers: { offer: string; name: string; recipients: number; buyers: number; more_likely: number; less_likely: number }[] };
+  lookalike: {
+    active: boolean;
+    offers: {
+      offer: string;
+      name: string;
+      recipients: number;
+      buyers: number;
+      more_likely: number;
+      less_likely: number;
+      /** customers the look-alike scored (profiling consent); absent in older exports */
+      scored?: number;
+      /** how buyers differ from the other recipients, biggest gap first */
+      profile?: { feature: string; label: string; buyers: number; others: number; gap: number }[];
+    }[];
+  };
   changes: LearnChange[];
 }
 
