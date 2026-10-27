@@ -20,7 +20,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from api.replay import replay_preview
 
 from nba.contracts import (
-    CustomerCard, DecisionLogEntry, DecisionRequest, IndexRow, NO_ACTION, RuleChange, RuleCreate, RulesFile,
+    CustomerCard, DecisionLogEntry, DecisionRequest, IndexRow, Journey, NO_ACTION, RuleChange, RuleCreate, RulesFile,
     Summary, TupleRef, tuple_id,
 )
 from nba.data import DEFAULT_WORKBOOK, REPO
@@ -35,6 +35,7 @@ from nba.engine.rule_registry import (
 )
 from nba.engine.rulecenter import Evaluator
 from nba.engine.runtime import Runtime, index_rows, summary
+from nba.kg.journey import build_journey, lookups as journey_lookups
 from nba.kg.rules import check_tuple, generate_candidates, is_profiled
 from nba.kg.signals import extract_signals
 
@@ -202,6 +203,12 @@ def create_app(*, workbook=DEFAULT_WORKBOOK, out_dir=REPO / "out", p_mode=None, 
     @app.get("/api/customers/{customer_id}", response_model=CustomerCard)
     def get_customer(customer_id: str):
         return card_with_decisions(customer_id)
+
+    @app.get("/api/customers/{customer_id}/journey", response_model=Journey)
+    def get_journey(customer_id: str):
+        """Customer 360° journey: what happened and how the customer reacted (nba.kg.journey)."""
+        rt = customer(customer_id)
+        return build_journey(rt.states[customer_id], **journey_lookups(rt.tables, rt.policy))
 
     @app.get("/api/summary", response_model=Summary)
     def get_summary():

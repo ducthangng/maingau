@@ -25,7 +25,8 @@ For the demo, add **one switch** between the two. The Customer 360° view is for
 **Do not change the Orchestration dashboard.** Its pages (`Worklist`, `Customer`, `Groups`), their components, and its existing behaviour, including the `marketing | service` toggle on `/customer/:id`, stay exactly as they are. Customer 360° lives in new files only:
 - `pages/Service.tsx`;
 - `components/service/*`;
-- `lib/serviceFeedback.ts`.
+- `lib/serviceFeedback.ts`;
+- `lib/journey.ts` (loads the journey, §3.3).
 
 The only edits to existing files are:
 - the two new routes in `App.tsx`;
@@ -89,18 +90,27 @@ The only edits to existing files are:
 
 A timeline, newest first, with a filter chip per event type. Each event says what happened and how the customer reacted, as recorded. **No CLV and no "CLV up/down" marks on events.**
 
-| Event | Available in `card.timeline` today | Missing (needs the backend, §5) |
-|---|---|---|
-| Past engine proposals (`kind: marketing`) | offer and channel (`title`); response and "converted" (`detail`) | tone of address |
-| Service tickets (`kind: service`) | category, channel, status, CSAT | resolution code |
-| Shop orders (`kind: order`) | product, status | order value |
-| Contracts and milestones, consent changes | yes | — |
-| Newsletters | not in the timeline (only totals in `profile.trends.newsletter`) | subject, delivered or bounced, opened, click target, bought within 7 days, unsubscribed |
-| Suggestions by other service agents | no | suggested offer, customer reaction |
-| Charging sessions | no (only totals in `profile.trends.charging`) | per day: completed / failed count |
-| Portal visits | no (only totals in `profile.trends.portal`) | pages viewed, duration, offer banner shown |
+**Data:** a separate `Journey` document, not `card.timeline` (`docs/api.md` §3.7, `docs/schema/journey.schema.json`). Load it in the new `lib/journey.ts`, with the same API-first, static-fallback pattern as `lib/data.ts` (import `dataMode` or copy the pattern; do not edit `data.ts`):
+- API: `GET /api/customers/{id}/journey`;
+- static: `${BASE_URL}data/journey/{id}.json` (the same document without `src` and `facts`).
 
-Until the backend adds the missing events, show what exists and hide the empty filter chips. The portal data never names the pages, so the timeline cannot say what the customer did on the portal; write that as a one-line note on portal events.
+Each event has `date`, `type`, `title`, and where recorded `detail`, `reaction`, `flags` and `future` (unset fields are left out). Render one row per event: date, title, `detail` in grey, `reaction` as plain text. Use only these fields, so the API and the static mode look the same. `counts` gives the number per type: hide a chip whose count is 0.
+
+| Chip | `type` | `detail` | `reaction` |
+|---|---|---|---|
+| Newsletters | `newsletter` | topic, tone | bounced / not opened / opened · clicked *target* · bought within 7 days · unsubscribed |
+| Past proposals | `proposal` | tone (Du / Sie), delivery | no reaction / viewed / clicked / dismissed · bought within 14 days |
+| Agent suggestions | `agent_suggestion` | channel, agent accepted or dismissed (reason) | customer reaction, or "not mentioned to the customer" |
+| Tickets | `ticket` | channel, status, resolution | CSAT |
+| Orders | `order` | status, value, quantity | — |
+| Charging | `charging` | per day: completed / failed / aborted, kWh, failure reasons | — |
+| Portal | `portal` | pages viewed, duration, "offer banner shown" | — |
+| Contracts | `contract`, `milestone` | — | — |
+| Consent | `consent` | source | — |
+
+- Future milestones (`future: true`) come first; mark them "upcoming".
+- `flags` (`open`, `repeat contact`, `failed`, `bounced`, `unsubscribed`, `returned`, `cancelled`, `cancellation`) can be small neutral tags, with no warning colours.
+- An Apple Mail preload already counts as "not opened" in the backend; show `reaction` as given.
 
 ### 3.4 Tab 3: Next best actions
 
@@ -177,12 +187,7 @@ The switch keeps both dashboards working with the API running and with `VITE_STA
 
 ## 5. Backend needed (not in `web/`; ask Agent KG / Agent NBA)
 
-1. **Journey events in `card.timeline`:**
-   - newsletter deliveries (subject, delivered/bounced, opened, click target, bought within 7 days, unsubscribed);
-   - agent suggestions (`service_nba_feedback`);
-   - charging per day (completed / failed);
-   - portal visits (pages, duration, banner);
-   - plus tone on past proposals, order value and ticket resolution code.
+1. **Journey events: done.** `GET /api/customers/{id}/journey` and `web/public/data/journey/{id}.json` (§3.3).
 2. **`POST /api/customers/{id}/service-feedback`:** append the row above to `out/service_feedback.jsonl`, which `nba.ai.feedback` reads next to the workbook table.
 
 ## 6. Git

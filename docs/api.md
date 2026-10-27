@@ -314,6 +314,39 @@ Rules that block or limit actions (docs/rule-center.md). Every edit is appended 
 
 **CORS:** the API allows `http://localhost:5173` and `http://127.0.0.1:5173`. Set `MAINGAU_CORS_ORIGINS` (comma-separated) for others.
 
+### 3.7 `GET /api/customers/{customer_id}/journey`: Customer 360° journey
+
+What happened to one customer and how they reacted, newest first (`nba/kg/journey.py`, schema `docs/schema/journey.schema.json`). A separate document next to the card: the card and its `timeline` stay as they are. Plain facts only: no CLV, scores, warnings or payment data. Last 12 months plus future contract milestones.
+
+```json
+{"customer_id": "MG-100023", "eval_time": "2026-09-30T23:59:59", "months": 12,
+ "counts": {"consent": 3, "milestone": 1, "newsletter": 13, "portal": 16, "proposal": 3},
+ "events": [
+  {"id": "jr-001", "date": "2026-09-29", "type": "portal", "title": "Portal visit",
+   "detail": "dashboard, consumption chart, contact form · 1 min 57 s", "ref": "portal:36c4b507-dc3e",
+   "src": "portal_sessions.session_start", "facts": {"client": "web", "pages": ["dashboard", "consumption_chart", "contact_form"], "duration_s": 117}},
+  {"id": "jr-006", "date": "2026-09-07", "type": "proposal", "title": "Offer HEMS Starter-Set via newsletter email",
+   "detail": "tone Sie · delivered", "reaction": "no reaction", "ref": "action:NBA-400064",
+   "src": "nba_action_history.decided_at", "facts": {"offer_id": "P-SL-01", "channel": "newsletter_email", "tone": "sie", "response": "ignored"}}
+ ]}
+```
+
+| `type` | One event per | `detail` | `reaction` |
+|---|---|---|---|
+| `newsletter` | delivery (`newsletter_performance` + `newsletter_campaigns`) | topic, tone | bounced / not opened / opened · clicked *target* · bought within 7 days · unsubscribed. An Apple Mail preload (`apple_mpp_prefetch`) is not an open |
+| `proposal` | legacy engine action (`nba_action_history`, control group left out) | **tone** (Du / Sie), delivery | no reaction / viewed / clicked / dismissed · bought within 14 days |
+| `agent_suggestion` | offer shown to a service agent (`service_nba_feedback`) | channel, agent accepted / dismissed (reason) | customer reaction, or "not mentioned to the customer" |
+| `ticket` | ticket (`service_interactions`) | channel, status, **resolution** | CSAT |
+| `order` | shop order | status, **value**, quantity (never the payment method) | — |
+| `charging` | **day** with charging sessions | completed / failed / aborted, kWh, failure reasons | — |
+| `portal` | portal or app visit | **pages viewed**, duration, "offer banner shown" | — |
+| `contract`, `milestone`, `consent` | as in the card timeline | | |
+
+- `flags`: `open`, `repeat contact`, `cancellation`, `returned`, `cancelled`, `bounced`, `unsubscribed`, `failed`.
+- `facts`: the raw values behind the text (API only). A missing key means no / none.
+- Unset fields (`detail`, `reaction`, `flags`, `future`, …) are left out of the JSON.
+- 404 for an unknown customer.
+
 ## 4. Errors
 
 | Status | Body | When |
@@ -345,6 +378,7 @@ Rules that block or limit actions (docs/rule-center.md). Every edit is appended 
 | `GET /api/customers` | `GET /data/index.json`, then filter and search on the client |
 | `GET /api/customers/{id}` | `GET /data/customers/{id}.json` |
 | `GET /api/summary` | `GET /data/summary.json` |
+| `GET /api/customers/{id}/journey` | `GET /data/journey/{id}.json` (without `src` and `facts`) |
 | `POST …/decision` | Not available; keep decisions client-side and only offer tuples present in `candidates` (Q-CARDS-13) |
 | `POST /api/replay` | Not available; use `out/replay/timeline.json` from `scripts/replay_demo.py` |
 
@@ -359,7 +393,7 @@ Rules that block or limit actions (docs/rule-center.md). Every edit is appended 
 | `blocked`, `signals`, `profile` | Identical to the API |
 | JSON format | Compact |
 
-**Static export size:** `customers/` is about 19.2 MB, `index.json` about 0.5 MB and `rules.json` (the Rule Center tree and the Field / Operator catalog) about 41 KB; the total stays under 20 MB.
+**Static export size:** `customers/` is about 19.2 MB, `index.json` about 0.5 MB and `rules.json` (the Rule Center tree and the Field / Operator catalog) about 41 KB; together they stay under 20 MB. `journey/` (Customer 360°) has its own budget: about 3.8 MB, at most 4.5 MB.
 
 **Rule Center data in static mode:**
 - each card keeps only tier 2 outcomes in `rules.results` (block / defer / off), plus `counter_line`;

@@ -663,3 +663,23 @@ Claude Code (Opus) on Windows, in the user's checkout `E:\Projects\maingau`. On 
 - 74 feedback items become memory, which changes 14 decisions.
 - Tests: 6 new tests with a fake AI backend. The full suite passed apart from 2 ontology-list audit tests; those were fixed and rerun.
 
+
+### Session 15 · 2026-10-27 · Claude Code (Opus) · branch feat/kg
+
+**Goal (user):** the Customer 360° journey tab needs the events the card timeline leaves out (option 1 in the UI brief: the backend delivers them). The card and `nba/profile` stay untouched, because another member is editing them.
+
+**Done:**
+- **`nba/kg/journey.py`:** one `Journey` document per customer, newest first, last 12 months plus future milestones:
+  - newsletter deliveries (subject, topic, tone; bounced / opened / clicked target / bought within 7 days / unsubscribed). An Apple Mail preload is not an open;
+  - suggestions shown to service agents (`service_nba_feedback`) with the customer reaction;
+  - charging grouped per day (completed / failed / aborted, kWh, failure reasons);
+  - portal and app visits (pages viewed, duration, offer banner);
+  - the tone of past proposals, order values (never the payment method) and ticket resolutions;
+  - contracts, milestones and consent, as in the timeline.
+- **API:** `GET /api/customers/{id}/journey`. **Static:** `web/public/data/journey/<id>.json` without `src` and `facts` (about 3.8 MB, its own 4.5 MB budget; the cards keep the 20 MB budget).
+- **Docs:** `docs/api.md` §3.7 and §5, `docs/schema/journey.schema.json`, `docs/openapi.json`, `prompts/ui-customer360.md` §3.3 (the tab reads the journey; `lib/journey.ts` is a new UI file). Correction: the portal data does name the pages.
+- **Static export refreshed:** the committed cards were built before calibration (UI v0.2). The new export matches the API on `main`: new propensity version hash, and 12 decisions change through k.
+
+**Contract changes:** new `Journey` and `JourneyEvent` in `nba/contracts.py`; `CustomerCard` is unchanged. `_unset` also treats `[]` as unset; no existing list field uses it.
+
+**Verified:** 7 new tests (`tests/test_kg_journey.py`); full suite 429 passed.
