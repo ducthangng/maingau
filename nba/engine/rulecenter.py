@@ -212,6 +212,13 @@ def custom_effect(rule: Rule) -> str:
 # ---------------------------------------------------------------- per-customer evaluation
 
 
+def _until(m: dict) -> datetime | None:
+    try:
+        return datetime.fromisoformat(str(m.get("until"))).replace(tzinfo=None)
+    except ValueError:
+        return None
+
+
 @dataclass
 class Hit:
     result: str  # block | defer
@@ -234,6 +241,8 @@ class Evaluator:
         self._events: dict[tuple[str, ...], list] = {}
         self._frequency: dict[str, tuple[int, datetime | None]] = {}
         self._custom = {r.id: self._custom_applies(r) for r in self.rules if r.kind == "condition" and r.active}
+        self.memory = [m for m in (getattr(cfg, "memory", None) or {}).get(state.customer_id, [])
+                       if m.get("kind") in {"pause_offer", "block_channel", "pause_sales"} and _until(m) and _until(m) > self.at]
 
     # -- facts
 
@@ -306,6 +315,10 @@ class Evaluator:
                                rule.text(channel=c.channel, limit=p["per_week"][c.channel], position="after the limit")))
             elif rule.kind == "condition" and self._custom.get(rule.id):
                 self._custom_verdict(rule, c, blocks, defers)
+        for m in self.memory:  # what people said about this customer (nba.ai.feedback)
+            if (m["kind"] == "pause_sales" or (m["kind"] == "pause_offer" and m.get("offer_id") == c.offer_id)
+                    or (m["kind"] == "block_channel" and m.get("channel") == c.channel)):
+                defers.append(("MEMORY", _until(m), f"{m.get('note') or m.get('reason_code')} ({m['id']})"))
         return blocks, defers
 
     def _custom_verdict(self, rule: Rule, c: Candidate, blocks, defers) -> None:
@@ -423,6 +436,12 @@ def report(ev: Evaluator, kg_blocked: list[Blocked], chosen_tuple: str, version:
         results.append(RuleResult(rule_id=rule.id, tier=rule.tier, name=rule.name, result=result, detail=detail,
                                   until=until.isoformat() if until else None, measured=measured,
                                   tuples=hit.tuples if hit and rule.active else 0))
+    if ev.memory:
+        hit = ev.hits.get("MEMORY")
+        results.append(RuleResult(rule_id="MEMORY", tier="custom", name="Customer memory from feedback",
+                                  result="defer" if hit else "pass", detail=hit.detail if hit else
+                                  f"{len(ev.memory)} active note(s), none on these offers",
+                                  until=hit.until.isoformat() if hit and hit.until else None, tuples=hit.tuples if hit else 0))
     counters.sort(key=lambda k: ["B-01", "B-02", "B-03", "B-04"].index(k.rule_id) if k.rule_id in COUNTER_LABELS else 9)
     line = " · ".join(f"{k.label} {k.count}/{k.limit} ({k.window_days} d)" for k in counters)
     return RuleReport(rule_set_version=version, results=results, counters=counters, counter_line=line)

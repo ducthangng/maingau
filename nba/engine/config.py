@@ -55,6 +55,7 @@ class EngineConfig:
     lookalike: Any = field(default=None, repr=False)  # nba.learn.lookalike.Lookalike, attached by Runtime.load
     _versions: Any = field(default=None, repr=False)
     _rules: Any = field(default=None, repr=False)
+    memory: dict = field(default_factory=dict, repr=False)  # customer_id -> feedback memory (nba.ai.feedback)
 
     @property
     def rules(self) -> list:

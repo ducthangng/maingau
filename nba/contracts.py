@@ -440,6 +440,10 @@ class DataQuality(Model):
     detail: str
 
 
+ReasonCode = Literal["already_has_product", "customer_upset", "no_time", "not_relevant", "wrong_channel",
+                     "wrong_timing", "data_wrong", "other"]  # why a person said no (nba.ai.feedback)
+
+
 class DecisionLogEntry(Model):
     ts: str
     actor: str  # "engine" or a user name
@@ -448,6 +452,7 @@ class DecisionLogEntry(Model):
     from_tuple: Optional[str] = None
     to_tuple: Optional[str] = None
     reason: Optional[str] = None
+    reason_code: Optional[ReasonCode] = omit_unset()
     state_revision: Optional[str] = None
     versions: dict[str, str] = Field(default_factory=dict)
     rules_applied: list[str] = Field(default_factory=list)
@@ -536,6 +541,7 @@ class DecisionRequest(Model):
     action: Literal["approve", "override", "reject"]
     user: str
     reason: Optional[str] = None
+    reason_code: Optional[ReasonCode] = None  # coded reason for reject / override, so feedback can be counted
     tuple: Optional[TupleRef] = None  # required for "override"
 
 

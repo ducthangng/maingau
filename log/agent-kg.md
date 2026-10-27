@@ -639,3 +639,27 @@ Claude Code (Opus) on Windows, in the user's checkout `E:\Projects\maingau`. On 
 
 **Next:** "AI decides whether k applies to this customer's profile (clustering)" from the whiteboard. The look-alike lift (`nba.learn.lookalike`) is the closest existing piece.
 
+### Session 14 · 2026-10-27 · Claude Code (Opus) · branch feat/kg
+
+**Goal (user):** use AI at two points, without fine-tuning, with any backend decided later:
+1. check the clusters of proposed actions and move special cases to an individual decision;
+2. learn from rejections and overrides, write notes and update the KG for that customer.
+
+**Done (`nba/ai/`):**
+- **`llm.py`:** a backend-neutral interface (Claude, a local open model via Ollama, or none) with schema-constrained JSON. A failing backend is switched off, and the code result stands.
+- **`review.py`:**
+  - clusters = the same offer × channel × tone in the same segment;
+  - code puts hard flags, the A4 segment with sales, review memory and hard outliers into `needs_review`;
+  - the AI explains flagged customers and settles only the soft ones (contact fatigue, churn outliers, borderline outliers, low k); cited IDs are checked against the evidence.
+- **`feedback.py`:**
+  - decision-log rejections and overrides (new `reason_code`) and `service_nba_feedback` dismissals become customer memory (`Feedback` nodes, `out/customer_memory.jsonl`);
+  - the engine applies it as rule `MEMORY`;
+  - the AI may only make the memory stricter, and its global hints go to a person.
+- **API:** `GET /api/ai/review` and `POST /api/ai/feedback`. **CLI:** `python -m nba.ai review|feedback`.
+- **Ontology:** `Feedback`, `GAVE_FEEDBACK`, `ABOUT`. README §6.11 and §6.17 updated.
+
+**Verified, code only (no backend configured):**
+- 467 proposals in 88 clusters: 262 ready, 205 need a person.
+- 74 feedback items become memory, which changes 14 decisions.
+- Tests: 6 new tests with a fake AI backend. The full suite passed apart from 2 ontology-list audit tests; those were fixed and rerun.
+

@@ -943,6 +943,7 @@ These are flags shown as ⚠ in the checklist. **They never block.**
   - `GENERIC_OFFER`: Customer → Offer in the explanation path of a generic (non-personalised) tuple (D1).
   - `REQUIRES` also links every need-based offer to `consent:profiling_analytics` (D1), so the profiling rule is visible in the graph.
   - Channel and consent-type nodes are namespaced in the graph (`channel:email`, `consent:marketing_email`) because they share names.
+  - `Feedback` node, `GAVE_FEEDBACK`: Customer → Feedback, `ABOUT`: Feedback → Offer / Channel. Customer memory written by the feedback loop (§6.17): what a person said no to, remembered for that customer until a date.
 - **Division of labour:** rules are declared in YAML and evaluated by named Python predicates. Scoring lives in code. Customer data stays in tables; the graph is built per customer on demand, so there is no graph database.
 
 ### 6.12 Candidate tiers and arbitration (owner: Agent KG builds tiers, Agent NBA ranks)
@@ -1068,6 +1069,39 @@ They are checked per offer × channel after valuation:
 - a **held-back** tuple waits; the card shows `chosen.deferred_until`.
 
 Every card carries `rules` (per-rule result and the contact counter line). Edits go through the API (`docs/api.md` §3.6) or the rulebook (`python -m nba.rules`). The full spec, data checks, numbers and the defaults for R1–R5 are in **`docs/rule-center.md`**. There is one contact counter, `nba/kg/contacts.py`; do not build a second one.
+
+### 6.17 AI steps: cluster review and feedback memory (27 Oct; `nba/ai/`)
+
+The AI is not trained or fine-tuned. Each call gets a system prompt, the customer's evidence from the knowledge graph (card JSON) and an output schema built from the ontology. What the system learns is stored as data: customer memory, the calibration factor k and rules. The AI never sends anything and never loosens a rule. Without an AI backend the code result stands.
+
+The backend is configured by `MAINGAU_LLM` (auto | claude | ollama | none; `nba/ai/llm.py`).
+
+**Review before approval** (`python -m nba.ai review`, `GET /api/ai/review`):
+- Act-now proposals are grouped into clusters: the same offer × channel × tone in the same segment.
+- Code marks a customer `needs_review` for:
+  - warning flags: service critical, negative CLV, inconsistent data, annoyed before;
+  - the "do no harm" segment with a sales offer;
+  - customer memory flagged for review;
+  - a value or chance far outside the cluster (robust z ≥ 3.5).
+- Soft cases go to the AI: contact fatigue, churn outliers, borderline outliers, low k. The AI explains each one; for soft cases its verdict decides. Hard cases always stay with a person. Cited IDs must exist in the evidence.
+
+**Feedback memory** (`python -m nba.ai feedback`, `POST /api/ai/feedback`):
+- Rejections and overrides from the decision log (with `reason_code`) and dismissed or declined offers in `service_nba_feedback` become memory for that customer (`out/customer_memory.jsonl`, `Feedback` nodes).
+- What each reason does:
+
+  | Reason | Memory |
+  |---|---|
+  | already has product | pause the offer 365 days |
+  | customer upset | pause sales 30 days |
+  | no time / wrong timing | pause the offer 14 days |
+  | not relevant | pause the offer 90 days |
+  | wrong channel | block the channel 90 days |
+  | data wrong | review |
+
+- The engine applies active memory as rule `MEMORY` (holds tuples back until its date).
+- The AI classifies free-text reasons, writes the note, may make the memory stricter (never looser), and suggests changes for everyone. Only a person can apply those, through the Rule Center what-if.
+
+**On the mock data:** 467 act-now proposals in 88 clusters. 74 agent-feedback items become memory and change 14 decisions.
 
 ## 7. Tasks: three agents in parallel
 

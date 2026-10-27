@@ -971,6 +971,27 @@
             ],
             "title": "Reason"
           },
+          "reason_code": {
+            "anyOf": [
+              {
+                "enum": [
+                  "already_has_product",
+                  "customer_upset",
+                  "no_time",
+                  "not_relevant",
+                  "wrong_channel",
+                  "wrong_timing",
+                  "data_wrong",
+                  "other"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Code"
+          },
           "rules_applied": {
             "items": {
               "type": "string"
@@ -1060,6 +1081,27 @@
               }
             ],
             "title": "Reason"
+          },
+          "reason_code": {
+            "anyOf": [
+              {
+                "enum": [
+                  "already_has_product",
+                  "customer_upset",
+                  "no_time",
+                  "not_relevant",
+                  "wrong_channel",
+                  "wrong_timing",
+                  "data_wrong",
+                  "other"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Code"
           },
           "tuple": {
             "anyOf": [
@@ -3222,6 +3264,84 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/ai/feedback": {
+      "post": {
+        "description": "Turn new rejections / overrides (and service-agent feedback) into customer memory; the next decision uses it.",
+        "operationId": "learn_from_feedback_api_ai_feedback_post",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "ai",
+            "required": false,
+            "schema": {
+              "default": true,
+              "title": "Ai",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Learn From Feedback"
+      }
+    },
+    "/api/ai/review": {
+      "get": {
+        "description": "Clusters of proposed actions: who is ready for bulk approval and who needs an individual decision.",
+        "operationId": "review_proposals_api_ai_review_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "ai",
+            "required": false,
+            "schema": {
+              "default": true,
+              "title": "Ai",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Review Proposals"
+      }
+    },
     "/api/customers": {
       "get": {
         "operationId": "customers_api_customers_get",

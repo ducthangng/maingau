@@ -99,10 +99,10 @@ DATA_MISSING_OFFERS = {"P-EN-04", "P-IN-01"}
 # §4.3 + §6.11 (policy layer, extension edges; Campaign is the S10 EVIDENCED_BY target)
 NODE_TYPES = {"Customer", "Contract", "Device", "Order", "Ticket", "Session", "Signal", "Need", "Offer", "Channel",
               "Consent", "Exclusion", "Action", "SignalType", "ConsentType", "ExclusionRule", "Campaign",
-              "Archetype"}  # README §6.11 (Q-KG-22)
+              "Archetype", "Feedback"}  # README §6.11 (Q-KG-22; Feedback = customer memory, 27 Oct)
 EDGE_TYPES = {"HOLDS", "OWNS_DEVICE", "PLACED", "RAISED", "EMITTED", "INDICATES", "ADDRESSED_BY", "DELIVERED_VIA",
               "REQUIRES", "BLOCKS", "RECEIVED", "RESPONDED", "EVIDENCED_BY", "HAS_SESSION", "HELD_OUT", "REINFORCES",
-              "INSTANCE_OF", "IN_ARCHETYPE", "GENERIC_OFFER"}  # README §6.11 (Q-KG-22)
+              "INSTANCE_OF", "IN_ARCHETYPE", "GENERIC_OFFER", "GAVE_FEEDBACK", "ABOUT"}  # README §6.11
 
 # §6.13
 ARCHETYPE_COUNTS = {"A4": 75, "A1": 33, "A3": 201, "A5": 50, "A2": 342, "A0": 49}

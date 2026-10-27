@@ -26,6 +26,9 @@ from nba.contracts import (
 from nba.data import DEFAULT_WORKBOOK, REPO
 from nba.engine.assemble import build_chosen, checklist_for, evaluate_candidates, valuation_scores, value_candidate
 from nba.engine.config import MissingDataError
+from nba.ai import feedback as ai_feedback
+from nba.ai.llm import from_env as llm_from_env
+from nba.ai.review import review as ai_review
 from nba.engine.rule_audit import legacy_audit
 from nba.engine.rule_registry import (
     RuleEditError, custom_rule, entity_catalog, next_custom_id, replay_ops, rules_file,
@@ -129,6 +132,7 @@ def create_app(*, workbook=DEFAULT_WORKBOOK, out_dir=REPO / "out", p_mode=None, 
     app.state.runtime = runtime
     app.state.base = None  # (runtime as loaded from the config files, rule edit count it reflects)
     store, rule_log, lock = DecisionStore(out_dir), JsonlStore(Path(out_dir) / "rule_versions.jsonl"), RLock()
+    memory_path = Path(out_dir) / "customer_memory.jsonl"  # feedback memory per customer (nba.ai.feedback)
 
     def known_ids(rt):
         return frozenset([*rt.policy.compliance, *(rt.cfg.settings.get("business_rules") or {}), "B-02", "B-07"])
@@ -147,7 +151,7 @@ def create_app(*, workbook=DEFAULT_WORKBOOK, out_dir=REPO / "out", p_mode=None, 
             if app.state.base is None:
                 base = app.state.runtime or Runtime.load(workbook, p_mode=p_mode)
                 app.state.base = base
-                app.state.runtime = with_ops(base, rule_log.records())
+                app.state.runtime = with_ops(base, rule_log.records()).with_memory(memory_path)
             return app.state.runtime
 
     def customer(cid):
@@ -241,7 +245,7 @@ def create_app(*, workbook=DEFAULT_WORKBOOK, out_dir=REPO / "out", p_mode=None, 
                 action={"approve": "approved", "override": "overridden", "reject": "rejected"}[request.action],
                 tuple_id=target.tuple_id if target else previous,
                 from_tuple=previous, to_tuple=target.tuple_id if target else previous,
-                reason=request.reason, state_revision=rt.states[customer_id].revision,
+                reason=request.reason, reason_code=request.reason_code, state_revision=rt.states[customer_id].revision,
                 versions=card.meta.versions.model_dump(),
                 rules_applied=sorted({c.rule_id for c in target.checks}) if target else [],
                 scores=valuation_scores(target.valuation) if target else {},
@@ -267,7 +271,7 @@ def create_app(*, workbook=DEFAULT_WORKBOOK, out_dir=REPO / "out", p_mode=None, 
             version = updated.cfg.versions(updated.policy).rules
             rule_log.add({"version": len(ops) + 1, "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
                           "by": by.strip(), "reason": reason, "op": op, "rule_set_version": version})
-            app.state.runtime = updated
+            app.state.runtime = updated.with_memory(memory_path)
             return rules_view(updated)
 
     @app.get("/api/rules", response_model=RulesFile)
@@ -317,6 +321,24 @@ def create_app(*, workbook=DEFAULT_WORKBOOK, out_dir=REPO / "out", p_mode=None, 
             except RuleEditError as exc:
                 raise HTTPException(exc.status, str(exc)) from exc
             return compare(rt, proposed)
+
+    # ------------------------------------------------------------ AI steps (nba/ai; any backend or none)
+
+    @app.get("/api/ai/review")
+    def review_proposals(ai: bool = True):
+        """Clusters of proposed actions: who is ready for bulk approval and who needs an individual decision."""
+        return ai_review(context(), llm_from_env() if ai else None)
+
+    @app.post("/api/ai/feedback")
+    def learn_from_feedback(ai: bool = True):
+        """Turn new rejections / overrides (and service-agent feedback) into customer memory; the next decision uses it."""
+        with lock:
+            rt = context()
+            items = ai_feedback.from_decisions(store.records()) + ai_feedback.from_agent_feedback(
+                rt.tables["service_nba_feedback"].to_dict("records"))
+            result = ai_feedback.process(rt, items, memory_path, llm_from_env() if ai else None)
+            app.state.runtime = rt.with_memory(memory_path)
+            return result
 
     @app.get("/api/rules/audit")
     def rule_audit():

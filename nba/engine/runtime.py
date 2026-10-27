@@ -37,7 +37,7 @@ class Runtime:
     _overflow: dict | None = field(default=None, repr=False)
 
     @classmethod
-    def load(cls, workbook=DEFAULT_WORKBOOK, *, p_mode=None, eval_time=None):
+    def load(cls, workbook=DEFAULT_WORKBOOK, *, p_mode=None, eval_time=None, memory_path=None):
         tables = load_workbook(workbook)
         policy = load_policy(catalog=tables["product_catalog"], tables=tables)
         # --asof: offsets and plain dates are normalised like config/kg.yaml eval_time (README §6.15)
@@ -48,7 +48,8 @@ class Runtime:
         cfg.history = [r for r in cfg.history if r.get("decided_at") and r["decided_at"] <= t]
         from nba.learn.evidence import load_settings
         from nba.learn.lookalike import attach
-        return attach(cls(tables, states, profile_population(states), policy, cfg), load_settings())
+        rt = attach(cls(tables, states, profile_population(states), policy, cfg), load_settings())
+        return rt.with_memory(memory_path) if memory_path else rt
 
     def _base_card(self, customer_id):
         state = self.states[customer_id]
@@ -73,6 +74,17 @@ class Runtime:
             self._cards[key] = (assemble(state, self.pop, self.policy, self.cfg, capacity=wait) if wait
                                 else self._base_card(customer_id))
         return self._cards[key].model_copy(deep=True)
+
+    def with_memory(self, memory) -> Runtime:
+        """A copy that applies customer memory (a path to customer_memory.jsonl or a loaded dict)."""
+        from dataclasses import replace
+
+        from nba.ai.feedback import load_memory
+
+        mem = load_memory(memory) if not isinstance(memory, dict) else memory
+        if not mem and not self.cfg.memory:
+            return self
+        return Runtime(self.tables, self.states, self.pop, self.policy, replace(self.cfg, memory=mem))
 
     def with_rules(self, *, settings=None, policy=None) -> Runtime:
         """A copy with edited Rule Center settings (config/nba.yaml) and/or KG policy (contact cap); caches reset."""

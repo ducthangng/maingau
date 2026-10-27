@@ -26,6 +26,8 @@ node_types:
   Action:       {layer: customer, id: "<action_id>",                   source: nba_action_history}
   Campaign:     {layer: customer, id: "campaign:<campaign_id>",        source: newsletter_campaigns, note: "evidence of S10 clicks"}
   Signal:       {layer: customer, id: "<customer_id>:<signal_id>",     source: "signal instance"}
+  Feedback:     {layer: customer, id: "M-<customer_id>-<n>", source: "customer_memory.jsonl (nba.ai.feedback)",
+                 note: "what a person said no to, remembered for this customer until a date"}
 
 edge_types:
   # spec edges
@@ -49,3 +51,5 @@ edge_types:
   HAS_SESSION:   {from: Contract, to: Session}
   IN_ARCHETYPE:  {from: Customer, to: Archetype}
   GENERIC_OFFER: {from: Customer, to: Offer, note: "non-personalised catalog offer (D1); used in explanation paths"}
+  GAVE_FEEDBACK: {from: Customer, to: Feedback}
+  ABOUT:         {from: Feedback, to: [Offer, Channel], note: "the offer paused or the channel blocked for this customer"}
