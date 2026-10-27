@@ -3,11 +3,12 @@ import { fileURLToPath } from "node:url";
 import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it } from "vitest";
-import type { CustomerCard, Journey } from "../../types/contracts";
+import type { CustomerCard, IndexRow, Journey } from "../../types/contracts";
 import { mockName } from "../../lib/customerMock";
 import Service from "../../pages/Service";
 import Layout from "../Layout";
 import ActionsTab from "./ActionsTab";
+import CustomerList from "./CustomerList";
 import JourneyTab, { fromTimeline, JourneyList } from "./JourneyTab";
 import { dateLabel, notRecommended, sortedActions } from "./plain";
 import ProfileTab from "./ProfileTab";
@@ -117,9 +118,18 @@ describe("dashboard switch and landing page", () => {
       ),
     );
 
-  it("labels every mock name on the landing page as a demo name", () => {
-    const page = at("/service", <Layout />);
-    for (const id of ["MG-100186", "MG-100096", "MG-100023", "MG-100112", "MG-100026"]) expect(page).toContain(`${id} · ${mockName(id)} demo`);
+  it("labels every mock name in the customer list as a demo name", () => {
+    const rows = JSON.parse(readFileSync(fileURLToPath(new URL("../../../public/data/index.json", import.meta.url)), "utf8")) as IndexRow[];
+    const page = text(
+      renderToStaticMarkup(
+        <MemoryRouter>
+          <CustomerList rows={rows} />
+        </MemoryRouter>,
+      ),
+    );
+    expect(page).toContain(`of ${rows.length} customers`);
+    for (const id of ["MG-100186", "MG-100096", "MG-100023", "MG-100112", "MG-100026"]) expect(page).toContain(`${mockName(id)} demo ${id}`);
+    expect(page).not.toMatch(/payment|dunning|P[1-5]|approve/i);
   });
 
   it("keeps the Orchestration navigation on its pages and hides it in Customer 360°", () => {
