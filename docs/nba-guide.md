@@ -105,7 +105,7 @@ The workbook and the event stream are already in `data/`. The first load parses 
 | `--workbook path.xlsx` | Another workbook |
 | `--skip-validation` | Build even if the data check finds errors |
 
-The build stops with a message if the data check finds an error. The static export stays under 20 MB.
+The build stops with a message if the data check finds an error. The static export stays under 30 MB.
 
 ### 6.4 Run the API
 

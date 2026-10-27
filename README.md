@@ -1379,7 +1379,7 @@ Each agent owns one file and writes only there: `log/agent-kg.md`, `log/agent-ca
   - secrets or tokens;
   - real customer data.
 
-  `web/public/data/` (mock data or the `nba.build` export) is allowed; keep it under about 20 MB, plus about 4 MB for `journey/` (Customer 360°).
+  `web/public/data/` (mock data or the `nba.build` export) is allowed; keep it under 30 MB (cards, Customer 360° journeys, index, summary, rules). Regenerating it from `main` with `python -m nba.build --export web/public/data` is allowed and keeps the static demo in line with the API.
 - **Commit small and often.** Message format: `<area>: <what changed> (<why>)`, plus a short body. Commit the session's log entry together with the code.
 
 ### 13.3 Syncing and delivering to `main`

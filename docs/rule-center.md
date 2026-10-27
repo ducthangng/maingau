@@ -114,7 +114,7 @@ A waiting action fails the checklist item `contact_cap`, so bulk approval leaves
 - **"Blocked" section:** blocked rows with `rule_center_id`; held-back rows also carry `until`.
 - **"Waiting until {date}":** taken from `chosen.deferred_until`.
 - **Contact counter:** `card.rules.counter_line`.
-- **Static export:** the card keeps only tier 2 outcomes and drops the counters list. It stays under 20 MB (19.7 MB plus `rules.json`).
+- **Static export:** the card keeps only tier 2 outcomes and drops the counters list. The whole static export stays under 30 MB.
 
 ## 8. Legacy audit and test cases (engine output)
 

@@ -683,3 +683,4 @@ Claude Code (Opus) on Windows, in the user's checkout `E:\Projects\maingau`. On 
 **Contract changes:** new `Journey` and `JourneyEvent` in `nba/contracts.py`; `CustomerCard` is unchanged. `_unset` also treats `[]` as unset; no existing list field uses it.
 
 **Verified:** 7 new tests (`tests/test_kg_journey.py`); full suite 429 passed.
+- **Follow-up (user):** the static budget is now one limit of 30 MB for `web/public/data` (was 20 MB for the cards plus 4.5 MB for journeys); regenerating the static cards from `main` is allowed. Test, README §13.2, `docs/api.md`, `docs/nba-guide.md` and `docs/rule-center.md` updated.

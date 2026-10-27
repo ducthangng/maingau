@@ -393,7 +393,7 @@ What happened to one customer and how they reacted, newest first (`nba/kg/journe
 | `blocked`, `signals`, `profile` | Identical to the API |
 | JSON format | Compact |
 
-**Static export size:** `customers/` is about 19.2 MB, `index.json` about 0.5 MB and `rules.json` (the Rule Center tree and the Field / Operator catalog) about 41 KB; together they stay under 20 MB. `journey/` (Customer 360°) has its own budget: about 3.8 MB, at most 4.5 MB.
+**Static export size:** `customers/` is about 19.2 MB, `index.json` about 0.5 MB and `rules.json` (the Rule Center tree and the Field / Operator catalog) about 41 KB; `journey/` (Customer 360°) is about 3.8 MB. The whole export stays under 30 MB (about 23.5 MB now). Regenerate it from `main` whenever the engine changes: `python -m nba.build --export web/public/data`.
 
 **Rule Center data in static mode:**
 - each card keeps only tier 2 outcomes in `rules.results` (block / defer / off), plus `counter_line`;
