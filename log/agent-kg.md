@@ -915,3 +915,33 @@ Claude Code (Opus) on Windows, in the user's checkout `E:\Projects\maingau`. On 
 - **Docs:** README §AI (backend line) and `docs/nba-guide.md` §6.9 (the setup steps). The guide sections are back in order (6.7 → 6.9).
 
 **Verified:** full suite 479 passed, 1 skipped. Not run against the real gateway: no key in this session. The user runs `python -m nba.ai ping` after filling in `.env`.
+
+### Session 24 · 2026-10-27 · Claude Code (Opus) · branch feat/kg
+
+**Goal (user):**
+- Overview → Groups flow: Groups follows the chosen action and segment, with a reset; approve everything opens a pop-up for the control-group % and the campaign name; a Campaigns list. Worklist unchanged.
+- Brand palette #034c99, #f3bf00 and white, used sparingly.
+
+**Done:** a workflow with 2 implementers in worktrees and verifiers, then merged.
+- **Groups flow** (e7364cc):
+  - A segment row on the Overview opens `/groups?offer=…&arch=…&pers=yes|no`.
+  - Filter bar with "Reset filter".
+  - "Approve everything…" opens a dialog: campaign name, control group 0–50 % (deterministic), live counts. Only "ready" members are included; already-approved customers are skipped.
+  - Campaigns list (localStorage `maingau.campaigns.v1`). Decision records carry `campaign`.
+- **Palette** (0d7cc2c):
+  - accent = #034c99 scale;
+  - #f3bf00 only for the engine's #1 badge and the active nav underline;
+  - red only for danger;
+  - no emerald, amber, orange or sky left;
+  - tiers P1 red, P2 to P3 blue, P4 to P5 grey; only P1 rows tinted;
+  - `prompts/ui-colors.md`.
+- **Follow-ups after merge:**
+  - The per-group Approve no longer re-approves customers a campaign already approved, so it no longer overwrites their control-group flag.
+  - Groups and Overview files recoloured.
+  - The filter label handles pers=yes/no fully; campaign records are parsed defensively.
+  - Overview text says Groups.
+
+**Verified:**
+- tsc 0, vitest 112/112, build.
+- Headless-Chrome screenshots of the Overview, the filtered Groups and Customer 360° MG-100096: palette as intended, nothing clipped in those views.
+- The colour verifier was still running at push time.

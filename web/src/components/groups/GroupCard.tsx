@@ -61,12 +61,12 @@ export default function GroupCard({
 
       <ul className="mt-4 flex flex-wrap gap-x-3 gap-y-1 text-xs text-neutral-600" aria-label="Who can be bulk-approved">
         <li className="inline-flex items-center gap-1.5">
-          <span className="size-1.5 rounded-full bg-emerald-500" aria-hidden />
+          <span className="size-1.5 rounded-full bg-accent-600" aria-hidden />
           {gates.ready} ready
         </li>
         {gates.review > 0 && (
           <li className="inline-flex items-center gap-1.5">
-            <span className="size-1.5 rounded-full bg-amber-400" aria-hidden />
+            <span className="size-1.5 rounded-full bg-neutral-400" aria-hidden />
             {gates.review} need a second look
           </li>
         )}

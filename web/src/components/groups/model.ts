@@ -180,7 +180,7 @@ export function readFilter(params: URLSearchParams): GroupFilter {
 }
 
 export function hasFilter(f: GroupFilter): boolean {
-  return !!(f.offer || f.arch || f.pers);
+  return !!(f.offer || f.arch || f.pers === "yes" || f.pers === "no");
 }
 
 /** Same semantics as matches() in components/worklist/model.ts for offer, arch and pers. */
@@ -199,10 +199,10 @@ export function filterLabel(f: GroupFilter, rows: IndexRow[], short = false): st
   const parts: string[] = [];
   if (f.offer) parts.push(OFFER_NAME[f.offer] ?? f.offer);
   if (f.pers === "no") parts.push("Not personalised");
-  else if (f.arch) {
+  if (f.arch) {
     const name = rows.find((r) => r.archetype === f.arch && r.archetype_name)?.archetype_name;
     parts.push(short || !name ? f.arch : `${f.arch} ${name}`);
-  }
+  } else if (f.pers === "yes") parts.push("Personalised");
   return parts.join(" · ") || "All actions";
 }
 

@@ -5,7 +5,7 @@ import type { IndexRow, Summary } from "../../types/contracts";
 import { type Decision, REVIEWER, recordDecisions } from "../../lib/decisions";
 import { eur, pct, signedEur, tupleLabel } from "../../lib/format";
 import { ConfidenceDot } from "../Chips";
-import { type Gate, type Group, type Member, type Reason, HOLDOUT_PCT, assess, holdoutOf, plural, sumOf } from "./model";
+import { type Gate, type Group, type Member, type Reason, HOLDOUT_PCT, alreadyApproved, assess, holdoutOf, plural, sumOf } from "./model";
 import { Num, conversions } from "./Num";
 import { Stat } from "./GroupCard";
 
@@ -24,10 +24,10 @@ const GATE_HEADING: Record<Gate, { title: string; note: string }> = {
 const REASON_STYLE: Record<Reason["kind"], string> = {
   do_no_harm: "bg-red-50 text-red-700 ring-red-200",
   outlier: "bg-red-50 text-red-700 ring-red-200",
-  checklist: "bg-amber-50 text-amber-800 ring-amber-200",
+  checklist: "bg-neutral-100 text-neutral-700 ring-neutral-200",
   no_data: "bg-neutral-100 text-neutral-600 ring-neutral-200",
   low_confidence: "bg-neutral-100 text-neutral-600 ring-neutral-200",
-  prior_decision: "bg-amber-50 text-amber-800 ring-amber-200",
+  prior_decision: "bg-neutral-100 text-neutral-700 ring-neutral-200",
 };
 
 function Switch({ checked, onChange, label, hint }: { checked: boolean; onChange: (v: boolean) => void; label: string; hint: string }) {
@@ -143,20 +143,23 @@ export default function PreviewSheet({
 
   const confirm = () => {
     if (!included.length) return;
-    recordDecisions(
-      included.map((m) => ({
-        customer_id: m.row.customer_id,
-        action: "approved" as const,
-        tuple_id: group.tuple,
-        from_tuple: group.tuple,
-        reason: null,
-        reviewer: REVIEWER,
-        delta_clv: m.row.delta_clv ?? null,
-        p_accept: m.row.p_accept ?? null,
-        group: group.tuple,
-        holdout: holdoutOf(m.row.customer_id, holdoutOn),
-      })),
-    );
+    // A customer already approved for this tuple (e.g. by a campaign) keeps that decision and its control-group flag.
+    const fresh = included.filter((m) => !alreadyApproved(latest.get(m.row.customer_id), group.tuple));
+    if (fresh.length)
+      recordDecisions(
+        fresh.map((m) => ({
+          customer_id: m.row.customer_id,
+          action: "approved" as const,
+          tuple_id: group.tuple,
+          from_tuple: group.tuple,
+          reason: null,
+          reviewer: REVIEWER,
+          delta_clv: m.row.delta_clv ?? null,
+          p_accept: m.row.p_accept ?? null,
+          group: group.tuple,
+          holdout: holdoutOf(m.row.customer_id, holdoutOn),
+        })),
+      );
     onConfirmed({ tuple: group.tuple, approved: contacted.length, holdout: holdout.length });
     requestClose();
   };

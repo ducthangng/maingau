@@ -28,9 +28,18 @@ export function parseCampaigns(raw: string | null): Campaign[] {
   try {
     const list: unknown = JSON.parse(raw ?? "[]");
     if (!Array.isArray(list)) return [];
-    return list.filter(
-      (c): c is Campaign => !!c && typeof c === "object" && typeof (c as Campaign).id === "string" && typeof (c as Campaign).name === "string",
-    );
+    const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : 0);
+    return list
+      .filter((c): c is Campaign => !!c && typeof c === "object" && typeof (c as Campaign).id === "string" && typeof (c as Campaign).name === "string")
+      .map((c) => ({  // an entry edited or saved by an older version must not break the page
+        ...c,
+        groups: Array.isArray(c.groups) ? c.groups.filter((g) => typeof g === "string") : [],
+        customers: num(c.customers),
+        contacted: num(c.contacted),
+        holdout: num(c.holdout),
+        holdout_pct: num(c.holdout_pct),
+        delta_clv: typeof c.delta_clv === "number" ? c.delta_clv : null,
+      }));
   } catch {
     return [];
   }

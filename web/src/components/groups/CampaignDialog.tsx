@@ -218,7 +218,7 @@ export default function CampaignDialog({
           <ul className="space-y-1 text-xs text-neutral-500">
             <li>Only customers marked ready are included. The control group is fixed by a hash of the customer ID.</li>
             {plan.secondLook > 0 && (
-              <li className="text-amber-800">
+              <li className="text-neutral-700">
                 Not included: {plural(plan.secondLook, "customer")} with a second look or “do no harm”. Approve them per group.
               </li>
             )}

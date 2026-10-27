@@ -14,7 +14,7 @@ export function exportable(log: Decision[]): { handoff: Decision[]; holdout: Dec
 
 const ACTION_STYLE: Record<string, string> = {
   approved: "bg-accent-50 text-accent-700 ring-accent-100",
-  overridden: "bg-amber-50 text-amber-800 ring-amber-200",
+  overridden: "bg-white text-accent-700 ring-accent-200",
   rejected: "bg-neutral-100 text-neutral-600 ring-neutral-200",
 };
 

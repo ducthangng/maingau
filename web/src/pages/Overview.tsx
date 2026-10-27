@@ -12,7 +12,7 @@ import { NOT_ENOUGH } from "../lib/format";
 
 /**
  * Orchestration home (prompts/ui-overview.md): which actions bring the most value and why, how each
- * splits across segments, and a jump into the Worklist filtered to one segment.
+ * splits across segments, and a jump into Groups filtered to one action and segment.
  */
 export default function Overview() {
   const index = useLoad(loadIndex, []);
@@ -65,7 +65,7 @@ export default function Overview() {
         <h1 className="text-2xl font-semibold tracking-tight text-neutral-900">Overview</h1>
         <p className="mt-1 text-[15px] text-neutral-600">
           Which actions bring the most value, and why. Open an action to see how it splits across the customer segments, then jump into
-          the Worklist.
+          Groups.
         </p>
         <p className="mt-2 text-sm tabular-nums text-neutral-500">
           <Sourced src={countSrc} updatedAt={summary?.eval_time} sources={summary?.sources}>
