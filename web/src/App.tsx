@@ -2,6 +2,7 @@ import { Route, Routes } from "react-router-dom";
 import Layout from "./components/Layout";
 import Customer from "./pages/Customer";
 import Groups from "./pages/Groups";
+import Overview from "./pages/Overview";
 import Service from "./pages/Service";
 import Worklist from "./pages/Worklist";
 
@@ -9,7 +10,8 @@ export default function App() {
   return (
     <Routes>
       <Route element={<Layout />}>
-        <Route index element={<Worklist />} />
+        <Route index element={<Overview />} />
+        <Route path="worklist" element={<Worklist />} />
         <Route path="customer/:id" element={<Customer />} />
         <Route path="groups" element={<Groups />} />
         <Route path="service" element={<Service />} />

@@ -32,6 +32,9 @@ export default function Layout() {
           {!isC360 && (
           <nav className="flex gap-1 sm:ml-4">
             <NavLink to="/" end className={navClass}>
+              Overview
+            </NavLink>
+            <NavLink to="/worklist" className={navClass}>
               Worklist
             </NavLink>
             <NavLink to="/groups" className={navClass}>

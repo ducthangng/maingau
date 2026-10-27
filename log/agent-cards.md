@@ -218,3 +218,51 @@ These are kept up to date and edited in place. Status values: `open`, `answered`
 **Handoff:** Agent NBA: Q-CARDS-18 is a one-line change in `nba/engine/runtime.py` (`population(tables)` → `profile_population(states)`).
 
 **Next session starts with:** measure the size of NBA's export for 750 customers, then switch the UI data to it.
+
+### Session 3 · 2026-10-27 ≈00:30–02:40 Europe/Berlin · Claude Code (Opus 5.5) + workflow `overview-review` (4 subagents) · branch feat/cards · commits 327670e, 2af2654, (this commit)
+
+**Goal:** the two briefs `prompts/ui-customer360.md` (Customer 360° and the dashboard switch) and `prompts/ui-overview.md` (Overview page), with tests.
+
+**Done:**
+- Customer 360° (327670e):
+  - The Orchestration | Customer 360° switch with customer-ID search (`components/service/ViewSwitch.tsx`).
+  - `/service/:id` with a fixed strip and the Profile / Customer journey / Next best actions tabs (`pages/Service.tsx`, `components/service/*`).
+  - Plain-language rule texts with no payment wording (`components/service/plain.ts`).
+  - Mentioned / Interested / Declined rows in the `service_nba_feedback` shape (`lib/serviceFeedback.ts`).
+- Tests (2af2654): vitest (`npm test`) with `plain.test.ts`, `serviceFeedback.test.ts`, and `customer360.test.tsx` (§4 acceptance plus a scan of all 750 customers for tier, flag, segment and payment wording).
+- Overview (this commit):
+  - `pages/Overview.tsx`, `components/overview/{model.ts, ActionTable.tsx, SegmentBreakdown.tsx, format.ts}`.
+  - `/` is now the Overview and the Worklist is at `/worklist`. The nav reads Overview · Worklist · Groups. The three back links in `pages/Customer.tsx` go to `/worklist`.
+  - The open action is kept in `?open=`. ↑/↓, Enter/Space and Esc work on rows; Esc returns focus to the row.
+  - Segment rows link to `/worklist?offer=…&arch=…&pers=yes&queue=all`, or `pers=no` for Not personalised.
+- Overview tests:
+  - `model.test.ts` (14 tests, real `public/data`): every action matches `summary.chosen_by_offer`; totals 10 / 617 / +€7,302, 47 service, 86 NO_ACTION; the ranking table; reasons and labels with no code outside the tooltip; an older export reads "not enough data"; both percentage columns sum to 100 for every action; the StromGarant and StromAktiv splits; every segment link run through `matches()` gives the same count.
+  - `overview.test.tsx` (7 tests): rendered text, tooltips, links and the empty-segment state.
+- Independent review (workflow: 2 reviewers + 2 adversarial verifiers): 9 findings, 3 confirmed, all fixed. Fixed:
+  - focus ring clipped by the card → drawn inward;
+  - mobile ΔCLV bars of different widths → fixed track;
+  - header total and service count without a source tooltip.
+  The 6 refuted findings describe cases the engine cannot produce (null ΔCLV on a chosen action, personalised rows without a reason). One refuted keyboard detail (focus lost after Esc) was fixed anyway.
+
+**Verified:**
+- `npm test` → 69 passed (5 files). `npm run build` → OK.
+- Browser on :5173 (static data):
+  - At 1280 px no sideways scroll (document 1265 px); the nav reads Overview* · Worklist · Groups; 10 action rows; StromGarant shows 44 · 67% / +€552 · 54% etc.
+  - StromAktiv → Not personalised opens the Worklist with exactly 79 rows and the ✕; Back restores `?open=P-EN-01`.
+  - ↓ / Enter / Esc work.
+  - At 375 px no sideways scroll; the reasons wrap under the offer name; the bars share one width (83 px).
+- Customer 360° (Session 3, first part): the acceptance customers MG-100186, MG-100096, MG-100023, MG-100112 and MG-100026 checked in the browser. A mutation check showed that removing the payment sanitizer fails 3 tests and showing `payment_method` fails the 750-customer scan.
+
+**Not done / carried over:**
+- The Overview is not checked in API mode (no `uvicorn` running here).
+- The 6 refuted review findings were left as is.
+
+**Contract changes:** none.
+
+**Questions to consider:** none new.
+
+**Issues / risks:** the brief asked to change only the links in `Customer.tsx`. `ViewSwitch` still sends "Orchestration" to `/`, which is now the Overview, as the brief intends.
+
+**Handoff:** marketers now land on the Overview; links that meant the Worklist must use `/worklist`.
+
+**Next session starts with:** run the Overview against the live API (`uvicorn api.app:app`) and check the same acceptance numbers.
