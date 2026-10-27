@@ -24,6 +24,7 @@ export interface CustomerCard {
   legacy_comparison?: LegacyComparison | null;
   meta: Meta;
   profile: Profile;
+  rules?: RuleReport | null;
   schema_version?: string;
   signals?: Signal[];
   sources?: {
@@ -51,6 +52,7 @@ export interface Blocked {
   counterfactual_delta_clv?: number | null;
   offer_id: string;
   reason: string;
+  rule_center_id?: string | null;
   rule_id:
     | "CONSENT-CHANNEL"
     | "CONSENT-PROFILING"
@@ -62,8 +64,10 @@ export interface Blocked {
     | "HOLDING-PRECONDITION"
     | "CONTACT-CAP"
     | "ECON-NONPOSITIVE"
-    | "DATA-MISSING";
+    | "DATA-MISSING"
+    | "BUSINESS-RULE";
   src?: string | null;
+  until?: string | null;
 }
 /**
  * This interface was referenced by `Contracts`'s JSON-Schema
@@ -73,6 +77,7 @@ export interface Candidate {
   action_type: "sales" | "upsell" | "retention" | "one_off" | "service";
   channel: "newsletter_email" | "email" | "portal_popup" | "app_push" | "sms" | "outbound_call" | "service_agent";
   checks?: Check[];
+  deferred_until?: string | null;
   need?: string | null;
   notes?: string[];
   offer_id: string;
@@ -105,7 +110,8 @@ export interface Check {
     | "HOLDING-PRECONDITION"
     | "CONTACT-CAP"
     | "ECON-NONPOSITIVE"
-    | "DATA-MISSING";
+    | "DATA-MISSING"
+    | "BUSINESS-RULE";
   src?: string | null;
 }
 /**
@@ -164,6 +170,7 @@ export interface ChecklistItem {
 export interface Chosen {
   agent_script?: string | null;
   content?: Content | null;
+  deferred_until?: string | null;
   reason_line: string;
   send_at?: string | null;
   service_mode?: boolean;
@@ -243,6 +250,7 @@ export interface Meta {
 export interface Versions {
   policy: string;
   propensity: string;
+  rules?: string | null;
   templates: string;
   value_model: string;
 }
@@ -315,7 +323,8 @@ export interface ExclusionItem {
     | "HOLDING-PRECONDITION"
     | "CONTACT-CAP"
     | "ECON-NONPOSITIVE"
-    | "DATA-MISSING";
+    | "DATA-MISSING"
+    | "BUSINESS-RULE";
   src: string;
 }
 /**
@@ -459,6 +468,45 @@ export interface Percentiles {
 }
 /**
  * This interface was referenced by `Contracts`'s JSON-Schema
+ * via the `definition` "RuleReport".
+ */
+export interface RuleReport {
+  counter_line?: string;
+  counters?: ContactCounter[];
+  results?: RuleResult[];
+  rule_set_version: string;
+}
+/**
+ * This interface was referenced by `Contracts`'s JSON-Schema
+ * via the `definition` "ContactCounter".
+ */
+export interface ContactCounter {
+  count: number;
+  label: string;
+  limit: number;
+  rule_id: string;
+  window_days: number;
+}
+/**
+ * One Rule Center rule for one customer and run (docs/rule-center.md §4, §6).
+ *
+ * This interface was referenced by `Contracts`'s JSON-Schema
+ * via the `definition` "RuleResult".
+ */
+export interface RuleResult {
+  detail?: string | null;
+  measured?: {
+    [k: string]: unknown;
+  };
+  name: string;
+  result: "pass" | "block" | "defer" | "off" | "n/a";
+  rule_id: string;
+  tier: "compliance" | "business" | "custom";
+  tuples?: number;
+  until?: string | null;
+}
+/**
+ * This interface was referenced by `Contracts`'s JSON-Schema
  * via the `definition` "Signal".
  */
 export interface Signal {
@@ -562,6 +610,7 @@ export interface IndexRow {
   confidence?: ("high" | "medium" | "low") | null;
   contact_cost?: number | null;
   customer_id: string;
+  deferred_until?: string | null;
   delta_clv?: number | null;
   exclusions?: string[];
   flags?: (

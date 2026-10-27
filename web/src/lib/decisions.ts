@@ -1,7 +1,10 @@
 import { useSyncExternalStore } from "react";
+import type { DecisionRequest, TupleRef } from "../types/contracts";
+import { API_BASE, dataMode, invalidateCard } from "./data";
 
-// Human-in-the-loop decisions (README §4.2 C8, §6.10). The static demo keeps them in localStorage
-// and exports them as CSV/JSON; nothing is ever sent to a customer.
+// Human-in-the-loop decisions (README §4.2 C8, §6.10). They are kept in localStorage and exported
+// as CSV/JSON; in API mode each one is also posted to POST /api/customers/{id}/decision, which
+// re-checks every rule. A refusal (409) removes the local entry again. Nothing is ever sent to a customer.
 const KEY = "maingau.decisions.v1";
 const EVENT = "maingau-decisions";
 
@@ -46,7 +49,90 @@ function write(list: Decision[]) {
 
 export function recordDecisions(items: Omit<Decision, "id" | "ts">[]) {
   const ts = new Date().toISOString();
-  write([...read(), ...items.map((d) => ({ ...d, ts, id: `${d.customer_id}@${ts}` }))]);
+  const added = items.map((d) => ({ ...d, ts, id: `${d.customer_id}@${ts}` }));
+  write([...read(), ...added]);
+  void syncToApi(added);
+}
+
+/* ------------------------------------------------------------------ API sync */
+
+/** A decision the API refused or could not store; shown by <DecisionErrors>. */
+export interface DecisionError {
+  id: string;
+  customer_id: string;
+  tuple_id: string;
+  action: DecisionAction;
+  rule_ids: string[];
+  reasons: string[];
+}
+
+const ERR_EVENT = "maingau-decision-errors";
+let errors: DecisionError[] = [];
+
+function setErrors(list: DecisionError[]) {
+  errors = list;
+  window.dispatchEvent(new Event(ERR_EVENT));
+}
+
+export function dismissDecisionError(id: string) {
+  setErrors(errors.filter((e) => e.id !== id));
+}
+
+export function useDecisionErrors(): DecisionError[] {
+  return useSyncExternalStore(
+    (cb) => {
+      window.addEventListener(ERR_EVENT, cb);
+      return () => window.removeEventListener(ERR_EVENT, cb);
+    },
+    () => errors,
+    () => errors,
+  );
+}
+
+function tupleRef(tupleId: string): TupleRef | null {
+  const [offer_id, channel, tone] = tupleId.split("|");
+  return offer_id && channel && tone ? ({ offer_id, channel, tone } as TupleRef) : null;
+}
+
+function toRequest(d: Decision): DecisionRequest {
+  const action = d.action === "approved" ? "approve" : d.action === "overridden" ? "override" : "reject";
+  // Approve sends the proposal it saw, so the API refuses it if the proposal changed meanwhile.
+  return { action, user: d.reviewer, reason: d.reason, tuple: tupleRef(d.tuple_id) };
+}
+
+async function postDecision(d: Decision): Promise<DecisionError | null> {
+  try {
+    const res = await fetch(`${API_BASE}/api/customers/${encodeURIComponent(d.customer_id)}/decision`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(toRequest(d)),
+    });
+    if (res.ok) return null;
+    const body = (await res.json().catch(() => null)) as { detail?: unknown } | null;
+    const detail = body?.detail;
+    const refusal =
+      detail && typeof detail === "object" && "rule_ids" in detail
+        ? (detail as { rule_ids: string[]; reasons: string[] })
+        : { rule_ids: [], reasons: [typeof detail === "string" ? detail : `HTTP ${res.status}`] };
+    return { id: d.id, customer_id: d.customer_id, tuple_id: d.tuple_id, action: d.action, ...refusal };
+  } catch (err) {
+    return { id: d.id, customer_id: d.customer_id, tuple_id: d.tuple_id, action: d.action, rule_ids: [], reasons: [String(err)] };
+  }
+}
+
+// Holdout customers are the control group: approved here, but never handed to the API as an action.
+async function syncToApi(added: Decision[]) {
+  if ((await dataMode()) !== "api") return;
+  const failed: DecisionError[] = [];
+  for (const d of added.filter((x) => !x.holdout)) {
+    const err = await postDecision(d);
+    invalidateCard(d.customer_id);
+    if (err) failed.push(err);
+  }
+  if (!failed.length) return;
+  const ids = new Set(failed.map((e) => e.id));
+  write(read().filter((d) => !ids.has(d.id)));
+  setErrors([...errors, ...failed]);
 }
 
 export function clearDecisions() {
