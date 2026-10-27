@@ -9,8 +9,8 @@ import { Label } from "./parts";
 // newsletter and portal. One line each with one small mark; all numbers come from the card JSON.
 
 const OUTCOME_DOT: Record<string, string> = {
-  converted: "bg-emerald-500",
-  clicked: "bg-emerald-500",
+  converted: "bg-accent-600",
+  clicked: "bg-accent-600",
   viewed: "bg-neutral-400",
   ignored: "bg-red-400",
   dismissed: "bg-red-400",

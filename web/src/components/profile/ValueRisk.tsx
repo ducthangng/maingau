@@ -75,7 +75,7 @@ export function ValueRiskPanel({ card }: { card: CustomerCard }) {
               <Sourced key={d.label} src={vr.churn_prob_12m?.src} updatedAt={vr.churn_prob_12m?.updated_at} sources={s}>
                 <span
                   className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs ring-1 ring-inset ${
-                    up ? "bg-red-50 text-red-700 ring-red-200" : down ? "bg-emerald-50 text-emerald-700 ring-emerald-200" : "bg-neutral-50 text-neutral-600 ring-neutral-200"
+                    up ? "bg-red-50 text-red-700 ring-red-200" : down ? "bg-accent-50 text-accent-700 ring-accent-100" : "bg-neutral-50 text-neutral-600 ring-neutral-200"
                   }`}
                 >
                   {d.label}
@@ -93,7 +93,7 @@ export function ValueRiskPanel({ card }: { card: CustomerCard }) {
       )}
 
       {impactV !== null && impactV < 0 && (
-        <p className="mt-2 flex items-center gap-1.5 rounded-lg bg-amber-50 px-2.5 py-1.5 text-sm text-amber-900 ring-1 ring-inset ring-amber-200">
+        <p className="mt-2 flex items-center gap-1.5 rounded-lg bg-neutral-50 px-2.5 py-1.5 text-sm text-neutral-800 ring-1 ring-inset ring-neutral-200">
           <TrendingDown className="size-4 shrink-0" aria-hidden />
           <span>
             Service issues are costing{" "}

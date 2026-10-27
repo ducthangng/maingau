@@ -126,7 +126,7 @@ export default function ProfileTab({ card }: { card: CustomerCard }) {
             return (
               <span key={l} className="flex w-11 flex-col items-center gap-1" title={`${PRODUCT_META[l].label}: ${held ? "in use" : "not used"}`}>
                 <span
-                  className={`grid size-8 place-items-center rounded-lg ${held ? "bg-emerald-500 text-white" : "bg-white text-neutral-400 ring-1 ring-inset ring-neutral-200"}`}
+                  className={`grid size-8 place-items-center rounded-lg ${held ? "bg-accent-600 text-white" : "bg-white text-neutral-400 ring-1 ring-inset ring-neutral-200"}`}
                 >
                   <Icon size={15} aria-hidden />
                 </span>
@@ -226,7 +226,7 @@ export default function ProfileTab({ card }: { card: CustomerCard }) {
         <ul className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
           {channels.map((c) => (
             <li key={c.channel} className="flex items-center gap-2">
-              <span className={c.allowed ? "text-emerald-600" : "text-neutral-400"} aria-hidden>
+              <span className={c.allowed ? "text-accent-600" : "text-neutral-400"} aria-hidden>
                 {c.allowed ? "✓" : "–"}
               </span>
               <span className={c.allowed ? "text-neutral-900" : "text-neutral-500"}>

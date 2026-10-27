@@ -1,13 +1,27 @@
 @import "tailwindcss";
 
-/* One accent colour on a neutral palette (prompts/agent-cards.md §2). */
+/* Colour rule (prompts/ui-colors.md). MAINGAU palette: brand blue #034c99, yellow #f3bf00, white.
+   - Base (~90%): white and neutral greys.
+   - accent = brand blue. accent-600 #034c99: primary buttons, active states (8.41:1 on white). accent-700/800:
+     text on light backgrounds. accent-500: bars, fills, rings. accent-50/100: soft surfaces. Approved, granted,
+     held, online, converted and "up and good" are accent too: no green.
+   - red only for danger and negatives: reject, blocked, negative ΔCLV, P1, errors, withdrawn, offline, high risk.
+   - Warnings are neutral surfaces with an icon (no amber): the icon and the words carry the meaning.
+   - gold #f3bf00 is decoration only (1.71:1 on white: never text, icon or thin line on white). Yellow only for
+     the engine's #1 badge (text neutral-900, 10.47:1) and the active nav underline. */
 @theme {
   --font-sans: ui-sans-serif, system-ui, -apple-system, "SF Pro Text", "Segoe UI", sans-serif;
-  --color-accent-50: oklch(0.97 0.02 250);
-  --color-accent-100: oklch(0.93 0.04 250);
-  --color-accent-500: oklch(0.58 0.17 250);
-  --color-accent-600: oklch(0.51 0.17 250);
-  --color-accent-700: oklch(0.44 0.15 250);
+  --color-accent-50: #eef4fb;
+  --color-accent-100: #d6e4f3;
+  --color-accent-200: #b3cbe6;
+  --color-accent-300: #86a9d6;
+  --color-accent-400: #4f86c6;
+  --color-accent-500: #1f62ad;
+  --color-accent-600: #034c99;
+  --color-accent-700: #033d7a;
+  --color-accent-800: #022f5e;
+  --color-gold-50: #fff8db;
+  --color-gold-400: #f3bf00;
 }
 
 html {

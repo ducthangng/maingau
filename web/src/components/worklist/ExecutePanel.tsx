@@ -76,7 +76,7 @@ function GroupCard({ g, onOpen }: { g: ReadyGroup; onOpen: (id: string) => void 
       <button
         type="button"
         onClick={execute}
-        className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-[background-color,transform] duration-150 hover:bg-emerald-700 active:translate-y-px active:scale-[0.99]"
+        className="flex w-full items-center justify-center gap-2 rounded-xl bg-accent-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-[background-color,transform] duration-150 hover:bg-accent-700 active:translate-y-px active:scale-[0.99]"
       >
         <Send size={15} aria-hidden />
         {service ? `Hand ${g.items.length} to service agents` : `Execute ${g.items.length} via ${channelLabel(g.channel)}`}

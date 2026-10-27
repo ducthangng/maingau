@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { TriangleAlert } from "lucide-react";
 import { Bar, BarChart, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { CustomerCard } from "../../types/contracts";
 import type { Range, TypedTrends } from "../../types/trends";
@@ -72,7 +73,8 @@ function Stat({ label, src, sources, children, warn = false }: { label: string; 
   return (
     <div className="min-w-0">
       <div className="text-[11px] text-neutral-500">{label}</div>
-      <div className={`text-sm font-semibold tabular-nums ${warn ? "text-amber-700" : ""}`}>
+      <div className={`text-sm font-semibold tabular-nums ${warn ? "flex items-center gap-1 text-neutral-900" : ""}`}>
+        {warn && <TriangleAlert className="size-3.5 shrink-0 text-neutral-500" aria-label="warning" />}
         <Sourced src={src} sources={sources}>
           {children}
         </Sourced>
@@ -356,7 +358,7 @@ function HemsSummary({ t, s }: { t: NonNullable<TypedTrends["hems"]>; s: Sources
         </Sourced>
         {" · missing "}
         <Sourced src={`${t.src}.date`} sources={s}>
-          <span className={t.days_missing > 0 ? "font-medium text-amber-700" : ""}>{num(t.days_missing)}</span>
+          <span className={t.days_missing > 0 ? "font-medium text-neutral-900" : ""}>{num(t.days_missing)}</span>
         </Sourced>
       </div>
     </>

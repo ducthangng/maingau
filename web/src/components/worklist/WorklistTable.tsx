@@ -15,12 +15,12 @@ import { NO_ACTION, OFFER_NAME, asOf, colSrc, isNoAction, type Group } from "./m
 // Action-first worklist: each row says why now, what to do, what it is worth, and lets the
 // reviewer decide on the spot. Archetype, CLV and churn sit in the row tooltip and the pop-up.
 
-// Row tint by urgency tier: the hotter the row, the warmer the background (the tier chip names it).
+// Row tint by urgency tier: only P1 (act now) is tinted; the tier chip names every tier.
 const TIER_ROW: Record<string, string> = {
-  P1: "bg-red-50",
-  P2: "bg-orange-50/80",
-  P3: "bg-amber-50/70",
-  P4: "bg-sky-50/50",
+  P1: "bg-red-50/60",
+  P2: "bg-white",
+  P3: "bg-white",
+  P4: "bg-white",
   P5: "bg-white",
 };
 
@@ -32,7 +32,7 @@ const COLS: { label: string; width?: number; align?: "right"; title?: string }[]
   { label: "", width: 190, align: "right" },
 ];
 
-/** Why the customer is on the list: their latest action, marked as an upsell chance (green) or a potential issue (red). */
+/** Why the customer is on the list: their latest action, marked as an upsell chance (blue) or a potential issue (red). */
 function WhyCell({ row }: { row: IndexRow }) {
   const ev = customerEvent(row);
   const positive = ev.polarity === "positive";
@@ -43,7 +43,7 @@ function WhyCell({ row }: { row: IndexRow }) {
       title={`${label}: ${ev.text}${ev.mock ? " (mock activity)" : ""}${row.top_reason ? `\nEngine: ${row.top_reason}` : ""}`}
     >
       <span
-        className={`grid size-5 shrink-0 place-items-center rounded-full ${positive ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}
+        className={`grid size-5 shrink-0 place-items-center rounded-full ${positive ? "bg-accent-100 text-accent-700" : "bg-red-100 text-red-700"}`}
         role="img"
         aria-label={label}
       >

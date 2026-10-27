@@ -109,7 +109,7 @@ export default function KpiStrip({
           label="Outliers first"
           onClick={onOutliers}
         />
-        <Shortcut icon={<LifeBuoy size={15} />} tone="bg-amber-50 text-amber-700" n={service} label="Service first" onClick={onService} />
+        <Shortcut icon={<LifeBuoy size={15} />} tone="bg-neutral-100 text-neutral-700" n={service} label="Service first" onClick={onService} />
         <Shortcut icon={<Ban size={15} />} tone="bg-neutral-100 text-neutral-500" n={hold} label="Do not contact" onClick={() => onQueue("hold")} />
       </div>
     </div>

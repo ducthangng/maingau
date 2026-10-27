@@ -199,7 +199,7 @@ export function SuccessEvidence({ v, sources }: { v: Valuation | null | undefine
         <dt className="text-neutral-500">Backoff level</dt>
         <dd>
           {ps?.level === "assumption" ? (
-            <span className="rounded bg-amber-50 px-1.5 py-0.5 text-amber-800 ring-1 ring-inset ring-amber-200">
+            <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-neutral-800 ring-1 ring-inset ring-neutral-300">
               assumption (no history)
             </span>
           ) : (

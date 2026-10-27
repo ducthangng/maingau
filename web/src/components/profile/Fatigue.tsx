@@ -33,7 +33,14 @@ export function FatiguePanel({ card }: { card: CustomerCard }) {
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <Cell label="Contacts 30 d">
           <Sourced src={`${HISTORY}.decided_at`} sources={s}>
-            {isMissing(c30) ? <Missing /> : <span className={c30 >= CONTACT_CAP_30D ? "text-amber-700" : ""}>{num(c30)}</span>}
+            {isMissing(c30) ? (
+              <Missing />
+            ) : (
+              <span className={c30 >= CONTACT_CAP_30D ? "inline-flex items-center gap-1 text-neutral-900" : ""}>
+                {c30 >= CONTACT_CAP_30D && <TriangleAlert className="size-3.5 text-neutral-500" aria-label="warning" />}
+                {num(c30)}
+              </span>
+            )}
           </Sourced>
           <span className="ml-1 text-[11px] font-normal text-neutral-400">cap {CONTACT_CAP_30D}</span>
         </Cell>
@@ -52,8 +59,8 @@ export function FatiguePanel({ card }: { card: CustomerCard }) {
             {isMissing(legacy) ? (
               <Missing />
             ) : (
-              <span className={legacy > 0 ? "inline-flex items-center gap-1 text-amber-700" : ""}>
-                {legacy > 0 && <TriangleAlert className="size-3.5" aria-label="warning" />}
+              <span className={legacy > 0 ? "inline-flex items-center gap-1 text-neutral-900" : ""}>
+                {legacy > 0 && <TriangleAlert className="size-3.5 text-neutral-500" aria-label="warning" />}
                 {num(legacy)}
               </span>
             )}

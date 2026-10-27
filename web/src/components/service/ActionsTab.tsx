@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, Lock } from "lucide-react";
+import { ChevronDown, LifeBuoy, Lock } from "lucide-react";
 import type { Candidate, CustomerCard } from "../../types/contracts";
 import { useHardRules, violation, type HardRule } from "../../lib/hardRules";
 import { pct, signedEur } from "../../lib/format";
@@ -41,9 +41,7 @@ function OptionRow({
     <li
       className={`rounded-xl ring-1 transition-[box-shadow,background-color] duration-150 ${
         selected
-          ? top
-            ? "bg-emerald-50/70 ring-2 ring-emerald-500"
-            : "bg-accent-50/60 ring-2 ring-accent-500"
+          ? "bg-accent-50/60 ring-2 ring-accent-500"
           : "bg-white ring-neutral-200 hover:bg-neutral-50 hover:shadow-sm"
       } ${lock ? "opacity-60" : ""}`}
     >
@@ -51,7 +49,7 @@ function OptionRow({
         <button type="button" onClick={onSelect} aria-pressed={selected} className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left">
           <span
             className={`grid size-6 shrink-0 place-items-center rounded-md text-xs font-semibold tabular-nums ${
-              top ? "bg-emerald-600 text-white" : selected ? "bg-accent-600 text-white" : "bg-neutral-100 text-neutral-600"
+              top ? "bg-gold-400 text-neutral-900" : selected ? "bg-accent-600 text-white" : "bg-neutral-100 text-neutral-600"
             }`}
           >
             {n}
@@ -69,7 +67,7 @@ function OptionRow({
             </span>
           </span>
           <span className="hidden w-20 shrink-0 sm:block" title="Expected value, relative to the other options">
-            <ValueBar value={v?.delta_clv ?? 0} max={maxDelta} tone={top ? "green" : selected ? "accent" : "muted"} />
+            <ValueBar value={v?.delta_clv ?? 0} max={maxDelta} tone={top || selected ? "accent" : "muted"} />
           </span>
         </button>
         <button
@@ -142,7 +140,10 @@ export default function ActionsTab({ card }: { card: CustomerCard }) {
           <span className="text-xs text-neutral-400">best first · click one to choose</span>
         </div>
         {chosen.service_mode && (
-          <p className="rounded-xl bg-amber-50 px-4 py-2.5 text-sm text-amber-900 ring-1 ring-amber-200">Resolve the service issue first.</p>
+          <p className="flex items-center gap-2 rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-2.5 text-sm text-neutral-800">
+            <LifeBuoy size={15} className="shrink-0 text-neutral-500" aria-hidden />
+            Resolve the service issue first.
+          </p>
         )}
         {options.length === 0 ? (
           <p className="rounded-xl bg-white p-6 text-sm text-neutral-600 ring-1 ring-neutral-200">

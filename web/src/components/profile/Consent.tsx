@@ -15,7 +15,7 @@ const CONSENT_LABEL: Record<ConsentItem["type"], string> = {
 };
 
 const LIGHT: Record<ConsentItem["effective_status"], string> = {
-  granted: "bg-emerald-500",
+  granted: "bg-accent-600",
   withdrawn: "bg-red-500",
   not_given: "bg-neutral-300",
 };
@@ -56,7 +56,7 @@ export function ConsentPanel({ card }: { card: CustomerCard }) {
       title="Consent & exclusions"
       aside={
         <span className="flex items-center gap-2.5 text-[11px] text-neutral-500">
-          <Legend color="bg-emerald-500" label="granted" />
+          <Legend color="bg-accent-600" label="granted" />
           <Legend color="bg-red-500" label="withdrawn" />
           <Legend color="bg-neutral-300" label="not given" />
         </span>
@@ -80,7 +80,7 @@ export function ConsentPanel({ card }: { card: CustomerCard }) {
                   {c.updated_at ? ` · ${c.updated_at}` : ""}
                 </div>
                 {overridden && (
-                  <div className="mt-0.5 text-[11px] leading-snug text-amber-700">
+                  <div className="mt-0.5 text-[11px] leading-snug text-neutral-700">
                     record says {STATUS_TEXT[c.status]}
                     {c.override_reason ? ` — ${c.override_reason}` : ""}
                   </div>
@@ -115,7 +115,7 @@ export function ConsentPanel({ card }: { card: CustomerCard }) {
             className="flex items-center gap-1.5 text-sm text-neutral-500"
             title={`Checked: ${exclusions.map((e) => `${e.rule_id} (${e.src})`).join(", ") || "none"}`}
           >
-            <ShieldCheck className="size-4 text-emerald-600" aria-hidden />
+            <ShieldCheck className="size-4 text-accent-600" aria-hidden />
             No active exclusion
           </p>
         )}
@@ -129,7 +129,7 @@ export function ConsentPanel({ card }: { card: CustomerCard }) {
               key={c.channel}
               title={c.reason}
               className={`inline-flex cursor-help items-center gap-1 rounded-full px-2 py-0.5 text-xs ring-1 ring-inset ${
-                c.allowed ? "bg-emerald-50 text-emerald-800 ring-emerald-200" : "bg-neutral-50 text-neutral-400 ring-neutral-200"
+                c.allowed ? "bg-accent-50 text-accent-800 ring-accent-100" : "bg-neutral-50 text-neutral-400 ring-neutral-200"
               }`}
             >
               {c.allowed ? <Check className="size-3" aria-label="allowed" /> : <X className="size-3" aria-label="not allowed" />}

@@ -90,7 +90,9 @@ export default function ViewSwitch() {
   };
 
   const btn = (active: boolean) =>
-    `rounded-md px-3 py-1 text-sm transition-colors duration-150 ${active ? "bg-white shadow-sm" : "text-neutral-500 hover:text-neutral-800"}`;
+    `rounded-md px-3 py-1 text-sm transition-colors duration-150 ${
+      active ? "bg-white text-neutral-900 shadow-sm inset-shadow-[0_-2px_0_var(--color-gold-400)]" : "text-neutral-500 hover:text-neutral-800"
+    }`;
 
   return (
     <div className="flex flex-wrap items-center gap-3">
