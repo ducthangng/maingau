@@ -719,3 +719,21 @@ Claude Code (Opus) on Windows, in the user's checkout `E:\Projects\maingau`. On 
   - the 750-customer scan now also fails on engine codes and the card's own flag labels and segment name.
 - Test files are type-checked again (`tsconfig` exclude removed; 2 type errors in tests fixed).
 - **Not done (low, plausible):** the sticky strip offset on narrow screens; a marketer-rejected proposal is still shown as "Suggest first" in API mode.
+
+### Session 18 · 2026-10-27 · Claude Code (Opus) · branch feat/kg
+
+**Goal (user):** the backend part of the Overview brief (`prompts/ui-overview.md` §7).
+
+**Done:**
+- `IndexRow.reason_signal` and `reason_need`: the Signal and Need on the chosen action's path. They are `null` for general offers (no profiling consent) and for `NO_ACTION`.
+- `Summary.signal_labels` (labels from `kg/policy.yaml`, parameters filled in) and `need_labels` (`label_en`). `summary()` takes the policy; `nba.build` and `GET /api/summary` pass it.
+- `column_src` gains the two new columns.
+- Regenerated: schemas, OpenAPI, `web/src/types/contracts.ts`, and `index.json` / `summary.json`. The customer files are unchanged; the export is 24.07 MB.
+- Docs: `docs/api.md` §3.1 and §3.3; the brief's §7 is marked done.
+
+**Contract changes:** two optional `IndexRow` fields and two `Summary` dicts; all additive.
+
+**Verified:** `tests/test_overview_fields.py` (2 tests), for example:
+- P-EN-03 rows → S1 / N-HEAT-PUMP;
+- every personalised action has a signal that indicates its need, which the offer addresses;
+- S4 reads "Price guarantee ends within 90 days".

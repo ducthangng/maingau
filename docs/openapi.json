@@ -1666,6 +1666,28 @@
             ],
             "title": "Personalised"
           },
+          "reason_need": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Need"
+          },
+          "reason_signal": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Signal"
+          },
           "service_mode": {
             "default": false,
             "title": "Service Mode",
@@ -2861,6 +2883,13 @@
             "title": "N Customers",
             "type": "integer"
           },
+          "need_labels": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Need Labels",
+            "type": "object"
+          },
           "no_action_by_reason": {
             "additionalProperties": {
               "type": "integer"
@@ -2873,6 +2902,13 @@
               "type": "integer"
             },
             "title": "Signal Counts",
+            "type": "object"
+          },
+          "signal_labels": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Signal Labels",
             "type": "object"
           },
           "sources": {

@@ -136,9 +136,9 @@ Reuse these; do not invent new styles.
 - **Missing values** show "not enough data", never 0.
 - **Width:** no horizontal scroll at 1280 px. Below 768 px, the reason lines wrap under the offer name and the bars stay.
 
-## 7. Backend needed (Agent KG): which signal and need led to the action
+## 7. Backend (done): which signal and need led to the action
 
-`IndexRow` does not say which signal and need led to the chosen offer; that is only in each card's `path`. Add:
+Done on `main`; `web/src/types/contracts.ts` is regenerated. The fields:
 
 | Where | Field | Value |
 |---|---|---|
@@ -148,8 +148,7 @@ Reuse these; do not invent new styles.
 | `Summary` | `need_labels` | `{"N-HEAT-PUMP": "Heat pump / electric heating", …}`: `label_en` |
 
 - These fields reach both modes: the API (`/api/customers`, `/api/summary`) and the static files (`index.json`, `summary.json`).
-- After the backend change, run `npm run types`.
-- Until then, show the reason column as "not enough data".
+- An older export without them: show the reason column as "not enough data".
 
 ## 8. Acceptance (static export on `main`)
 

@@ -22,6 +22,7 @@ COLUMN_SOURCES = {
     "delta_clv": "nba.engine.value.delta_clv", "p_accept": "nba_action_history.converted_within_14d",
     "contact_cost": "value_assumptions.contact_cost", "n_signals": "nba.kg.signals.extract_signals",
     "n_candidates": "nba.kg.rules.generate_candidates", "n_blocked": "nba.kg.rules.generate_candidates",
+    "reason_signal": "chosen action path: Signal (nba.kg.rules)", "reason_need": "chosen action path: Need (kg/policy.yaml)",
 }
 
 
@@ -99,6 +100,8 @@ def index_row(card, state) -> IndexRow:
     value, master = state.one("customer_value") or {}, state.one("customer_master") or {}
     selected = next((c for c in card.candidates if c.tuple_id == card.chosen.tuple_id), None)
     v, tri = selected.valuation if selected else None, card.triage
+    path = selected.path if selected else []
+    reason = {t: next((p.id for p in path if p.kind == "node" and p.type == t), None) for t in ("Signal", "Need")}
     birth = master.get("birth_year")
     band_start = (state.eval_time.year - int(birth)) // 10 * 10 if birth is not None else None
     return IndexRow(
@@ -108,6 +111,7 @@ def index_row(card, state) -> IndexRow:
         urgency_tier=tri.urgency_tier, urgency_score=tri.urgency_score,
         top_reason=tri.urgency_reasons[0] if tri.urgency_reasons else None,
         flags=[f.id for f in tri.flags], outlier=tri.outlier, triggers=[s.id for s in card.signals],
+        reason_signal=reason["Signal"], reason_need=reason["Need"],
         chosen_offer=selected.offer_id if selected else NO_ACTION, chosen_tuple=card.chosen.tuple_id,
         channel=selected.channel if selected else None, tone=selected.tone if selected else None,
         delta_clv=v.delta_clv if v else None, p_accept=v.p_accept if v else None, contact_cost=v.contact_cost if v else None,
@@ -124,7 +128,7 @@ def index_rows(cards, states):
                   key=lambda r: (r.urgency_tier, -r.urgency_score, r.customer_id))
 
 
-def summary(cards, cfg, eval_time) -> Summary:
+def summary(cards, cfg, eval_time, policy=None) -> Summary:
     chosen, blocked, no_action = defaultdict(list), Counter(), Counter()
     signal, archetype, urgency, flags = Counter(), Counter(), Counter(), Counter()
     for card in cards:
@@ -142,4 +146,6 @@ def summary(cards, cfg, eval_time) -> Summary:
                    chosen_by_offer={k: {"count": len(v), "sum_delta_clv": math.fsum(v)} for k, v in sorted(chosen.items())},
                    blocked_by_rule=dict(blocked), no_action_by_reason=dict(no_action), signal_counts=dict(signal),
                    archetype_counts=dict(archetype), urgency_counts=dict(urgency), flag_counts=dict(flags),
-                   sources=cfg.sources, column_src=COLUMN_SOURCES, value_date=cfg.value_date)
+                   sources=cfg.sources, column_src=COLUMN_SOURCES, value_date=cfg.value_date,
+                   signal_labels={sid: s.label for sid, s in policy.signals.items()} if policy else {},
+                   need_labels={nid: n.get("label_en", nid) for nid, n in policy.needs.items()} if policy else {})

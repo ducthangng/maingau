@@ -80,6 +80,13 @@
       "title": "N Customers",
       "type": "integer"
     },
+    "need_labels": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Need Labels",
+      "type": "object"
+    },
     "no_action_by_reason": {
       "additionalProperties": {
         "type": "integer"
@@ -92,6 +99,13 @@
         "type": "integer"
       },
       "title": "Signal Counts",
+      "type": "object"
+    },
+    "signal_labels": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Signal Labels",
       "type": "object"
     },
     "sources": {
