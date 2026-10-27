@@ -7,7 +7,7 @@ const TIER_STYLE: Record<Tier, string> = {
   P2: "bg-accent-700 text-white",
   P3: "bg-accent-100 text-accent-800",
   P4: "bg-neutral-200 text-neutral-700",
-  P5: "bg-neutral-100 text-neutral-500",
+  P5: "bg-neutral-100 text-neutral-600",
 };
 
 export const TIER_LABEL: Record<Tier, string> = {

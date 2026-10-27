@@ -148,7 +148,7 @@ export type DecisionState = "pending" | "approved" | "overridden" | "rejected";
 
 export const DECISION_META: Record<DecisionState, { label: string; icon: LucideIcon | null; dot: string; text: string }> = {
   approved: { label: "Approved", icon: Check, dot: "bg-accent-600", text: "text-accent-700" },
-  overridden: { label: "Overridden", icon: Repeat2, dot: "bg-accent-500", text: "text-accent-700" },
+  overridden: { label: "Overridden", icon: Repeat2, dot: "bg-accent-300", text: "text-accent-700" },
   rejected: { label: "Rejected", icon: X, dot: "bg-red-500", text: "text-red-700" },
   pending: { label: "To review", icon: null, dot: "bg-neutral-300", text: "text-neutral-600" },
 };

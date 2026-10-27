@@ -28,7 +28,7 @@ The screenshot shows the Next best actions card of `/service/MG-100096` at ≥ 1
 - **Cards:** `rounded-2xl border border-neutral-200 bg-white`. A list inside a card: `rounded-xl border border-neutral-200 bg-white divide-y divide-neutral-100`.
 - **Static outlines use `border`**, which stays inside the box and is never clipped. `ring` is only for state (selected, focus). Use `ring-inset`, or give the parent room for it.
 - **Every scroll or overflow container gets room for outlines:** at least 4 px of padding on all sides, with a matching negative margin so the alignment does not move (e.g. `p-1 -m-1`). Or every child inside uses inset rings or outlines (`focus-visible:outline-offset-[-2px]`, as `ActionTable.tsx` already does).
-- **Labels:** 11 px uppercase tracking-wider neutral-500 (`Section` in `components/Chips.tsx`). Numbers `tabular-nums`. One accent colour for magnitude. A status colour (red, amber, green) always comes with an icon and a label, as `FLAG_META` in `components/viz.tsx` does.
+- **Labels:** 11 px uppercase tracking-wider neutral-500 (`Section` in `components/Chips.tsx`). Numbers `tabular-nums`. One accent colour for magnitude. Colours follow `prompts/ui-colors.md` (brand blue #034c99 as the one accent, yellow #f3bf00 only for the engine's #1 badge and the active nav, red only for danger); a status always comes with an icon and a label, as `FLAG_META` in `components/viz.tsx` does.
 - **Text:** a primary title wraps (`line-clamp-2`, `break-words`). Only secondary text may `truncate`, and then it keeps the full text in `title`.
 - **Size components by their container, not the viewport:** Tailwind v4 container queries (`@container` on the column, `@sm:` / `@md:` on children). A card in a narrow column must lay out like a card on a phone.
 
@@ -47,11 +47,11 @@ The screenshot shows the Next best actions card of `/service/MG-100096` at ≥ 1
 ### 3.2 Next best actions card (`components/service/ActionsTab.tsx`)
 
 - **Banner "Resolve the service issue first":**
-  - `border border-amber-200` instead of `ring-1`, plus the `LifeBuoy` icon (the service icon in Orchestration) so the colour is not the only signal;
+  - `border border-neutral-200 bg-neutral-50` (no warning colour, see `prompts/ui-colors.md`), plus the `LifeBuoy` icon (the service icon in Orchestration) so the colour is not the only signal;
   - same padding and radius as the other notices.
   - Whether Customer 360° shows warning colours at all is a team decision (prompts/ui-customer360.md says no). Keep the colour, fix the style.
 - **Option rows:**
-  - `border border-neutral-200` at rest; selected: `ring-2 ring-inset ring-emerald-500` (engine #1) or `ring-accent-500` (another choice), so nothing is drawn outside the row;
+  - `border border-neutral-200` at rest; selected: `ring-2 ring-inset ring-accent-600` with the yellow #1 badge (engine #1) or `ring-accent-500` (another choice), so nothing is drawn outside the row;
   - the offer line wraps (`line-clamp-2`) instead of `truncate`; the reason line also wraps (`line-clamp-2`);
   - the value bar shows from `@sm:` (container width), not `sm:` (viewport).
 - **Decision box:** add an opt-in `variant="inline"` prop to `DecisionBox` in `NbaPanel.tsx`. The default stays exactly as today (the pop-up must not change). `inline` means:

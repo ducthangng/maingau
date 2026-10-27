@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { TriangleAlert } from "lucide-react";
 import type { Candidate, CustomerCard, SourceInfo } from "../../types/contracts";
 import { CHANNEL_LABEL, NOT_ENOUGH } from "../../lib/format";
 import type { Decision } from "../../lib/decisions";
@@ -93,6 +94,7 @@ export function Pill({ children, title, tone = "neutral" }: { children: ReactNod
         : "bg-neutral-50 text-neutral-700 ring-neutral-200";
   return (
     <span title={title} className={`inline-flex items-center gap-1 whitespace-nowrap rounded-md px-1.5 py-0.5 text-xs ring-1 ring-inset ${style}`}>
+      {tone === "warn" && <TriangleAlert size={11} className="shrink-0 text-neutral-500" aria-hidden />}
       {children}
     </span>
   );
