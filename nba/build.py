@@ -15,6 +15,7 @@ from nba.engine.impact import impact_report
 from nba.engine.report import test_report
 from nba.engine.rule_registry import rules_file
 from nba.engine.runtime import Runtime, index_rows, summary
+from nba.kg.journey import build_journey, export_journey, lookups
 
 
 def json_text(value):
@@ -41,6 +42,13 @@ def build(runtime: Runtime, out_dir, customer_ids=None, *, export_dir=None, repo
         CustomerCard.model_validate(card.model_dump())
         path = out / "customers" / f"{card.customer_id}.json"
         path.write_text(json_text(card), encoding="utf-8")
+        files.append(path)
+    # Customer journey for the Customer 360° view (nba.kg.journey): one file per customer next to the card
+    (out / "journey").mkdir(exist_ok=True)
+    journey_lookups = lookups(runtime.tables, runtime.policy)
+    for cid in ids:
+        path = out / "journey" / f"{cid}.json"
+        path.write_text(json_text(export_journey(build_journey(runtime.states[cid], **journey_lookups))), encoding="utf-8")
         files.append(path)
     (out / "index.json").write_text(json_text([IndexRow.model_validate(r).model_dump(mode="json") for r in rows]), encoding="utf-8")
     (out / "summary.json").write_text(json_text(Summary.model_validate(totals)), encoding="utf-8")

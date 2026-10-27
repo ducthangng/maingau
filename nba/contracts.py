@@ -60,7 +60,7 @@ class Model(BaseModel):
 
 
 def _unset(v) -> bool:
-    return v is None or v == {} or v == 0
+    return v is None or v == {} or v == [] or v == 0
 
 
 # Rule Center fields (docs/rule-center.md) are left out of the JSON while unset, so the static export
@@ -235,6 +235,35 @@ class TimelineItem(Model):
     src: str
     ref: Optional[str] = None
     flags: list[str] = Field(default_factory=list)
+
+
+# Customer journey for the Customer 360° dashboard (nba.kg.journey). A separate document next to the
+# card, so the card and its timeline stay as they are. Plain facts only: no CLV, scores or warnings.
+JourneyType = Literal["contract", "milestone", "consent", "proposal", "ticket", "order", "newsletter",
+                      "agent_suggestion", "charging", "portal"]
+
+
+class JourneyEvent(Model):
+    """Unset fields are left out of the JSON. The static export also drops `src` and `facts` (API only)."""
+    id: str
+    date: str
+    future: bool = Field(default=False, exclude_if=_unset)
+    type: JourneyType
+    title: str
+    detail: Optional[str] = omit_unset()
+    reaction: Optional[str] = omit_unset()  # how the customer reacted, as recorded
+    src: Optional[str] = omit_unset()  # source table and column
+    ref: Optional[str] = omit_unset()
+    flags: list[str] = Field(default_factory=list, exclude_if=_unset)
+    facts: dict[str, Any] = Field(default_factory=dict, exclude_if=_unset)  # the raw values behind the text
+
+
+class Journey(Model):
+    customer_id: str
+    eval_time: str
+    months: int
+    counts: dict[str, int]  # events per type, for the filter chips
+    events: list[JourneyEvent]
 
 
 # ---------------------------------------------------------------- KG outputs (§6.3, §6.11)

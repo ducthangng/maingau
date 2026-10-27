@@ -1729,6 +1729,149 @@
         "title": "IndexRow",
         "type": "object"
       },
+      "Journey": {
+        "additionalProperties": false,
+        "properties": {
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Counts",
+            "type": "object"
+          },
+          "customer_id": {
+            "title": "Customer Id",
+            "type": "string"
+          },
+          "eval_time": {
+            "title": "Eval Time",
+            "type": "string"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/JourneyEvent"
+            },
+            "title": "Events",
+            "type": "array"
+          },
+          "months": {
+            "title": "Months",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "customer_id",
+          "eval_time",
+          "months",
+          "counts",
+          "events"
+        ],
+        "title": "Journey",
+        "type": "object"
+      },
+      "JourneyEvent": {
+        "additionalProperties": false,
+        "description": "Unset fields are left out of the JSON. The static export also drops `src` and `facts` (API only).",
+        "properties": {
+          "date": {
+            "title": "Date",
+            "type": "string"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "facts": {
+            "additionalProperties": true,
+            "title": "Facts",
+            "type": "object"
+          },
+          "flags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Flags",
+            "type": "array"
+          },
+          "future": {
+            "default": false,
+            "title": "Future",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "reaction": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reaction"
+          },
+          "ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ref"
+          },
+          "src": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Src"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "contract",
+              "milestone",
+              "consent",
+              "proposal",
+              "ticket",
+              "order",
+              "newsletter",
+              "agent_suggestion",
+              "charging",
+              "portal"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "date",
+          "type",
+          "title"
+        ],
+        "title": "JourneyEvent",
+        "type": "object"
+      },
       "LegacyComparison": {
         "additionalProperties": false,
         "properties": {
@@ -3606,6 +3749,46 @@
           }
         },
         "summary": "Decision"
+      }
+    },
+    "/api/customers/{customer_id}/journey": {
+      "get": {
+        "description": "Customer 360° journey: what happened and how the customer reacted (nba.kg.journey).",
+        "operationId": "get_journey_api_customers__customer_id__journey_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "customer_id",
+            "required": true,
+            "schema": {
+              "title": "Customer Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Journey"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Journey"
       }
     },
     "/api/replay": {
