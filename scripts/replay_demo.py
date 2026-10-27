@@ -47,6 +47,7 @@ def late_summary(res) -> str:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--until", type=datetime.fromisoformat, default=None)
+    ap.add_argument("--export", type=Path, default=None, help="also write the changed customers for the UI (web/public/data/replay.json)")
     args = ap.parse_args()
 
     rt = Runtime.load()
@@ -155,6 +156,12 @@ def main() -> None:
                                                   encoding="utf-8")
     print(f"replayed {len(res.outcomes)} events in {replay_s:.2f}s; affected {len(res.affected)}; verdicts {dict(counts)}")
     print("wrote out/replay_report.md and out/replay/timeline.json")
+    if args.export:  # the Knowledge Base "Event replay" view: only customers whose pending card changed
+        changed = {cid: {**tl, "transitions": [t for t in tl["transitions"] if t["status"] == "applied"]}
+                   for cid, tl in timeline.items() if tl["verdict"] != "UNCHANGED"}
+        args.export.write_text(json.dumps({"verdicts": dict(counts), "events": len(res.outcomes), "customers": changed},
+                                          ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n", encoding="utf-8")
+        print(f"wrote {args.export} ({len(changed)} customers)")
 
 
 if __name__ == "__main__":

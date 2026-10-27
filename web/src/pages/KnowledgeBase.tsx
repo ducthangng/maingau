@@ -1,57 +1,47 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
-import { ChevronDown, Loader2, RefreshCw, Search, Sparkles } from "lucide-react";
+import { ChevronDown, Clock, History, Loader2, MinusCircle, RefreshCw, Route, Search, ShieldCheck, Sparkles, Zap, type LucideIcon } from "lucide-react";
 import LayerGraph from "../components/kb/LayerGraph";
 import LearningView from "../components/kb/LearningView";
+import NodeInspector, { Legend, upstream } from "../components/kb/NodeInspector";
+import ProfileSummary from "../components/kb/ProfileSummary";
+import ReplayView from "../components/kb/ReplayView";
 import ZoomCanvas from "../components/kb/ZoomCanvas";
-import { OFFER_NAME } from "../components/worklist/model";
-import { channelLabel, toneLabel } from "../components/nba/ui";
 import { mockName } from "../lib/customerMock";
 import { dataMode, useLoad } from "../lib/data";
-import { eur, pct, signedEur } from "../lib/format";
 import { generateKnowledgeBase, loadKnowledgeBase, type KbCustomer, type KbGraph, type KbNode, type KnowledgeBase as KB } from "../lib/kb";
 
 // Knowledge Base (nba/kg/viz.py; live from GET /api/kb, else the generated data/kg_viz.json): how the engine got from a
 // customer's data to the decision, the policy layer behind every rule, and the ontology. Demo customers; read only.
 
-type View = "customer" | "policy" | "ontology" | "learning";
+type View = "customer" | "policy" | "ontology" | "learning" | "replay";
 const VIEWS: { id: View; label: string }[] = [
   { id: "customer", label: "Customer decision" },
   { id: "policy", label: "Policy" },
   { id: "ontology", label: "Ontology" },
   { id: "learning", label: "Learning" },
+  { id: "replay", label: "Event replay" },
 ];
 
 const LABEL = "text-[11px] font-semibold uppercase tracking-wider text-neutral-500";
 
-/** A collapsible section of the left column (closed sections keep the column short). */
-function Fold({ title, open = false, children }: { title: string; open?: boolean; children: ReactNode }) {
+/** A collapsible section of the left column (closed sections keep the column short). The accent tone marks the
+ *  decision itself; every other section is neutral. */
+function Fold({ title, icon: Icon, open = false, accent = false, children }: { title: string; icon?: LucideIcon; open?: boolean; accent?: boolean; children: ReactNode }) {
   return (
-    <details open={open} className="group rounded-2xl border border-neutral-200 bg-white">
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 [&::-webkit-details-marker]:hidden">
-        <span className={LABEL}>{title}</span>
+    <details open={open} className={`group overflow-hidden rounded-2xl border bg-white ${accent ? "border-accent-200" : "border-neutral-200"}`}>
+      <summary
+        className={`flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 [&::-webkit-details-marker]:hidden ${accent ? "bg-accent-50" : ""}`}
+      >
+        <span className={`flex items-center gap-1.5 ${LABEL} ${accent ? "text-accent-700!" : ""}`}>
+          {Icon && <Icon size={14} className={accent ? "text-accent-600" : "text-neutral-400"} aria-hidden />}
+          {title}
+        </span>
         <ChevronDown size={14} className="text-neutral-400 transition-transform duration-150 group-open:rotate-180" aria-hidden />
       </summary>
-      <div className="border-t border-neutral-100 px-4 py-3 text-sm text-neutral-700">{children}</div>
+      <div className={`border-t px-4 py-3 text-sm text-neutral-700 ${accent ? "border-accent-100" : "border-neutral-100"}`}>{children}</div>
     </details>
   );
-}
-
-function Row({ k, children }: { k: string; children: ReactNode }) {
-  return (
-    <div className="grid grid-cols-[6.5rem_minmax(0,1fr)] gap-2 py-0.5">
-      <dt className="text-neutral-500">{k}</dt>
-      <dd className="min-w-0 break-words text-neutral-900">{children}</dd>
-    </div>
-  );
-}
-
-const plain = (s: string) => s.replace(/\s*\[[A-Z]+[-\d]*\d\]/g, "");
-
-function tupleText(tuple: string): string {
-  if (!tuple || tuple === "NO_ACTION") return "No action";
-  const [offer, channel, tone] = tuple.split("|");
-  return `${OFFER_NAME[offer] ?? offer} · ${channelLabel(channel)} · ${toneLabel(tone)}`;
 }
 
 function resultChip(result: string) {
@@ -60,56 +50,9 @@ function resultChip(result: string) {
 }
 
 function CustomerFolds({ c }: { c: KbCustomer }) {
-  const v = c.chosen.valuation;
-  const h = c.headline;
   return (
     <>
-      <Fold title="Decision" open>
-        <p className="font-medium text-neutral-900">{tupleText(c.chosen.tuple)}</p>
-        <p className="mt-1 text-neutral-600">{plain(c.chosen.reason)}</p>
-        <dl className="mt-2 text-[13px]">
-          {c.chosen.send_at && <Row k="send">{c.chosen.send_at}</Row>}
-          {c.chosen.until && <Row k="waits until">{c.chosen.until.replace("T", " ")}</Row>}
-          {c.chosen.subject && <Row k="subject">{c.chosen.subject}</Row>}
-        </dl>
-      </Fold>
-      <Fold title="Expected gain" open>
-        {v ? (
-          <>
-            <p className="rounded-lg bg-neutral-50 px-3 py-2 font-mono text-[12px] text-neutral-700">
-              ΔCLV = p·(CLV<sub>buy</sub> − CLV<sub>now</sub>) + (1−p)·(CLV<sub>no</sub> − CLV<sub>now</sub>) − cost
-            </p>
-            <dl className="mt-2 text-[13px]">
-              <Row k="p (agree)">{pct(v.p)} · {v.confidence} confidence</Row>
-              <Row k="CLV now">{eur(v.clv_now)}</Row>
-              <Row k="CLV if yes">{eur(v.clv_accept)}</Row>
-              <Row k="CLV if no">{eur(v.clv_reject)}</Row>
-              <Row k="contact cost">{eur(v.cost, true)}</Row>
-              <Row k="ΔCLV">
-                <span className="font-semibold text-accent-700">{signedEur(v.dclv)}</span>
-              </Row>
-              <Row k="evidence">
-                {v.conv}/{v.n} bought · {v.p_level.replace(/_/g, " ")}
-              </Row>
-            </dl>
-          </>
-        ) : (
-          <p className="text-neutral-500">No action, so no expected gain.</p>
-        )}
-      </Fold>
-      <Fold title="Customer">
-        <dl className="text-[13px]">
-          <Row k="segment">{h.archetype}</Row>
-          <Row k="urgency">{h.urgency}</Row>
-          <Row k="why">{h.urgency_reasons.map(plain).join("; ") || "–"}</Row>
-          <Row k="CLV">{h.clv == null ? "not enough data" : eur(h.clv)}</Row>
-          <Row k="churn 12 m">{h.churn == null ? "not enough data" : pct(h.churn, 0)}</Row>
-          <Row k="flags">{h.flags.length ? h.flags.map((f) => f.replace(/_/g, " ")).join(", ") : "none"}</Row>
-          <Row k="address as">{toneLabel(h.tone)}</Row>
-          <Row k="profiling">{h.profiled ? "granted" : "no consent"}</Row>
-        </dl>
-      </Fold>
-      <Fold title="Rules">
+      <Fold title="Rules" icon={ShieldCheck}>
         {c.counter_line && <p className="mb-2 rounded-lg bg-neutral-50 px-3 py-1.5 font-mono text-[11.5px] text-neutral-600">{c.counter_line}</p>}
         <ul className="space-y-2">
           {c.rules.map((r) => (
@@ -121,7 +64,7 @@ function CustomerFolds({ c }: { c: KbCustomer }) {
           ))}
         </ul>
       </Fold>
-      <Fold title="Explanation path">
+      <Fold title="Explanation path" icon={Route}>
         <ol className="space-y-1.5">
           {c.path
             .filter((s) => s.kind === "node")
@@ -207,7 +150,7 @@ function CustomerSearch({ kb, value, onPick }: { kb: KB; value: string; onPick: 
             if (e.key === "Enter" && hits[0]) pick(hits[0].id);
             if (e.key === "Escape") setOpen(false);
           }}
-          placeholder={`${value} · search the ${all.length} demo customers`}
+          placeholder={`${value} · search customers`}
           aria-label="Search a demo customer"
           className="w-full bg-transparent text-sm outline-none placeholder:text-neutral-500"
         />
@@ -239,39 +182,17 @@ function CustomerSearch({ kb, value, onPick }: { kb: KB; value: string; onPick: 
   );
 }
 
-function Selected({ node, customer }: { node: KbNode | null; customer?: KbCustomer }) {
-  if (!node)
-    return (
-      <div className="space-y-3 text-sm text-neutral-600">
-        <p>Select a box in the tree to see the row or rule behind it.</p>
-        <ul className="space-y-1.5 text-[13px]">
-          <li className="flex items-center gap-2"><span className="h-0.5 w-6 bg-accent-600" /> chosen path</li>
-          <li className="flex items-center gap-2"><span className="h-0.5 w-6 bg-neutral-300" /> allowed alternative</li>
-          <li className="flex items-center gap-2"><span className="w-6 border-t border-dashed border-neutral-400" /> waiting (a rule holds it back)</li>
-          <li className="flex items-center gap-2"><span className="w-6 border-t border-dashed border-red-400" /> blocked by a rule</li>
-        </ul>
-      </div>
-    );
-  const facts = customer?.evidence.find((e) => e.id === node.id)?.facts;
-  const detail = Object.entries({ ...(node.detail ?? {}), ...(facts ?? {}) }).filter(([, v]) => v !== null && v !== undefined && v !== "");
+/** A count in the snapshot strip; a status always comes with an icon as well as a colour. */
+function Pill({ icon: Icon, accent = false, children }: { icon?: LucideIcon; accent?: boolean; children: ReactNode }) {
   return (
-    <div className="space-y-2 text-sm">
-      <p className="font-medium text-neutral-900">{node.label}</p>
-      {node.sub && <p className="text-neutral-600">{node.sub}</p>}
-      <p className="text-[12px] text-neutral-500">
-        {node.kind}
-        {node.status ? ` · ${node.status}` : node.path ? " · on the chosen path" : ""}
-      </p>
-      {detail.length > 0 && (
-        <dl className="border-t border-neutral-100 pt-2 text-[13px]">
-          {detail.map(([k, v]) => (
-            <Row key={k} k={k}>
-              {typeof v === "object" ? JSON.stringify(v) : String(v)}
-            </Row>
-          ))}
-        </dl>
-      )}
-    </div>
+    <span
+      className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 font-medium ${
+        accent ? "border-accent-200 bg-accent-50 text-accent-700" : "border-neutral-200 bg-neutral-100 text-neutral-700"
+      }`}
+    >
+      {Icon && <Icon size={12} aria-hidden />}
+      {children}
+    </span>
   );
 }
 
@@ -322,11 +243,22 @@ export default function KnowledgeBase() {
         <p className="mt-1 text-[15px] text-neutral-600">
           How the engine gets from a customer's data to a decision, the rules behind every block, and the ontology the graph is built from.
         </p>
-        <p className="mt-2 text-sm tabular-nums text-neutral-500">
-          Snapshot {m.eval_time.replace("T", " ").slice(0, 16)} · {m.customers} customers · {m.act_now} act now · {m.waiting} waiting · {m.no_action} no action ·
-          rules {m.rule_set_version}
-          {kb.status === "ready" && (kb.data.source === "live" ? " · live from the engine" : " · from the generated file")}
-        </p>
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-[12px] tabular-nums">
+          <span className="inline-flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white px-2 py-1 font-mono text-neutral-700" title="Snapshot time">
+            <History size={12} className="text-neutral-400" aria-hidden />
+            {m.eval_time.replace("T", " ").slice(0, 16)}
+          </span>
+          <Pill>{m.customers} customers</Pill>
+          <Pill icon={Zap} accent>
+            {m.act_now} act now
+          </Pill>
+          <Pill icon={Clock}>{m.waiting} waiting</Pill>
+          <Pill icon={MinusCircle}>{m.no_action} no action</Pill>
+          <span className="rounded-md border border-neutral-200 bg-white px-2 py-1 font-mono text-[11px] text-neutral-500" title="Rule set version">
+            rules {m.rule_set_version}
+          </span>
+          {kb.status === "ready" && <Pill>{kb.data.source === "live" ? "live from the engine" : "from the generated file"}</Pill>}
+        </div>
       </header>
 
       {kb.status === "ready" && kb.data.source === "file" && api && (
@@ -351,22 +283,14 @@ export default function KnowledgeBase() {
         {view === "customer" && <CustomerSearch kb={data} value={cid} onPick={(id) => go({ view: "customer", c: id })} />}
       </div>
 
-      {view === "learning" ? (
+      {view === "replay" ? (
+        <ReplayView />
+      ) : view === "learning" ? (
         <LearningView demo={new Set(ids)} />
       ) : (
-      <div className="grid gap-5 xl:grid-cols-[19rem_minmax(0,1fr)_17rem]">
+      <div className="grid gap-5 xl:grid-cols-[22rem_minmax(0,1fr)_17rem]">
         <aside className="space-y-3">
-          {view === "customer" && customer && (
-            <div className="rounded-2xl border border-neutral-200 bg-white px-4 py-3">
-              <p className={LABEL}>Customer</p>
-              <p className="mt-1 font-medium text-neutral-900">
-                {mockName(customer.id)}{" "}
-                <span className="rounded bg-neutral-100 px-1 text-[10px] font-medium uppercase text-neutral-500" title="Demo name: the data has no names">demo</span>
-              </p>
-              <p className="font-mono text-[12px] text-neutral-500">{customer.id}</p>
-              <p className="mt-1 text-[13px] text-neutral-600">{customer.case}</p>
-            </div>
-          )}
+          {view === "customer" && customer && <ProfileSummary c={customer} />}
           {view === "customer" && customer && <CustomerFolds c={customer} />}
           {view === "policy" && <PolicyFolds kb={data} />}
           {view === "ontology" && <OntologyFolds graph={graph} />}
@@ -374,13 +298,29 @@ export default function KnowledgeBase() {
 
         <section className="min-w-0" aria-label="Graph">
           <ZoomCanvas resetKey={`${view}:${cid}`}>
-            <LayerGraph graph={graph} selected={selected?.id ?? null} onSelect={(n) => setSelected(n.id === selected?.id ? null : n)} />
+            <LayerGraph
+              graph={graph}
+              selected={selected?.id ?? null}
+              trace={selected ? upstream(graph, selected.id) : null}
+              onSelect={(n) => setSelected(n.id === selected?.id ? null : n)}
+            />
           </ZoomCanvas>
         </section>
 
-        <aside className="h-fit rounded-2xl border border-neutral-200 bg-white p-4 xl:sticky xl:top-20">
+        {/* On a wide screen the panel sits beside the graph; below xl a selected box opens it as a sheet from the
+            bottom, so the graph stays in view. */}
+        <aside
+          className={`rounded-2xl border border-neutral-200 bg-white p-4 xl:sticky xl:top-20 xl:block xl:h-fit xl:max-h-[calc(100vh-6rem)] xl:overflow-y-auto ${
+            selected ? "fixed inset-x-0 bottom-0 z-40 max-h-[65vh] overflow-y-auto rounded-b-none shadow-2xl xl:inset-auto xl:z-auto xl:rounded-b-2xl xl:shadow-none" : "hidden"
+          }`}
+          aria-label="Selected box"
+        >
           <p className={`${LABEL} mb-2`}>Selected</p>
-          <Selected node={selected} customer={customer} />
+          {selected ? (
+            <NodeInspector node={selected} graph={graph} kb={data} customer={customer} onClose={() => setSelected(null)} />
+          ) : (
+            <Legend />
+          )}
         </aside>
       </div>
       )}

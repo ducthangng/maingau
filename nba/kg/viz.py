@@ -143,7 +143,7 @@ def customer_graph(view: dict, policy) -> dict:
                   None if ok else "blocked", detail={"status": c.get("status"), "effective": c.get("effective"),
                                                      "updated": c.get("updated_at"), "double opt-in": c.get("doi"),
                                                      "override": c.get("override")})
-            edge(f"ch:{ch}", f"consent:{consent}", "requires", "plain" if ok else "blocked", path=consent in path_ids)
+            edge(f"ch:{ch}", f"consent:{consent}", "requires", "plain" if ok else "blocked", path=ch in path_ids and consent in path_ids)
     for t in tuples:
         if not t.get("channel"):
             continue

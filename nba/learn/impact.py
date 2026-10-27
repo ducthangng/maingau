@@ -143,7 +143,8 @@ def learning_impact(rt, examples: int = 60, customer_ids=None) -> dict:
                    "by_kind": dict(Counter(m.get("kind") for m in memory)), "by_source": dict(Counter(m.get("source") for m in memory))},
         "lookalike": {"active": look.get("active", False),
                       "offers": [{"offer": o, "name": names.get(o, o), "recipients": v["recipients"], "buyers": v["buyers"],
-                                  "more_likely": v["more_likely"], "less_likely": v["less_likely"]}
+                                  "more_likely": v["more_likely"], "less_likely": v["less_likely"],
+                                  "scored": v["customers_scored"], "profile": v["profile"][:3]}
                                  for o, v in (look.get("offers") or {}).items()]},
         "changes": changes[:examples],
     }
