@@ -2,7 +2,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import { ChevronDown, Clock, History, Loader2, MinusCircle, RefreshCw, Route, Search, ShieldCheck, Sparkles, Zap, type LucideIcon } from "lucide-react";
 import LayerGraph from "../components/kb/LayerGraph";
-import LearningView from "../components/kb/LearningView";
+import LearningView, { WhyItChanged } from "../components/kb/LearningView";
 import NodeInspector, { Legend, upstream } from "../components/kb/NodeInspector";
 import ProfileSummary from "../components/kb/ProfileSummary";
 import ReplayView from "../components/kb/ReplayView";
@@ -17,9 +17,9 @@ import { generateKnowledgeBase, loadKnowledgeBase, type KbCustomer, type KbGraph
 type View = "customer" | "policy" | "ontology" | "learning" | "replay";
 const VIEWS: { id: View; label: string }[] = [
   { id: "customer", label: "Customer decision" },
+  { id: "learning", label: "Learning" },
   { id: "policy", label: "Policy" },
   { id: "ontology", label: "Ontology" },
-  { id: "learning", label: "Learning" },
   { id: "replay", label: "Event replay" },
 ];
 
@@ -288,9 +288,10 @@ export default function KnowledgeBase() {
       ) : view === "learning" ? (
         <LearningView demo={new Set(ids)} />
       ) : (
-      <div className="grid gap-5 xl:grid-cols-[22rem_minmax(0,1fr)_17rem]">
+      <div className={`grid gap-5 ${view === "customer" ? "xl:grid-cols-[22rem_minmax(0,1fr)]" : "xl:grid-cols-[22rem_minmax(0,1fr)_17rem]"}`}>
         <aside className="space-y-3">
           {view === "customer" && customer && <ProfileSummary c={customer} />}
+          {view === "customer" && customer && <WhyItChanged customerId={customer.id} />}
           {view === "customer" && customer && <CustomerFolds c={customer} />}
           {view === "policy" && <PolicyFolds kb={data} />}
           {view === "ontology" && <OntologyFolds graph={graph} />}
@@ -307,21 +308,23 @@ export default function KnowledgeBase() {
           </ZoomCanvas>
         </section>
 
-        {/* On a wide screen the panel sits beside the graph; below xl a selected box opens it as a sheet from the
-            bottom, so the graph stays in view. */}
-        <aside
-          className={`rounded-2xl border border-neutral-200 bg-white p-4 xl:sticky xl:top-20 xl:block xl:h-fit xl:max-h-[calc(100vh-6rem)] xl:overflow-y-auto ${
-            selected ? "fixed inset-x-0 bottom-0 z-40 max-h-[65vh] overflow-y-auto rounded-b-none shadow-2xl xl:inset-auto xl:z-auto xl:rounded-b-2xl xl:shadow-none" : "hidden"
-          }`}
-          aria-label="Selected box"
-        >
-          <p className={`${LABEL} mb-2`}>Selected</p>
-          {selected ? (
-            <NodeInspector node={selected} graph={graph} kb={data} customer={customer} onClose={() => setSelected(null)} />
-          ) : (
-            <Legend />
-          )}
-        </aside>
+        {/* Policy and ontology: on a wide screen the panel sits beside the graph; below xl a selected box opens it as a
+            sheet from the bottom. No "Selected" panel in the customer decision: a click only traces the box's path. */}
+        {view !== "customer" && (
+          <aside
+            className={`rounded-2xl border border-neutral-200 bg-white p-4 xl:sticky xl:top-20 xl:block xl:h-fit xl:max-h-[calc(100vh-6rem)] xl:overflow-y-auto ${
+              selected ? "fixed inset-x-0 bottom-0 z-40 max-h-[65vh] overflow-y-auto rounded-b-none shadow-2xl xl:inset-auto xl:z-auto xl:rounded-b-2xl xl:shadow-none" : "hidden"
+            }`}
+            aria-label="Selected box"
+          >
+            <p className={`${LABEL} mb-2`}>Selected</p>
+            {selected ? (
+              <NodeInspector node={selected} graph={graph} kb={data} customer={customer} onClose={() => setSelected(null)} />
+            ) : (
+              <Legend />
+            )}
+          </aside>
+        )}
       </div>
       )}
     </div>

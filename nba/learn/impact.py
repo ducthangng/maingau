@@ -111,7 +111,7 @@ def k_table(rt, top: int = 15) -> list[dict]:
     return rows[:top]
 
 
-def learning_impact(rt, examples: int = 60, customer_ids=None) -> dict:
+def learning_impact(rt, examples: int | None = 60, customer_ids=None) -> dict:  # examples=None: every change
     baseline, evidence, learned = runs(rt)
     names = {oid: o.name for oid, o in rt.policy.offers.items()}
     changes, totals = [], {"baseline": 0.0, "evidence": 0.0, "learned": 0.0}

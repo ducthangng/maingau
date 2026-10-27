@@ -164,7 +164,8 @@ describe("review fixes", () => {
 
   it("puts Overview first in the Orchestration navigation and the Worklist at /worklist", () => {
     const nav = renderToStaticMarkup(<MemoryRouter initialEntries={["/"]}><Layout /></MemoryRouter>);
-    expect(visibleText(nav)).toMatch(/Overview .*Worklist .*Groups/);
+    expect(visibleText(nav)).toMatch(/Overview .*Campaigns .*Worklist/);
+    expect(visibleText(nav)).not.toMatch(/Groups/);
     expect(nav).toContain('href="/worklist"');
   });
 });

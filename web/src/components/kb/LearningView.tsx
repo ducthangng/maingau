@@ -1,10 +1,11 @@
-import { useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import {
   ArrowRight,
   BarChart3,
   Check,
   ChevronDown,
   Mail,
+  Megaphone,
   MessageCircle,
   MessageSquare,
   Monitor,
@@ -18,23 +19,27 @@ import {
 import { Link } from "react-router-dom";
 import { OFFER_NAME } from "../worklist/model";
 import { channelLabel } from "../nba/ui";
+import { useCampaigns } from "../../lib/campaigns";
 import { mockName } from "../../lib/customerMock";
+import { useDecisions } from "../../lib/decisions";
 import { useLoad } from "../../lib/data";
 import { eur } from "../../lib/format";
 import { loadLearnImpact, type LearnChange, type LearnImpact } from "../../lib/kb";
 
-// Knowledge Base "Learning", for a non-technical reader. Everything is sorted into three verdicts with one colour
-// each: Kept (the old belief held), Learned (something works better than we thought), Mistake fixed (we overrated
-// something, or the customer pushed back). Each changed decision is a card; the side panel shows it as a value
-// race: what the old and the new offer are worth before and after learning. Numbers come from nba/learn/impact.py (GET /api/learn/impact).
+// Knowledge Base "Learning", for a non-technical reader. Each changed decision is a row, grouped by the campaign the
+// customer was in (lib/campaigns.ts, from the decision log); the side panel shows it as a value race: what the old and
+// the new offer are worth before and after learning. Numbers come from nba/learn/impact.py (GET /api/learn/impact).
+// What we predicted vs what really sold is under "View more" at the bottom.
 
-type Verdict = "kept" | "better" | "mistake";
+/** Colours only: an offer that rose (better) or fell / was held back (mistake). */
+type Verdict = "better" | "mistake";
 
-const VERDICT: Record<Verdict, { label: string; hint: string; icon: LucideIcon; dot: string; bar: string }> = {
-  kept: { label: "Kept", hint: "Recommendation confirmed, nothing to change", icon: Check, dot: "bg-emerald-50 text-emerald-600", bar: "bg-emerald-500" },
-  better: { label: "Learned", hint: "An offer works better than we thought", icon: TrendingUp, dot: "bg-accent-50 text-accent-600", bar: "bg-accent-500" },
-  mistake: { label: "Mistake fixed", hint: "We overrated an offer, or the customer pushed back", icon: X, dot: "bg-red-50 text-red-600", bar: "bg-red-400" },
+const VERDICT: Record<Verdict, { icon: LucideIcon; dot: string; bar: string }> = {
+  better: { icon: TrendingUp, dot: "bg-accent-50 text-accent-600", bar: "bg-accent-500" },
+  mistake: { icon: X, dot: "bg-red-50 text-red-600", bar: "bg-red-400" },
 };
+
+const NO_CAMPAIGN = "";
 
 const CHANNEL_ICON: Record<string, LucideIcon> = {
   email: Mail,
@@ -56,7 +61,7 @@ const channelOf = (t: string) => (none(t) ? "" : channelLabel(t.split("|")[1]));
 const paused = (c: LearnChange) => c.before.tuple === c.after.tuple && !!c.after.waits_until;
 
 /** Learned when the old pick kept its value and a new one rose past it; otherwise the old pick was overrated. */
-function verdictOf(c: LearnChange): Exclude<Verdict, "kept"> {
+function verdictOf(c: LearnChange): Verdict {
   if (c.cause === "memory") return "mistake";
   const was = c.before.delta_clv;
   const now = c.before_now?.tuple === c.before.tuple ? c.before_now.delta_clv : null;
@@ -83,11 +88,13 @@ function storyLine(c: LearnChange): string {
 
 function title(c: LearnChange): ReactNode {
   if (paused(c)) return <>{offerOf(c.before.tuple)} <span className="font-normal text-neutral-500">on hold until {day(c.after.waits_until!)}</span></>;
+  // Same offer, other channel: name the channels, or the row reads "StromGarant → StromGarant"
+  const via = (t: string) => (!none(c.before.tuple) && offerOf(c.before.tuple) === offerOf(c.after.tuple) ? ` · ${channelOf(t)}` : "");
   return (
     <>
-      <span className="font-normal text-neutral-400 line-through decoration-neutral-300">{offerOf(c.before.tuple)}</span>
+      <span className="font-normal text-neutral-400 line-through decoration-neutral-300">{offerOf(c.before.tuple) + via(c.before.tuple)}</span>
       <ArrowRight size={14} className="mx-1.5 inline text-neutral-400" aria-hidden />
-      {none(c.after.tuple) ? "No offer" : offerOf(c.after.tuple)}
+      {none(c.after.tuple) ? "No offer" : offerOf(c.after.tuple) + via(c.after.tuple)}
     </>
   );
 }
@@ -95,42 +102,8 @@ function title(c: LearnChange): ReactNode {
 /** How far the expected value moved: used to sort the biggest changes first. */
 const size = (c: LearnChange) => Math.abs((c.before.delta_clv ?? 0) - (c.before_now?.delta_clv ?? c.after.delta_clv ?? 0));
 
-function Round({ icon: Icon, cls, big = false }: { icon: LucideIcon; cls: string; big?: boolean }) {
-  return (
-    <span className={`grid shrink-0 place-items-center rounded-full ${cls} ${big ? "size-14" : "size-12"}`}>
-      <Icon size={big ? 24 : 20} aria-hidden />
-    </span>
-  );
-}
-
-function Scoreboard({ counts, total }: { counts: Record<Verdict, number>; total: number }) {
-  return (
-    <div className="grid gap-4 md:grid-cols-3">
-      {(["kept", "better", "mistake"] as const).map((v) => {
-        const V = VERDICT[v];
-        return (
-          <div key={v} className={`${CARD} flex items-center gap-4 p-5`}>
-            <Round icon={V.icon} cls={V.dot} big />
-            <div className="min-w-0">
-              <p className="text-3xl font-semibold tabular-nums text-neutral-900">
-                {counts[v]}
-                <span className="ml-2 text-[15px] font-semibold">{V.label}</span>
-              </p>
-              <p className="text-[13px] text-neutral-500">{V.hint}</p>
-              <div className="mt-2 h-1.5 rounded-full bg-neutral-100">
-                <div className={`h-1.5 rounded-full ${V.bar}`} style={{ width: `${(counts[v] / Math.max(total, 1)) * 100}%`, minWidth: counts[v] ? 6 : 0 }} />
-              </div>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 /** The selected change as a value race: what each option was worth before learning and now; the higher one wins. */
 function Race({ c, demo }: { c: LearnChange; demo: Set<string> }) {
-  const v = verdictOf(c);
   const oldNow = c.before_now?.tuple === c.before.tuple ? (c.before_now?.delta_clv ?? null) : null;
   const oldNote = paused(c) ? `on hold until ${day(c.after.waits_until!)}` : c.cause === "memory" ? "held back by the customer" : "too low to send";
   const rows: { tuple: string; before: number | null; now: number | null; note?: string; chosen: boolean }[] = [
@@ -199,16 +172,7 @@ function Race({ c, demo }: { c: LearnChange; demo: Set<string> }) {
         })}
       </ul>
       <div className="mt-6 border-t border-neutral-100 pt-4">
-        <p className="flex items-center gap-2 text-[13px] font-semibold text-neutral-900">
-          <span className={`grid size-6 place-items-center rounded-full ${VERDICT[v].dot}`}>
-            {(() => {
-              const I = VERDICT[v].icon;
-              return <I size={12} aria-hidden />;
-            })()}
-          </span>
-          {VERDICT[v].label}
-        </p>
-        <p className="mt-1.5 text-[13px] leading-relaxed text-neutral-600">{storyLine(c)}</p>
+        <p className="text-[13px] leading-relaxed text-neutral-600">{storyLine(c)}</p>
       </div>
       <Link
         to={demo.has(c.customer_id) ? `/kb?view=customer&c=${c.customer_id}` : `/customer/${c.customer_id}`}
@@ -230,7 +194,7 @@ function BuyerDots({ rows }: { rows: LearnImpact["k"] }) {
       return { r, kept: Math.min(expected, r.bought), extra: Math.max(r.bought - expected, 0), missing: Math.max(expected - r.bought, 0) };
     })
     .sort((a, b) => b.missing - a.missing || a.extra - b.extra);
-  const groups: { v: Exclude<Verdict, "kept">; label: string; rows: typeof tally }[] = [
+  const groups: { v: Verdict; label: string; rows: typeof tally }[] = [
     { v: "mistake", label: "Fewer buyers than we predicted", rows: tally.filter((t) => t.missing > 0) },
     { v: "better", label: "More buyers than we predicted", rows: tally.filter((t) => t.missing === 0) },
   ];
@@ -354,156 +318,214 @@ function Lookalike({ o }: { o: LookalikeOffer }) {
   );
 }
 
-function Evidence({ d }: { d: LearnImpact }) {
+function Predicted({ d }: { d: LearnImpact }) {
+  return (
+    <section className={`${CARD} p-6`}>
+      <div className="mb-5 flex items-start gap-4">
+        <span className="grid size-12 shrink-0 place-items-center rounded-full bg-neutral-100 text-neutral-700">
+          <BarChart3 size={20} aria-hidden />
+        </span>
+        <div>
+          <h3 className="text-[15px] font-semibold text-neutral-900">What we predicted vs what really sold</h3>
+          <p className="text-[13px] text-neutral-500">How many people we expected to buy, and how many really did</p>
+        </div>
+      </div>
+      {d.k.length ? <BuyerDots rows={d.k} /> : <p className="text-[13px] text-neutral-500">No sales results yet.</p>}
+      {d.lookalike.active && d.lookalike.offers.length > 0 && (
+        <div className="mt-6 border-t border-neutral-100 pt-5">
+          <p className="flex items-center gap-1.5 text-[13px] font-semibold text-neutral-900">
+            <Users size={14} className="text-neutral-400" aria-hidden /> Who buys it, and who looks like them
+          </p>
+          <p className="mb-4 text-[12px] text-neutral-500">For offers that worked, we learn what the buyers have in common and favour customers who look like them.</p>
+          <div className="grid gap-4 md:grid-cols-2">
+            {d.lookalike.offers.map((o) => (
+              <Lookalike key={o.offer} o={o} />
+            ))}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function CustomerNotes({ d }: { d: LearnImpact }) {
   const kinds = Object.entries(d.memory.by_kind).sort((a, b) => b[1] - a[1]);
   const maxKind = Math.max(...kinds.map(([, n]) => n), 1);
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-      <section className={`${CARD} p-6`}>
-        <div className="mb-5 flex items-start gap-4">
-          <Round icon={BarChart3} cls="bg-neutral-100 text-neutral-700" />
-          <div>
-            <h3 className="text-[15px] font-semibold text-neutral-900">What we predicted vs what really sold</h3>
-            <p className="text-[13px] text-neutral-500">How many people we expected to buy, and how many really did</p>
-          </div>
+    <section className={`${CARD} p-6`}>
+      <div className="mb-5 flex items-start gap-4">
+        <span className="grid size-12 shrink-0 place-items-center rounded-full bg-red-50 text-red-600">
+          <MessageCircle size={20} aria-hidden />
+        </span>
+        <div>
+          <h3 className="text-[15px] font-semibold text-neutral-900">What customers told us</h3>
+          <p className="text-[13px] text-neutral-500">Agents note when a customer is upset or not interested; campaign outcomes are remembered too</p>
         </div>
-        {d.k.length ? <BuyerDots rows={d.k} /> : <p className="text-[13px] text-neutral-500">No sales results yet.</p>}
-        {d.lookalike.active && d.lookalike.offers.length > 0 && (
-          <div className="mt-6 border-t border-neutral-100 pt-5">
-            <p className="flex items-center gap-1.5 text-[13px] font-semibold text-neutral-900">
-              <Users size={14} className="text-neutral-400" aria-hidden /> Who buys it, and who looks like them
-            </p>
-            <p className="mb-4 text-[12px] text-neutral-500">For offers that worked, we learn what the buyers have in common and favour customers who look like them.</p>
-            <div className="grid gap-4 md:grid-cols-2">
-              {d.lookalike.offers.map((o) => (
-                <Lookalike key={o.offer} o={o} />
-              ))}
-            </div>
-          </div>
-        )}
-      </section>
+      </div>
+      {d.memory.entries === 0 ? (
+        <p className="rounded-2xl bg-neutral-50 px-4 py-6 text-center text-[13px] text-neutral-500">No notes from customers yet.</p>
+      ) : (
+        <>
+          <p className="text-[13px] text-neutral-600">
+            <span className="mr-1.5 text-3xl font-semibold tabular-nums text-neutral-900">{d.memory.entries}</span>
+            notes · {d.memory.active} still in force
+          </p>
+          <ul className="mt-5 space-y-3">
+            {kinds.map(([k, n]) => (
+              <li key={k} className="text-[13px]">
+                <div className="flex justify-between text-neutral-700">
+                  <span>{MEMORY_KIND[k] ?? k.replace(/_/g, " ")}</span>
+                  <span className="tabular-nums text-neutral-500">{n}</span>
+                </div>
+                <div className="mt-1 h-2.5 rounded-full bg-neutral-100">
+                  <div className={`h-2.5 rounded-full ${VERDICT.mistake.bar}`} style={{ width: `${(n / maxKind) * 100}%` }} />
+                </div>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </section>
+  );
+}
 
-      <section className={`${CARD} p-6`}>
-        <div className="mb-5 flex items-start gap-4">
-          <Round icon={MessageCircle} cls="bg-red-50 text-red-600" />
-          <div>
-            <h3 className="text-[15px] font-semibold text-neutral-900">What customers told us</h3>
-            <p className="text-[13px] text-neutral-500">Agents note when a customer is upset or not interested</p>
-          </div>
+/** Customer decision view, under the profile: what learning changed for this customer, in the Learning tab's words. */
+export function WhyItChanged({ customerId }: { customerId: string }) {
+  const data = useLoad(loadLearnImpact, []);
+  if (data.status !== "ready") return null;
+  const mine = data.data.changes.filter((c) => c.customer_id === customerId);
+  return (
+    <section className="rounded-2xl border border-neutral-200 bg-white px-4 py-3" aria-labelledby="kb-why-changed">
+      <h3 id="kb-why-changed" className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
+        Why it changed
+      </h3>
+      {mine.length === 0 ? (
+        <p className="mt-1.5 text-[13px] text-neutral-500">Nothing learned so far changed this customer's decision.</p>
+      ) : (
+        <ul className="mt-1.5 space-y-3">
+          {mine.map((c) => (
+            <li key={c.cause}>
+              <p className="text-[13px] font-medium text-neutral-900">{title(c)}</p>
+              <p className="mt-0.5 text-[13px] leading-relaxed text-neutral-600">{storyLine(c)}</p>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+/** "View more" at the bottom of the page: the predicted vs sold tally, collapsed until asked for. */
+function ViewMore({ d }: { d: LearnImpact }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="inline-flex items-center gap-1.5 rounded-full border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-50"
+      >
+        {open ? "View less" : "View more"} · What we predicted vs what really sold
+        <ChevronDown size={14} className={`transition-transform duration-150 ${open ? "rotate-180" : ""}`} aria-hidden />
+      </button>
+      {open && (
+        <div className="mt-4">
+          <Predicted d={d} />
         </div>
-        {d.memory.entries === 0 ? (
-          <p className="rounded-2xl bg-neutral-50 px-4 py-6 text-center text-[13px] text-neutral-500">No notes from customers yet.</p>
-        ) : (
-          <>
-            <p className="text-[13px] text-neutral-600">
-              <span className="mr-1.5 text-3xl font-semibold tabular-nums text-neutral-900">{d.memory.entries}</span>
-              notes · {d.memory.active} still in force
-            </p>
-            <ul className="mt-5 space-y-3">
-              {kinds.map(([k, n]) => (
-                <li key={k} className="text-[13px]">
-                  <div className="flex justify-between text-neutral-700">
-                    <span>{MEMORY_KIND[k] ?? k.replace(/_/g, " ")}</span>
-                    <span className="tabular-nums text-neutral-500">{n}</span>
-                  </div>
-                  <div className="mt-1 h-2.5 rounded-full bg-neutral-100">
-                    <div className={`h-2.5 rounded-full ${VERDICT.mistake.bar}`} style={{ width: `${(n / maxKind) * 100}%` }} />
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </>
-        )}
-      </section>
+      )}
     </div>
   );
 }
 
 export default function LearningView({ demo }: { demo: Set<string> }) {
   const data = useLoad(loadLearnImpact, []);
-  const [filter, setFilter] = useState<Verdict | "all">("all");
+  const campaigns = useCampaigns();
+  const decisions = useDecisions();
   const [sort, setSort] = useState<"size" | "name">("size");
   const [sel, setSel] = useState<string | null>(null);
   const [limit, setLimit] = useState(PAGE);
 
+  // customer -> the last campaign they were in (a settled, fast-forwarded one included)
+  const campaignOf = useMemo(() => {
+    const out = new Map<string, string>();
+    for (const x of decisions) if (x.campaign) out.set(x.customer_id, x.campaign);
+    return out;
+  }, [decisions]);
+
   if (data.status === "loading") return <p className="py-12 text-center text-neutral-500">Loading what the system learned…</p>;
   if (data.status === "error") return <p className="text-red-700">Could not load the learning impact: {data.error}</p>;
   const d = data.data;
-  const changes = d.changes.map((c) => ({ c, v: verdictOf(c), key: `${c.customer_id}:${c.cause}` }));
-  const counts: Record<Verdict, number> = {
-    kept: d.summary.customers - d.summary.changed,
-    better: changes.filter((x) => x.v === "better").length,
-    mistake: changes.filter((x) => x.v === "mistake").length,
-  };
-  const shown = changes
-    .filter((x) => filter === "all" || x.v === filter)
-    .sort((a, b) => (sort === "size" ? size(b.c) - size(a.c) : mockName(a.c.customer_id).localeCompare(mockName(b.c.customer_id))));
+  const names = new Map(campaigns.map((c) => [c.id, c.name]));
+  // Newest campaign first; customers in no campaign (learned from the history and agent feedback) last.
+  const order = new Map([...campaigns].reverse().map((c, i) => [c.id, i]));
+  const rank = (g: string) => (g === NO_CAMPAIGN ? Number.MAX_SAFE_INTEGER : (order.get(g) ?? Number.MAX_SAFE_INTEGER - 1));
+  const shown = d.changes
+    .map((c) => {
+      const g = campaignOf.get(c.customer_id) ?? NO_CAMPAIGN;
+      return { c, key: `${c.customer_id}:${c.cause}`, group: names.has(g) ? g : NO_CAMPAIGN };
+    })
+    .sort(
+      (a, b) =>
+        rank(a.group) - rank(b.group) ||
+        (sort === "size" ? size(b.c) - size(a.c) : mockName(a.c.customer_id).localeCompare(mockName(b.c.customer_id))),
+    );
+  const count = (g: string) => shown.filter((x) => x.group === g).length;
   const list = shown.slice(0, limit);
   const picked = shown.find((x) => x.key === sel) ?? shown[0] ?? null;
 
   return (
-    <div className="space-y-6">
-      <Scoreboard counts={counts} total={d.summary.customers} />
-
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
+    // 75% of the page from xl up (centred); full width below, where the side panel folds under each row anyway
+    <div className="mx-auto w-full space-y-6 xl:w-3/4">
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_19rem]">
         <section className="min-w-0">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <p className="text-[14px] text-neutral-600">
-              <span className="font-semibold text-neutral-900">{d.summary.changed} recommendations changed</span> · the other {counts.kept} were kept
+              <span className="font-semibold text-neutral-900">{d.summary.changed} recommendations changed</span> of {d.summary.customers} customers
             </p>
-            <div className="flex flex-wrap gap-2">
-              {(["all", "better", "mistake"] as const).map((k) => (
-                <button
-                  key={k}
-                  type="button"
-                  onClick={() => {
-                    setFilter(k);
-                    setLimit(PAGE);
-                  }}
-                  className={`rounded-xl border px-3 py-1.5 text-sm transition-colors duration-150 ${
-                    filter === k ? "border-neutral-900 bg-neutral-900 text-white" : "border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50"
-                  }`}
-                >
-                  {k === "all" ? "All" : VERDICT[k].label} <span className="tabular-nums opacity-60">{k === "all" ? changes.length : counts[k]}</span>
-                </button>
-              ))}
-              <label className="relative">
-                <span className="sr-only">Sort</span>
-                <select
-                  value={sort}
-                  onChange={(e) => setSort(e.target.value as "size" | "name")}
-                  className="appearance-none rounded-xl border border-neutral-300 bg-white py-1.5 pl-3 pr-8 text-sm text-neutral-700 hover:bg-neutral-50"
-                >
-                  <option value="size">Biggest change first</option>
-                  <option value="name">Customer A–Z</option>
-                </select>
-                <ChevronDown size={14} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-500" aria-hidden />
-              </label>
-            </div>
+            <label className="relative">
+              <span className="sr-only">Sort</span>
+              <select
+                value={sort}
+                onChange={(e) => setSort(e.target.value as "size" | "name")}
+                className="appearance-none rounded-xl border border-neutral-300 bg-white py-1.5 pl-3 pr-8 text-sm text-neutral-700 hover:bg-neutral-50"
+              >
+                <option value="size">Biggest change first</option>
+                <option value="name">Customer A–Z</option>
+              </select>
+              <ChevronDown size={14} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-500" aria-hidden />
+            </label>
           </div>
 
-          <ul className="relative space-y-4 pb-5">
-            {list.map(({ c, v, key }) => {
+          <ul className="relative space-y-3 pb-5">
+            {list.map(({ c, key, group }, i) => {
               const on = picked?.key === key;
-              const V = VERDICT[v];
               const Icon = CHANNEL_ICON[(paused(c) ? c.before : c.after).tuple.split("|")[1]] ?? Mail;
+              const heading = i === 0 || list[i - 1].group !== group;
               return (
                 <li key={key}>
+                  {heading && (
+                    <h3 className={`mb-2 flex items-center gap-2 text-[13px] font-semibold text-neutral-900 ${i ? "pt-4" : ""}`}>
+                      <Megaphone size={14} className="text-neutral-400" aria-hidden />
+                      {group === NO_CAMPAIGN ? "Not in a campaign" : names.get(group)}
+                      <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-medium tabular-nums text-neutral-500">{count(group)}</span>
+                    </h3>
+                  )}
                   <button
                     type="button"
                     onClick={() => setSel(key)}
-                    className={`${CARD} flex w-full items-start gap-5 p-5 text-left transition duration-150 hover:-translate-y-0.5 ${on ? "ring-2 ring-neutral-900" : ""}`}
+                    className={`${CARD} block w-full px-4 py-3.5 text-left transition duration-150 hover:-translate-y-0.5 ${on ? "ring-2 ring-neutral-900" : ""}`}
                   >
-                    <Round icon={V.icon} cls={V.dot} />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
-                        <p className="text-[15px] font-semibold text-neutral-900">{title(c)}</p>
-                        <p className="flex items-center gap-1 text-[12px] text-neutral-500">
-                          {mockName(c.customer_id)} · <Icon size={12} aria-hidden /> {channelOf((paused(c) ? c.before : c.after).tuple) || "no channel"}
-                        </p>
-                      </div>
-                      <p className="mt-1 text-[13px] leading-relaxed text-neutral-600">{storyLine(c)}</p>
+                    <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
+                      <p className="min-w-0">
+                        <span className="text-[15px] font-semibold text-neutral-900">{mockName(c.customer_id)}</span>
+                        <span className="ml-2 inline-flex items-center gap-1 text-[12px] text-neutral-500">
+                          <Icon size={12} aria-hidden /> {channelOf((paused(c) ? c.before : c.after).tuple) || "no channel"}
+                        </span>
+                      </p>
+                      <p className="text-[13px] font-medium text-neutral-900">{title(c)}</p>
                     </div>
+                    <p className="mt-1 text-[13px] leading-relaxed text-neutral-600">{storyLine(c)}</p>
                   </button>
                   {on && (
                     <div className={`${CARD} mt-2 p-5 xl:hidden`}>
@@ -527,19 +549,18 @@ export default function LearningView({ demo }: { demo: Set<string> }) {
           </ul>
         </section>
 
-        <aside className={`${CARD} hidden h-fit p-6 xl:sticky xl:top-20 xl:block`}>
-          <div className="mb-5 flex items-center justify-between gap-3">
-            <div>
-              <h3 className="text-[17px] font-semibold text-neutral-900">Why it changed</h3>
-              <div className="mt-1 h-0.5 w-6 rounded-full bg-neutral-300" />
-            </div>
-            {picked && <span className="rounded-full border border-neutral-300 px-3 py-1 text-[13px] font-medium text-neutral-800">{mockName(picked.c.customer_id)}</span>}
+        <aside className={`${CARD} hidden h-fit p-5 xl:sticky xl:top-20 xl:block`}>
+          <div className="mb-5">
+            <h3 className="text-[17px] font-semibold text-neutral-900">Why it changed</h3>
+            {picked && <p className="mt-0.5 truncate text-[13px] font-medium text-neutral-600">{mockName(picked.c.customer_id)}</p>}
+            <div className="mt-1.5 h-0.5 w-6 rounded-full bg-neutral-300" />
           </div>
           {picked ? <Race c={picked.c} demo={demo} /> : <p className="text-sm text-neutral-500">Nothing changed.</p>}
         </aside>
       </div>
 
-      <Evidence d={d} />
+      <CustomerNotes d={d} />
+      <ViewMore d={d} />
     </div>
   );
 }

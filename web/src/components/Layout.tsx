@@ -2,6 +2,7 @@ import { NavLink, Outlet } from "react-router-dom";
 import { Network, TriangleAlert } from "lucide-react";
 import { dataMode, loadManifest, loadSummary, useLoad } from "../lib/data";
 import DecisionErrors from "./DecisionErrors";
+import PresenterPointer, { PresenterToggle } from "./PresenterPointer";
 import { Bone } from "./Skeleton";
 import ViewSwitch, { useIsCustomer360 } from "./service/ViewSwitch";
 
@@ -40,14 +41,11 @@ export default function Layout() {
             <NavLink to="/" end className={navClass}>
               Overview
             </NavLink>
-            <NavLink to="/worklist" className={navClass}>
-              Worklist
-            </NavLink>
-            <NavLink to="/groups" className={navClass}>
-              Groups
-            </NavLink>
             <NavLink to="/campaign" className={navClass}>
               Campaigns
+            </NavLink>
+            <NavLink to="/worklist" className={navClass}>
+              Worklist
             </NavLink>
           </nav>
           )}
@@ -83,6 +81,7 @@ export default function Layout() {
               <Network size={13} aria-hidden />
               Knowledge Base
             </NavLink>
+            <PresenterToggle />
           </span>
         </div>
       </header>
@@ -90,6 +89,7 @@ export default function Layout() {
         <Outlet />
       </main>
       <DecisionErrors />
+      <PresenterPointer />
     </div>
   );
 }

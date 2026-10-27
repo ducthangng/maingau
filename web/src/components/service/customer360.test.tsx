@@ -134,9 +134,9 @@ describe("dashboard switch and landing page", () => {
 
   it("keeps the Orchestration navigation on its pages and hides it in Customer 360°", () => {
     const orchestration = at("/", <Layout />);
-    expect(orchestration).toMatch(/Worklist .*Groups/);
+    expect(orchestration).toMatch(/Overview .*Campaigns .*Worklist/);
     expect(orchestration).toContain("worklist page");
-    expect(at("/service", <Layout />)).not.toMatch(/Worklist|Groups/);
+    expect(at("/service", <Layout />)).not.toMatch(/Worklist|Campaigns/);
   });
 });
 

@@ -64,3 +64,42 @@ body {
   .skeleton-bone { animation: none; background-image: none; }
   .skeleton-reveal { animation-duration: 1ms; }
 }
+
+/* Presenter pointer (components/PresenterPointer.tsx): while html[data-presenter] is set, whatever clickable thing is
+   under the mouse gets a bold gold outline, and each click leaves a ripple, so an audience can follow the demo. */
+html[data-presenter] :is(a[href], button:not(:disabled), summary, select:not(:disabled), label:has(input), [role="button"], [role="tab"], .cursor-pointer):hover {
+  outline: 3px solid var(--color-gold-400);
+  outline-offset: 2px; /* the outline follows each element's own rounded corners */
+}
+
+/* A row or card that is itself the target: outline it, not each link inside it twice */
+html[data-presenter] :is(a[href], button):hover :is(a[href], button) {
+  outline: none;
+}
+
+.presenter-ripple {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  margin: -9px 0 0 -9px;
+  border: 3px solid var(--color-gold-400);
+  border-radius: 9999px;
+  animation: presenter-ripple 600ms ease-out forwards;
+}
+
+@keyframes presenter-ripple {
+  from {
+    transform: scale(1);
+    opacity: 1;
+  }
+  to {
+    transform: scale(5);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .presenter-ripple {
+    animation-duration: 300ms;
+  }
+}

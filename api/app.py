@@ -424,7 +424,7 @@ def create_app(*, workbook=DEFAULT_WORKBOOK, out_dir=REPO / "out", p_mode=None, 
             rt = context()
             cached = getattr(app.state, "learn_impact", None)
             if cached is None or cached[0] is not rt:
-                app.state.learn_impact = (rt, learning_impact(rt))
+                app.state.learn_impact = (rt, learning_impact(rt, examples=None))  # all: the page groups them by campaign
             return app.state.learn_impact[1]
 
     # ------------------------------------------------------------ Campaign fast-forward (nba/learn/outcomes.py)
