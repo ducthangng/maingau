@@ -255,7 +255,11 @@ def _pending_card(entry) -> tuple[str | None, bool, datetime | None]:
         return entry, False, None
     tid, personalised, *rest = entry
     wait = rest[0] if rest else None
-    return tid, bool(personalised), datetime.fromisoformat(wait) if isinstance(wait, str) else wait
+    if isinstance(wait, str):
+        wait = datetime.fromisoformat(wait) if wait else None
+    if isinstance(wait, datetime) and wait.tzinfo is not None:  # the stream's clocks are naive
+        wait = wait.replace(tzinfo=None)
+    return tid, bool(personalised), wait if isinstance(wait, datetime) else None
 
 
 def _waits_for(b: Blocked, deferred_until: datetime | None) -> bool:

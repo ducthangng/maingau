@@ -2717,6 +2717,124 @@
         "title": "RulesFile",
         "type": "object"
       },
+      "ServiceFeedbackRow": {
+        "additionalProperties": false,
+        "description": "POST /api/customers/{id}/service-feedback: a service agent's reaction to a suggested offer, in the shape\nof the workbook's service_nba_feedback (web/src/lib/serviceFeedback.ts); read by nba.ai.feedback.",
+        "properties": {
+          "agent_action": {
+            "enum": [
+              "accepted",
+              "dismissed"
+            ],
+            "title": "Agent Action",
+            "type": "string"
+          },
+          "agent_id": {
+            "title": "Agent Id",
+            "type": "string"
+          },
+          "channel": {
+            "enum": [
+              "phone",
+              "chat"
+            ],
+            "title": "Channel",
+            "type": "string"
+          },
+          "converted_within_14d": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Converted Within 14D"
+          },
+          "customer_id": {
+            "title": "Customer Id",
+            "type": "string"
+          },
+          "customer_reaction": {
+            "anyOf": [
+              {
+                "enum": [
+                  "interested",
+                  "declined",
+                  "annoyed"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Customer Reaction"
+          },
+          "dismiss_reason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "customer_already_has_product",
+                  "customer_upset",
+                  "no_time",
+                  "not_relevant"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dismiss Reason"
+          },
+          "feedback_id": {
+            "title": "Feedback Id",
+            "type": "string"
+          },
+          "offer_mentioned_to_customer": {
+            "default": true,
+            "title": "Offer Mentioned To Customer",
+            "type": "boolean"
+          },
+          "shown_at": {
+            "title": "Shown At",
+            "type": "string"
+          },
+          "suggested_offer_id": {
+            "title": "Suggested Offer Id",
+            "type": "string"
+          },
+          "suggestion_source": {
+            "default": "nba_engine",
+            "title": "Suggestion Source",
+            "type": "string"
+          },
+          "ticket_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ticket Id"
+          }
+        },
+        "required": [
+          "feedback_id",
+          "customer_id",
+          "shown_at",
+          "channel",
+          "suggested_offer_id",
+          "agent_id",
+          "agent_action"
+        ],
+        "title": "ServiceFeedbackRow",
+        "type": "object"
+      },
       "Signal": {
         "additionalProperties": false,
         "properties": {
@@ -3827,6 +3945,98 @@
         "summary": "Get Journey"
       }
     },
+    "/api/customers/{customer_id}/service-feedback": {
+      "get": {
+        "description": "The reactions posted for this customer (the workbook's service_nba_feedback rows are not repeated).",
+        "operationId": "service_feedback_api_customers__customer_id__service_feedback_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "customer_id",
+            "required": true,
+            "schema": {
+              "title": "Customer Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ServiceFeedbackRow"
+                  },
+                  "title": "Response Service Feedback Api Customers  Customer Id  Service Feedback Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Service Feedback"
+      },
+      "post": {
+        "description": "A service agent's reaction to a suggested offer (Customer 360°); the feedback step reads it.",
+        "operationId": "add_service_feedback_api_customers__customer_id__service_feedback_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "customer_id",
+            "required": true,
+            "schema": {
+              "title": "Customer Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServiceFeedbackRow"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceFeedbackRow"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Service Feedback"
+      }
+    },
     "/api/replay": {
       "post": {
         "description": "Replay preview only: returns re-decisions and revocations without changing API state or approvals.",
@@ -3946,6 +4156,7 @@
     },
     "/api/rules/versions": {
       "get": {
+        "description": "The edit log; an edit that no longer applies (skipped at start) carries `skipped` with the reason.",
         "operationId": "rule_versions_api_rules_versions_get",
         "responses": {
           "200": {

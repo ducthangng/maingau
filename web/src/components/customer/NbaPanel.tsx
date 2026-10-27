@@ -370,7 +370,11 @@ export interface Why {
 
 export const whyOk = (w: Why) => !!w.preset && (w.preset !== "Other" || !!w.note.trim());
 export const whyText = (w: Why) => (w.preset === "Other" ? w.note.trim() : w.note.trim() ? `${w.preset}: ${w.note.trim()}` : w.preset);
-export const whyCode = (w: Why): ReasonCode => OVERRIDE_REASONS[w.preset] ?? "other";
+/** The preset's reason code; "wrong channel" only when the new option really uses another channel. */
+export const whyCode = (w: Why, from?: string, to?: string): ReasonCode => {
+  const code = OVERRIDE_REASONS[w.preset] ?? "other";
+  return code === "wrong_channel" && from && to && from.split("|")[1] === to.split("|")[1] ? "other" : code;
+};
 
 // Small reason select and note, shared by the override note and the reject bar.
 const pick = "rounded-md border border-neutral-200 bg-white py-1 pr-6 pl-2 text-xs text-neutral-700 focus:border-accent-500 focus:outline-none";
@@ -501,7 +505,7 @@ export function DecisionBox({ card, top, sel, lock, why }: { card: CustomerCard;
   const approve = () => {
     if (!canApprove) return;
     if (isTop) recordFor(card, "approved", sel, null);
-    else recordFor(card, "overridden", sel, whyText(why), whyCode(why));
+    else recordFor(card, "overridden", sel, whyText(why), whyCode(why, top.tuple, sel.tuple));
   };
   const reject = () => {
     const { code, note } = rejectWhy;

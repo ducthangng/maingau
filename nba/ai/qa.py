@@ -175,7 +175,7 @@ def run_scenario(rt, sc: Scenario) -> dict:
     state = rt.states[sc.customer_id]
     before = rt.card(sc.customer_id)
     bc = _chosen(before)
-    pending = {sc.customer_id: (before.chosen.tuple_id, bool(bc and bc.personalised))} if bc else {}
+    pending = {sc.customer_id: (before.chosen.tuple_id, bool(bc and bc.personalised), before.chosen.deferred_until)} if bc else {}
     events = _events(sc, state)
     res = replay({sc.customer_id: state}, events, rt.policy, rt.pop, until=events[-1]["ingested_at"], pending=pending)
     statuses = [o.status for o in res.outcomes]

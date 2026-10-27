@@ -107,7 +107,9 @@ def main() -> None:
     print(f"wrote {out.relative_to(REPO)} ({elapsed:.2f} s)")
     if args.graph:
         archetypes = {cid: t.archetype.id for cid, (*_, t) in res.items()}
-        n, e = export_graph(states, policy, REPO / "out" / "kg", archetypes)
+        from nba.ai.feedback import load_memory  # the learned knowledge (python -m nba.build --learn) as Feedback nodes
+
+        n, e = export_graph(states, policy, REPO / "out" / "kg", archetypes, memory=load_memory(REPO / "out" / "customer_memory.jsonl"))
         print(f"wrote out/kg/kg_nodes.jsonl ({n} nodes) and kg_edges.jsonl ({e} edges)")
 
 

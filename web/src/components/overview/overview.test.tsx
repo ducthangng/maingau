@@ -50,7 +50,7 @@ describe("action table", () => {
   });
 
   it("tells how many wait for a contact limit", () => {
-    expect(html).toContain("46 of them wait for a contact limit");
+    expect(html).toContain("49 of them wait for a contact limit");
   });
 
   it("opens no segment panel until a row is chosen", () => {
@@ -62,7 +62,7 @@ describe("segment breakdown", () => {
   const { html, visible } = render("P-EN-02");
 
   it("shows customers and ΔCLV with their shares", () => {
-    expect(visible).toMatch(/A2 Traditional energy loyalist 44 · 67% \+€552 · 54%/);
+    expect(visible).toMatch(/A2 Traditional energy loyalist 42 · 67% \+€516 · 54%/);
     expect(visible).toMatch(/A0 .*? 2 · 3% \+€42 · 4%/);
   });
 

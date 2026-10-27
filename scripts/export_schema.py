@@ -13,7 +13,9 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
-from nba.contracts import CustomerCard, DecisionRequest, IndexRow, Journey, RuleChange, RuleCreate, RulesFile, Summary  # noqa: E402
+from nba.contracts import (  # noqa: E402
+    CustomerCard, DecisionRequest, IndexRow, Journey, RuleChange, RuleCreate, RulesFile, ServiceFeedbackRow, Summary,
+)
 
 OUT = REPO / "docs" / "schema"
 MODELS = {
@@ -25,6 +27,7 @@ MODELS = {
     "journey": Journey,  # web/public/data/journey/<id>.json and GET /api/customers/{id}/journey (Customer 360°)
     "rule_change": RuleChange,
     "rule_create": RuleCreate,
+    "service_feedback": ServiceFeedbackRow,  # POST /api/customers/{id}/service-feedback
 }
 
 

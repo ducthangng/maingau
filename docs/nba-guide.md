@@ -92,7 +92,7 @@ The workbook and the event stream are already in `data/`. The first load parses 
 
 ```bash
 .venv/bin/python -m nba.build --out out/                                 # all 750 customers + reports
-.venv/bin/python -m nba.build --out out/ --export web/public/data        # also replace the UI's mock data
+.venv/bin/python -m nba.build --out out/ --learn --export web/public/data # also replace the UI's data, with the learned memory
 .venv/bin/python -m nba.build --customers MG-100023,MG-100112 --no-report  # a few customers, fast
 .venv/bin/python -m nba.build --out out/ --learn                         # learn customer memory from feedback first
 ```

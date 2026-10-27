@@ -98,7 +98,7 @@ It opens inside the clicked row, as a panel under it. It has 7 rows: A0–A5 by 
 
 ```text
 Segment                          Customers          Expected ΔCLV
-A2 Traditional energy loyalist   44 · 67%  ▆▆▆▆▆▆   +€552 · 54%  ▆▆▆▆▆
+A2 Traditional energy loyalist   42 · 67%  ▆▆▆▆▆▆   +€516 · 54%  ▆▆▆▆▆
 A3 EV driver                      8 · 12%  ▆        +€170 · 17%  ▆▆
 ...
 A4 Retention risk (do no harm)    –                 –                     (muted, not clickable)
@@ -122,7 +122,7 @@ Reuse these; do not invent new styles.
 
 | Element | Use |
 |---|---|
-| Page header | As `pages/Groups.tsx`: `h1` 2xl semibold tracking-tight; a one-line description (15 px, neutral-600); a summary line (sm, neutral-500, tabular-nums): "10 actions · 617 customers · +€7,302 expected ΔCLV" |
+| Page header | As `pages/Groups.tsx`: `h1` 2xl semibold tracking-tight; a one-line description (15 px, neutral-600); a summary line (sm, neutral-500, tabular-nums): "11 actions · 617 customers · +€7,250 expected ΔCLV" |
 | Cards | `rounded-2xl border border-neutral-200 bg-white`, as `KpiStrip` and `GroupCard` |
 | Column and section labels | `text-[11px] font-semibold uppercase tracking-wider text-neutral-500` (`Section` in `components/Chips.tsx`, `Stat` in `GroupCard`) |
 | Numbers | `tabular-nums`; money with `lib/format.ts`; every number has its source tooltip (`Sourced`, README §5.3) |
@@ -154,22 +154,22 @@ Done on `main`; `web/src/types/contracts.ts` is regenerated. The fields:
 
 | Rank | Offer | Customers | ΔCLV | Reasons (hover) |
 |---|---|---|---|---|
-| 1 | StromAktiv | 175 (46 waiting) | +€2,684 | S11 → Home electricity for an EV driver · 96; no profiling · 79 |
-| 2 | Mobil S/M/L | 202 (45 waiting) | +€1,988 | no profiling · 202 |
-| 3 | HEMS Starter-Set | 125 | +€1,226 | no profiling · 100; S7 → Use own PV energy · 25 |
-| 4 | StromGarant | 66 | +€1,014 | S4 → Price certainty · 66 |
+| 1 | StromAktiv | 175 (49 waiting) | +€2,684 | S11 → Home electricity for an EV driver · 96; no profiling · 79 |
+| 2 | Mobil S/M/L | 201 (46 waiting) | +€1,978 | no profiling · 201 |
+| 3 | HEMS Starter-Set | 128 | +€1,245 | no profiling · 102; S7 → Use own PV energy · 25; "+1 other reason" (S1 · 1) |
+| 4 | StromGarant | 63 | +€953 | S4 → Price certainty · 63 |
 | 5 | StromWärme | 6 | +€129 | S1 Gas meter deregistered → Heat pump / electric heating · 6 |
-| 6–10 | Zusatz-SIM, HEMS Speicher-Optimierung, Wallbox-Integration, MAINGAU Autostrom, Dynamischer Stromtarif | 21, 9, 5, 5, 3 | +€122, +€77, +€31, +€21, +€8 | S6, S8, S8, S3, S9 |
+| 6–11 | Zusatz-SIM, HEMS Speicher-Optimierung, Wallbox-Integration, MAINGAU Autostrom, Dynamischer Stromtarif, Mobil Upgrade | 21, 9, 5, 5, 3, 1 | +€121, +€77, +€31, +€21, +€8, +€3 | S6, S8, S8, S3, S9, S5 |
 
-- **Totals:** 10 actions · 617 customers · +€7,302. Service line: 47. The 86 NO_ACTION customers appear nowhere.
+- **Totals:** 11 actions · 617 customers · +€7,250. Service line: 47. The 86 NO_ACTION customers appear nowhere. (Export with the learned customer memory and the P-EN-02 guarantee fix, 27 Oct 2026.)
 - **StromGarant segments:**
 
   | Segment | Customers | ΔCLV |
   |---|---|---|
-  | A2 | 44 · 67% | +€552 · 54% |
-  | A3 | 8 · 12% | +€170 · 17% |
-  | A1 | 6 · 9% | +€148 · 15% |
-  | A5 | 6 · 9% | +€102 · 10% |
+  | A2 | 42 · 67% | +€516 · 54% |
+  | A3 | 8 · 13% | +€170 · 18% |
+  | A1 | 6 · 9% | +€148 · 16% |
+  | A5 | 5 · 8% | +€76 · 8% |
   | A0 | 2 · 3% | +€42 · 4% |
   | A4, Not personalised | – | – |
 

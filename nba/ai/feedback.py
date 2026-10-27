@@ -14,6 +14,7 @@ suggests changes for everyone, which only a person can apply (Rule Center what-i
 from __future__ import annotations
 
 import json
+import os
 from collections import Counter
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -88,16 +89,26 @@ def read_jsonl(path) -> list[dict]:
 def load_memory(path) -> dict[str, list[dict]]:
     out: dict[str, list[dict]] = {}
     for m in read_jsonl(path):
-        out.setdefault(m["customer_id"], []).append(m)
+        if m.get("customer_id") and m.get("source_ref") is not None:  # a line that is not a memory entry is skipped
+            out.setdefault(m["customer_id"], []).append(m)
     return out
 
 
 def append_memory(path, entries: list[dict]) -> None:
+    """Whole lines in one write, after a newline if the file ends in a torn line; flushed to disk."""
+    if not entries:
+        return
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
-    with p.open("a", encoding="utf-8") as f:
-        for m in entries:
-            f.write(json.dumps(m, ensure_ascii=False, sort_keys=True, default=str) + "\n")
+    data = "".join(json.dumps(m, ensure_ascii=False, sort_keys=True, default=str) + "\n" for m in entries).encode("utf-8")
+    with p.open("a+b") as f:
+        if f.seek(0, os.SEEK_END):
+            f.seek(-1, os.SEEK_END)
+            if f.read(1) != b"\n":
+                data = b"\n" + data
+        f.write(data)
+        f.flush()
+        os.fsync(f.fileno())
 
 
 def active(m: dict, at: datetime) -> bool:
@@ -113,7 +124,8 @@ def from_decisions(records: list[dict]) -> list[dict]:
     items = []
     for r in records:
         e = r["entry"]
-        if e.get("action") not in {"rejected", "overridden"} or not e.get("from_tuple") or e["from_tuple"] == "NO_ACTION":
+        if (e.get("action") not in {"rejected", "overridden"} or not isinstance(e.get("from_tuple"), str)
+                or e["from_tuple"] == "NO_ACTION" or not isinstance(e.get("ts"), str)):
             continue
         offer, channel, _ = (e["from_tuple"].split("|") + ["", ""])[:3]
         items.append({"source": "decision_log", "ref": f"{r['customer_id']}@{e['ts']}", "customer_id": r["customer_id"],

@@ -232,6 +232,8 @@ def apply_op(settings: dict, cap: dict, op: dict, *, known_ids=frozenset()) -> t
             raise ValueError(f"contact_cap.window_days must be a whole number from 1 to {MAX_DAYS}")
     except ValueError as exc:
         raise RuleEditError(422, str(exc)) from exc
+    except (TypeError, AttributeError, KeyError) as exc:  # a wrong type is a bad edit, not a server error
+        raise RuleEditError(422, f"invalid setting: {exc}") from exc
     return settings, cap
 
 
@@ -252,6 +254,7 @@ def next_custom_id(settings: dict, history: list[dict]) -> str:
     """U-<n>, never reused: above every custom ID in the config and in the edit history."""
     seen = custom_ids(settings) + [str(o["rule"].get("id")) for o in history if isinstance(o, dict)
                                    and o.get("op") == "create" and isinstance(o.get("rule"), dict)]
+    seen += [str(o.get("rule_id")) for o in history if isinstance(o, dict) and o.get("op") == "delete"]  # a deleted demo rule's ID too
     n = max([int(i.split("-", 1)[1]) for i in seen if i.startswith("U-") and i.split("-", 1)[1].isdigit()] + [0])
     return f"U-{n + 1}"
 
@@ -274,6 +277,10 @@ def custom_rule(body, rule_id: str, tables: dict[str, pd.DataFrame]) -> dict[str
             raise RuleEditError(422, f"{cond['entity']} has no column {cond['column']!r}")
         if cond.get("value") is None:
             raise RuleEditError(422, f"the condition on {cond['entity']}.{cond['column']} needs a value")
+        if cond["op"] == "within_days":
+            values = tables[cond["entity"]][cond["column"]].dropna().head(50)
+            if not (_is_date_column(cond["column"]) or (len(values) and all(hasattr(v, "year") for v in values))):
+                raise RuleEditError(422, f"within_days needs a date column; {cond['entity']}.{cond['column']} is not one")
         label = cond.get("label") or ops.get((cond["entity"], cond["column"], cond["op"], str(cond["value"])),
                                              f"{_label(cond['column'])} {cond['op']} {cond['value']}")
         cond["label"] = label

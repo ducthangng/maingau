@@ -793,3 +793,49 @@ Claude Code (Opus) on Windows, in the user's checkout `E:\Projects\maingau`. On 
 - The "service first while a ticket is open" order is replaced by the engine order: the chosen action, then the alternatives (3 in static mode).
 - New amber banner "Resolve the service issue first". The brief has no warning colours in Customer 360°.
 - No `?tab=` URL state any more (three columns at ≥ 1280 px).
+
+### Session 22 · 2026-10-27 · Claude Code (Opus) · branch feat/kg
+
+**Goal (user):** fix the gaps that need no team decision, as listed by the user. Check everything, then push to main.
+- Rule Center: a few demo rules that are certainly correct.
+- A rule log with no broken lines.
+- The new action shows normally after memory changes the proposal.
+- The UI sends `reason_code` on reject.
+- A service-feedback endpoint.
+- `nba.build` reads the memory, so the build has a knowledge base.
+- The small engine and replay bugs.
+
+**How:** one workflow, 5 implementers, each in its own worktree and branch, and 5 verifiers (diff review plus the tests run again). The 5 branches merged with no conflicts. Then the verifiers' follow-ups were fixed, everything was regenerated, and the full checks ran.
+
+**Done:**
+- **Rule Center (fix/rules-api):**
+  - **Demo rules:** U-1 to U-4 in `config/nba.yaml`, all off by default. When switched on they change 19, 15, 80 and 16 decisions (Köln StromAktiv, complaint e-mail, moving customers held 30 days, born before 1960). They are documented in `docs/rule-center.md` §10, with curl commands.
+  - **Validation:** every bad edit is a 422 before it is logged: days 1..365, channels, entity or column must exist, a value is required, unsupported effects, wrong types, `within_days` only on dates. A missing column never matches.
+  - **Logs:** written in whole lines with fsync (rule log, decision log, service feedback, memory). A torn or failing line is skipped and the API still starts. GET /versions marks skipped ops.
+  - **IDs:** a deleted demo rule's ID is never reused.
+- **Decisions (API):**
+  - After memory changes the proposal, the new action shows as "proposed".
+  - Approvals survive a Rule Center edit: the version check ignores `rules`, and `checked_tuple` re-checks every rule.
+- **Service feedback:** `POST/GET /api/customers/{id}/service-feedback` writes to `out/service_feedback.jsonl`. The feedback step (API and CLI) reads it.
+- **Engine (fix/engine-bugs):**
+  - P-EN-02 is never held past its guarantee end; it is blocked, so the next action wins.
+  - A rule edit keeps `versions.propensity`.
+  - A NO_ACTION reason names B-xx.
+  - The rule report says "defer" only when a tuple was held. B-01 what-if 5→3 is now 285 → 410 customers (was 328 → 492).
+- **Replay (fix/replay-cap):**
+  - A card that already waits for the contact cap is no longer revoked by it: 33 revoked, was 40.
+  - The AI QA harness passes `deferred_until` too.
+- **Build (fix/build-memory):**
+  - `nba.build --memory` (reads `out/customer_memory.jsonl` by default when it exists), `--no-memory`, and `--learn` (code-only feedback from the workbook, the decision log and service feedback, reproducible).
+  - Feedback nodes in the KG export (`scripts/kg_report.py --graph`).
+- **UI (fix/ui-reason-code):**
+  - Reject needs one of 8 reasons and sends `reason_code`. Override presets map to codes; "Better channel" sends `wrong_channel` only when the channel really changes.
+  - Paths covered: worklist, card, Customer 360° and Groups.
+- **Regenerated:**
+  - schemas (+ `service_feedback.schema.json`), OpenAPI, TS types;
+  - the static export, with `--learn` from an empty folder: 74 memory entries, 58 active, 16 cards with MEMORY, 24.35 MB;
+  - the Overview acceptance numbers in tests and the brief: 11 actions, 617 customers, +€7,250.
+
+**Verified:** see the commit; full Python suite, web tsc / vitest / build, `nba.ai qa --no-ai` 8/8, and a live API smoke of the demo flow (what-if, switch on, a bad edit gives 422, reject with code, service feedback, the feedback step, then a normal "proposed").
+
+**Left for the team:** S4 counts day 0 of the guarantee, so MG-100508 (guarantee ends 30.09) gets a P-EN-02 e-mail on 01.10. Whether day 0 counts is a policy choice.

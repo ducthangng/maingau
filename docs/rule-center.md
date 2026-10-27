@@ -182,8 +182,8 @@ Four custom rules in `config/nba.yaml → custom_rules`, **switched off**, so th
 | ID | Rule | Condition → effect | Decisions changed when on | What you see |
 |---|---|---|---|---|
 | U-1 | No StromAktiv offers in Köln | Customer · city is Köln, sub-rule U-1.1 Offer · P-EN-01 → BLOCK_OFFER | **19** | The next offer wins, e.g. MG-100660: StromAktiv → Zusatz-SIM by portal pop-up. ΔCLV now €8,898 → €8,797 |
-| U-2 | No sales e-mail or newsletter after a complaint | Service ticket · category is complaint → BLOCK_CHANNEL `email`, `newsletter_email` | **17** | 13 customers whose only channel was e-mail get no action, e.g. MG-100508 (StromGarant newsletter) |
-| U-3 | Hold sales 30 days for customers who are moving | Service ticket · category is moving → DEFER_UNTIL, `days: 30` | **79** | Act now 518 → 461, waiting 146 → 203, held until 30.10 or later (e.g. MG-100139) |
+| U-2 | No sales e-mail or newsletter after a complaint | Service ticket · category is complaint → BLOCK_CHANNEL `email`, `newsletter_email` | **15** | 13 customers whose only channel was e-mail get no action, e.g. MG-100508 (StromGarant newsletter) |
+| U-3 | Hold sales 30 days for customers who are moving | Service ticket · category is moving → DEFER_UNTIL, `days: 30` | **80** | Those customers wait instead of acting now, held until 30.10 or later (e.g. MG-100139) |
 | U-4 | Born before 1960: no app push, SMS or calls | Customer · birth year ≤ 1959 → BLOCK_CHANNEL `app_push`, `sms`, `outbound_call` | **16** | Another channel is used, e.g. MG-100607: StromAktiv by portal pop-up instead of app push |
 
 Counts are from the mock data at the snapshot (`POST /api/rules/whatif`); `tests/test_engine_rules.py` checks them within 10–40 (U-1), 8–40 (U-2, U-4) and 50–120 (U-3). Customer memory or other rule edits made during the demo can move them a little.

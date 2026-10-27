@@ -45,10 +45,10 @@ describe("actions match the summary", () => {
     }
   });
 
-  it("totals: 10 actions, 617 customers, +€7,302; 47 service cases; NO_ACTION nowhere", () => {
-    expect(overview.actions).toHaveLength(10);
+  it("totals: 11 actions, 617 customers, +€7,250; 47 service cases; NO_ACTION nowhere", () => {
+    expect(overview.actions).toHaveLength(11);
     expect(overview.customers).toBe(617);
-    expect(Math.round(overview.total)).toBe(7302);
+    expect(Math.round(overview.total)).toBe(7250);
     expect(overview.service).toBe(47);
     const noAction = rows.filter((r) => r.chosen_offer === "NO_ACTION").length;
     expect(noAction).toBe(86);
@@ -59,18 +59,19 @@ describe("actions match the summary", () => {
   it("ranks the actions as in the acceptance table", () => {
     expect(overview.actions.map((a) => [a.name, a.customers, Math.round(a.total)])).toEqual([
       ["StromAktiv", 175, 2684],
-      ["Mobil S/M/L", 202, 1988],
-      ["HEMS Starter-Set", 125, 1226],
-      ["StromGarant", 66, 1014],
+      ["Mobil S/M/L", 201, 1978],
+      ["HEMS Starter-Set", 128, 1245],
+      ["StromGarant", 63, 953],
       ["StromWärme", 6, 129],
-      ["Zusatz-SIM", 21, 122],
+      ["Zusatz-SIM", 21, 121],
       ["HEMS Speicher-Optimierung", 9, 77],
       ["Wallbox-Integration", 5, 31],
       ["MAINGAU Autostrom", 5, 21],
       ["Dynamischer Stromtarif", 3, 8],
+      ["Mobil Upgrade", 1, 3],
     ]);
-    expect(action("P-EN-01").waiting).toBe(46);
-    expect(action("P-MO-01").waiting).toBe(45);
+    expect(action("P-EN-01").waiting).toBe(49);
+    expect(action("P-MO-01").waiting).toBe(46);
   });
 });
 
@@ -79,9 +80,9 @@ describe("reasons", () => {
 
   it("counts the signal → need behind each action, general offers apart", () => {
     expect(keys("P-EN-01")).toEqual([["S11|N-HOME-ELECTRICITY", 96], ["no-profiling", 79]]);
-    expect(keys("P-MO-01")).toEqual([["no-profiling", 202]]);
-    expect(keys("P-SL-01")).toEqual([["no-profiling", 100], ["S7|N-ENERGY-MANAGEMENT", 25]]);
-    expect(keys("P-EN-02")).toEqual([["S4|N-PRICE-SECURITY", 66]]);
+    expect(keys("P-MO-01")).toEqual([["no-profiling", 201]]);
+    expect(keys("P-SL-01")).toEqual([["no-profiling", 102], ["S7|N-ENERGY-MANAGEMENT", 25], ["S1|N-HEAT-PUMP", 1]]);
+    expect(keys("P-EN-02")).toEqual([["S4|N-PRICE-SECURITY", 63]]);
     expect(keys("P-EN-03")).toEqual([["S1|N-HEAT-PUMP", 6]]);
   });
 
@@ -119,10 +120,10 @@ describe("segments", () => {
   it("StromGarant splits as in the acceptance table, empty segments last", () => {
     const a = action("P-EN-02");
     expect(a.segments.map((s) => [s.key, s.customers, s.customersPct, Math.round(s.total), s.totalPct])).toEqual([
-      ["A2", 44, 67, 552, 54],
-      ["A3", 8, 12, 170, 17],
-      ["A1", 6, 9, 148, 15],
-      ["A5", 6, 9, 102, 10],
+      ["A2", 42, 67, 516, 54],
+      ["A3", 8, 13, 170, 18],
+      ["A1", 6, 9, 148, 16],
+      ["A5", 5, 8, 76, 8],
       ["A0", 2, 3, 42, 4],
       ["A4", 0, 0, 0, 0],
       [NOT_PERSONALISED, 0, 0, 0, 0],

@@ -368,3 +368,22 @@ def test_marketer_rulebook_edits_business_rules(tables):
     edited, found, _ = compile_cards(edited_text, base, names)
     assert edited["nba"]["business_rules"]["B-01"]["max"] == 3
     assert [(c.card, c.field, c.before, c.after) for c in found] == [("E-mails per customer", "at most", 5, 3)]
+
+
+def test_follow_ups_ids_types_dates_and_approvals_survive_a_rule_edit(tmp_path, rt):
+    """Review follow-ups: a deleted demo rule's ID is not reused; a wrong type or a date operator on text is a 422;
+    an approval survives a Rule Center edit that does not touch its tuple."""
+    api = TestClient(create_app(runtime=rt, out_dir=tmp_path))
+    assert api.delete("/api/rules/U-4", params={"by": "demo"}).status_code == 200
+    body = {"by": "demo", "condition": {"entity": "customer_master", "column": "app_installed", "op": "=", "value": False}}
+    assert api.post("/api/rules", json=body).json()["rules"][-1]["id"] == "U-5"  # not U-4 again
+    bad_type = api.put("/api/rules/B-01", json={"by": "demo", "params": {"channels": 5}})
+    assert bad_type.status_code == 422, bad_type.text
+    on_text = api.post("/api/rules", json={"by": "demo", "condition": {"entity": "customer_master", "column": "city",
+                                                                       "op": "within_days", "value": 30}})
+    assert on_text.status_code == 422 and "date column" in on_text.json()["detail"]
+    cid = next(r["customer_id"] for r in api.get("/api/customers").json()
+               if r["chosen_offer"] not in {"NO_ACTION", "P-SV-01"} and not r.get("deferred_until") and r["city"] != "Köln")
+    assert api.post(f"/api/customers/{cid}/decision", json={"action": "approve", "user": "demo"}).status_code == 200
+    assert api.put("/api/rules/U-1", json={"by": "demo", "active": True, "reason": "demo"}).status_code == 200  # Köln only
+    assert api.get(f"/api/customers/{cid}").json()["chosen"]["status"] == "approved"

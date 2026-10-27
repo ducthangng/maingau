@@ -454,7 +454,7 @@ A service agent's reaction to a suggested offer in Customer 360° (`web/src/lib/
 | `blocked`, `signals`, `profile` | Identical to the API |
 | JSON format | Compact |
 
-**Static export size:** `customers/` is about 19.2 MB, `index.json` about 0.5 MB and `rules.json` (the Rule Center tree and the Field / Operator catalog) about 41 KB; `journey/` (Customer 360°) is about 3.8 MB. The whole export stays under 30 MB (about 24 MB now). Regenerate it from `main` whenever the engine changes: `python -m nba.build --export web/public/data`.
+**Static export size:** `customers/` is about 19.2 MB, `index.json` about 0.5 MB and `rules.json` (the Rule Center tree and the Field / Operator catalog) about 41 KB; `journey/` (Customer 360°) is about 3.8 MB. The whole export stays under 30 MB (about 24 MB now). Regenerate it from `main` whenever the engine changes: `python -m nba.build --learn --export web/public/data` (`--learn` adds the customer memory learned from the workbook's agent feedback and, when present, `out/decision_log.jsonl` and `out/service_feedback.jsonl`; the committed export was built from the workbook feedback only: 74 entries, 16 cards with a MEMORY rule).
 
 **Rule Center data in static mode:**
 - each card keeps only tier 2 outcomes in `rules.results` (block / defer / off), plus `counter_line`;

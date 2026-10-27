@@ -125,7 +125,7 @@ The entry point is a **worklist ranked by urgency** (§6.13). A marketer opens o
 | Tests | pytest |
 | UI | React + TypeScript + Tailwind CSS (Vite), static build deployed on Vercel; Recharts for mini charts |
 
-The UI is a static site. `python -m nba.build --export web/public/data` writes the JSON it reads. In the deployed demo, approvals are kept in the browser (localStorage) and can be exported as CSV/JSON; the FastAPI decision endpoint is the local and pilot path. The JSON contract is the same in both.
+The UI is a static site. `python -m nba.build --learn --export web/public/data` writes the JSON it reads (`--learn` adds the customer memory learned from feedback). In the deployed demo, approvals are kept in the browser (localStorage) and can be exported as CSV/JSON; the FastAPI decision endpoint is the local and pilot path. The JSON contract is the same in both.
 
 ## 3. Data facts (verified 26 Oct 2026 against the files)
 
@@ -1038,7 +1038,7 @@ The KG is **not a stored graph**. Customer nodes and edges are rebuilt from the 
 .venv/bin/python scripts/validate_data.py --workbook <new.xlsx>   # 1. stop on ERROR (exit code 1)
 # 2. eval_time: config/kg.yaml `eval_time: auto` = end of the latest customer_value.clv_calc_date
 #    (or set an ISO time, or `python -m nba.build --asof ...`)
-.venv/bin/python -m nba.build --out out/ --export web/public/data # 3. rebuild every customer
+.venv/bin/python -m nba.build --out out/ --learn --export web/public/data # 3. rebuild every customer, with the learned memory
 .venv/bin/python scripts/replay_demo.py                          # 4. apply the event stream (deep dive B)
 ```
 
@@ -1261,7 +1261,7 @@ python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 python -m nba.build --asof 2026-09-30T23:59:59 --out out/          # all customers
 python -m nba.build --customers MG-100068,MG-100009 --out out/    # subset
-python -m nba.build --out out/ --export web/public/data            # refresh the UI data
+python -m nba.build --out out/ --learn --export web/public/data    # refresh the UI data (with the learned memory)
 python scripts/export_preview.py --out web/public/data             # KG-only preview until nba.build exists
 python scripts/replay_demo.py                                      # deep dive B: out/replay_report.md, out/replay/timeline.json
 python scripts/validate_data.py --workbook <xlsx>                  # data contract check before a build (exit 1 on ERROR)
@@ -1379,7 +1379,7 @@ Each agent owns one file and writes only there: `log/agent-kg.md`, `log/agent-ca
   - secrets or tokens;
   - real customer data.
 
-  `web/public/data/` (mock data or the `nba.build` export) is allowed; keep it under 30 MB (cards, Customer 360° journeys, index, summary, rules). Regenerating it from `main` with `python -m nba.build --export web/public/data` is allowed and keeps the static demo in line with the API.
+  `web/public/data/` (mock data or the `nba.build` export) is allowed; keep it under 30 MB (cards, Customer 360° journeys, index, summary, rules). Regenerating it from `main` with `python -m nba.build --learn --export web/public/data` is allowed and keeps the static demo in line with the API.
 - **Commit small and often.** Message format: `<area>: <what changed> (<why>)`, plus a short body. Commit the session's log entry together with the code.
 
 ### 13.3 Syncing and delivering to `main`

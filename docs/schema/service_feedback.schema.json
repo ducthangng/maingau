@@ -1,0 +1,122 @@
+{
+  "additionalProperties": false,
+  "description": "POST /api/customers/{id}/service-feedback: a service agent's reaction to a suggested offer, in the shape\nof the workbook's service_nba_feedback (web/src/lib/serviceFeedback.ts); read by nba.ai.feedback.",
+  "properties": {
+    "agent_action": {
+      "enum": [
+        "accepted",
+        "dismissed"
+      ],
+      "title": "Agent Action",
+      "type": "string"
+    },
+    "agent_id": {
+      "title": "Agent Id",
+      "type": "string"
+    },
+    "channel": {
+      "enum": [
+        "phone",
+        "chat"
+      ],
+      "title": "Channel",
+      "type": "string"
+    },
+    "converted_within_14d": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Converted Within 14D"
+    },
+    "customer_id": {
+      "title": "Customer Id",
+      "type": "string"
+    },
+    "customer_reaction": {
+      "anyOf": [
+        {
+          "enum": [
+            "interested",
+            "declined",
+            "annoyed"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Customer Reaction"
+    },
+    "dismiss_reason": {
+      "anyOf": [
+        {
+          "enum": [
+            "customer_already_has_product",
+            "customer_upset",
+            "no_time",
+            "not_relevant"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Dismiss Reason"
+    },
+    "feedback_id": {
+      "title": "Feedback Id",
+      "type": "string"
+    },
+    "offer_mentioned_to_customer": {
+      "default": true,
+      "title": "Offer Mentioned To Customer",
+      "type": "boolean"
+    },
+    "shown_at": {
+      "title": "Shown At",
+      "type": "string"
+    },
+    "suggested_offer_id": {
+      "title": "Suggested Offer Id",
+      "type": "string"
+    },
+    "suggestion_source": {
+      "default": "nba_engine",
+      "title": "Suggestion Source",
+      "type": "string"
+    },
+    "ticket_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Ticket Id"
+    }
+  },
+  "required": [
+    "feedback_id",
+    "customer_id",
+    "shown_at",
+    "channel",
+    "suggested_offer_id",
+    "agent_id",
+    "agent_action"
+  ],
+  "title": "ServiceFeedbackRow",
+  "type": "object"
+}

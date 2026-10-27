@@ -225,8 +225,10 @@ def create_app(*, workbook=DEFAULT_WORKBOOK, out_dir=REPO / "out", p_mode=None, 
         card = rt.card(cid)
         entries = store.entries(cid) if entries is None else entries
         card.decision_log += entries
+        # A Rule Center edit alone does not drop approvals: checked_tuple re-checks every rule below.
+        now = {k: v for k, v in card.meta.versions.model_dump().items() if k != "rules"}
         current = [i for i, e in enumerate(entries) if e.state_revision == card.meta.state_revision
-                   and e.versions == card.meta.versions.model_dump()]
+                   and {k: v for k, v in e.versions.items() if k != "rules"} == now]
         if current:
             last = entries[current[-1]]
             if last.action in {"approved", "overridden"} and last.to_tuple and last.to_tuple != NO_ACTION:

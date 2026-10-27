@@ -93,7 +93,7 @@ export function DecisionBar({
   const override = () => {
     const to = others.find((c) => c.tuple_id === target);
     if (!to || !whyOk(why)) return;
-    record(card, "overridden", to, to.tuple_id, whyText(why), whyCode(why));
+    record(card, "overridden", to, to.tuple_id, whyText(why), whyCode(why, card.chosen.tuple_id, to.tuple_id));
     done(`Overridden → ${tupleLabel(to.tuple_id)}`);
   };
 

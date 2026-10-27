@@ -129,3 +129,14 @@ def test_waiting_card_is_still_revoked_by_a_ticket(states, policy, pop, events):
     res = replay(states, events, policy, pop, pending={"MG-100006": ("P-EN-02|email|sie", False, "2026-10-11T15:42:31")})
     tr = next(t for t in res.transitions if t.pending_status == "revoked")
     assert tr.outcome.customer_id == "MG-100006" and tr.revoked_by == ("EXCL-OPEN-TICKET",)
+
+
+def test_pending_card_accepts_aware_or_empty_waits():
+    from datetime import datetime, timezone
+
+    from nba.kg.events import _pending_card
+
+    assert _pending_card(("T", True, ""))[2] is None
+    aware = _pending_card(("T", False, datetime(2026, 10, 5, 9, tzinfo=timezone.utc)))[2]
+    assert aware == datetime(2026, 10, 5, 9) and aware.tzinfo is None
+    assert _pending_card(("T", False, "2026-10-05T09:00:00+00:00"))[2].tzinfo is None
