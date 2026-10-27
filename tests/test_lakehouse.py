@@ -100,6 +100,8 @@ def test_upload_writes_every_sheet_events_and_manifest_last(uploaded):
     assert [m["position"] for m in manifest] == list(range(24)) and manifest[-1]["kind"] == "events"
     counts = {m["table_name"]: m["n_rows"] for m in manifest}
     assert counts["customer_master"] == 750 and counts["consent_status"] == 4500 and counts[lh.EVENTS] == 647
+    # Spark's read_files skips files whose name starts with "_" or ".": no table may come from such a file
+    assert not [p for p in uploaded.files if p.rsplit("/", 1)[1][0] in "_."]
     # the original files land in the volume too
     assert {f"{SETTINGS.volume_dir}/files/{p.name}" for p in (data.DEFAULT_WORKBOOK, data.DEFAULT_EVENTS)} <= set(uploaded.files)
 

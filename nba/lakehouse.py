@@ -199,7 +199,8 @@ def write_table(wh, s: Settings, schema: str, table: str, columns: list[tuple[st
     if not rows:
         wh.query(f"CREATE OR REPLACE TABLE {target} ({spec}) COMMENT {lit(comment)}")
         return 0
-    path = f"{s.volume_dir}/{schema}/{table}.jsonl"  # both checked by s.table() above
+    # both names checked by s.table() above; "t-" because Spark skips files starting with "_" (e.g. _manifest)
+    path = f"{s.volume_dir}/{schema}/t-{table}.jsonl"
     body = "".join(json.dumps(r, ensure_ascii=False, sort_keys=True, allow_nan=False) + "\n" for r in rows)
     wh.put(path, body.encode("utf-8"))
     wh.query(f"CREATE OR REPLACE TABLE {target} COMMENT {lit(comment)} AS SELECT {', '.join(q(c) for c, _ in columns)} "
