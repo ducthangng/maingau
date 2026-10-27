@@ -31,7 +31,7 @@ import { loadLearnImpact, type LearnChange, type LearnImpact } from "../../lib/k
 type Verdict = "kept" | "better" | "mistake";
 
 const VERDICT: Record<Verdict, { label: string; hint: string; icon: LucideIcon; dot: string; bar: string }> = {
-  kept: { label: "Kept", hint: "Recommendation confirmed, nothing to change", icon: Check, dot: "bg-neutral-100 text-neutral-500", bar: "bg-neutral-300" },
+  kept: { label: "Kept", hint: "Recommendation confirmed, nothing to change", icon: Check, dot: "bg-emerald-50 text-emerald-600", bar: "bg-emerald-500" },
   better: { label: "Learned", hint: "An offer works better than we thought", icon: TrendingUp, dot: "bg-accent-50 text-accent-600", bar: "bg-accent-500" },
   mistake: { label: "Mistake fixed", hint: "We overrated an offer, or the customer pushed back", icon: X, dot: "bg-red-50 text-red-600", bar: "bg-red-400" },
 };
