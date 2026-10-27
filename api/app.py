@@ -37,6 +37,7 @@ from nba.engine.rule_registry import RuleEditError, custom_rule, next_custom_id,
 from nba.engine.rulecenter import Evaluator
 from nba.engine.runtime import Runtime, index_rows, summary
 from nba.kg.journey import build_journey, lookups as journey_lookups
+from nba.learn.impact import feedback_impact, learning_impact
 from nba.kg.rules import check_tuple, generate_candidates, is_profiled
 from nba.kg.signals import extract_signals
 
@@ -405,7 +406,19 @@ def create_app(*, workbook=DEFAULT_WORKBOOK, out_dir=REPO / "out", p_mode=None, 
             items = ai_feedback.from_decisions(store.records()) + ai_feedback.from_agent_feedback(rows)
             result = ai_feedback.process(rt, items, memory_path, llm_from_env() if ai else None)
             app.state.runtime = rt.with_memory(memory_path)
+            # What this step changed: the decisions of the customers it just remembered something about
+            result["impact"] = feedback_impact(rt, app.state.runtime, [m["customer_id"] for m in result["added"]])
             return result
+
+    @app.get("/api/learn/impact")
+    def get_learning_impact():
+        """What the feedback loop learned (k, look-alike lift, customer memory) and which decisions it changed."""
+        with lock:
+            rt = context()
+            cached = getattr(app.state, "learn_impact", None)
+            if cached is None or cached[0] is not rt:
+                app.state.learn_impact = (rt, learning_impact(rt))
+            return app.state.learn_impact[1]
 
     @app.post("/api/customers/{customer_id}/service-feedback", response_model=ServiceFeedbackRow)
     def add_service_feedback(customer_id: str, row: ServiceFeedbackRow):
