@@ -30,7 +30,10 @@ function Landing() {
       <div className="flex flex-wrap justify-center gap-2 text-sm">
         {EXAMPLES.map((id) => (
           <Link key={id} to={`/service/${id}`} className="rounded-full bg-white px-3 py-1 text-neutral-700 ring-1 ring-neutral-200 hover:bg-neutral-50">
-            {id} · {mockName(id)}
+            {id} · {mockName(id)}{" "}
+            <span className="rounded bg-neutral-100 px-1 text-[10px] font-medium uppercase text-neutral-500" title="Demo name: the data has no names">
+              demo
+            </span>
           </Link>
         ))}
       </div>
@@ -48,7 +51,7 @@ function CustomerView({ id }: { id: string }) {
     return (
       <div className="mx-auto max-w-xl space-y-4 py-12 text-center">
         <p className="text-neutral-700">
-          {card.error === "Unknown customer" ? `No customer ${id}.` : `Could not load ${id}: ${card.error}`}
+          {card.error === "Unknown customer" || card.error.endsWith("not JSON") ? `No customer ${id}.` : `Could not load ${id}: ${card.error}`}
         </p>
         <div className="flex justify-center">
           <CustomerSearch autoFocus size="lg" />
@@ -86,6 +89,6 @@ function CustomerView({ id }: { id: string }) {
 export default function Service() {
   const { id } = useParams();
   if (!id) return <Landing />;
-  const cid = decodeURIComponent(id).toUpperCase();
+  const cid = id.toUpperCase(); // useParams already decodes
   return <CustomerView key={cid} id={cid} />;
 }

@@ -1,8 +1,12 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { renderToStaticMarkup } from "react-dom/server";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 import type { CustomerCard, Journey } from "../../types/contracts";
+import { mockName } from "../../lib/customerMock";
+import Service from "../../pages/Service";
+import Layout from "../Layout";
 import ActionsTab from "./ActionsTab";
 import JourneyTab, { fromTimeline, JourneyList } from "./JourneyTab";
 import { dateLabel, notRecommended, sortedActions } from "./plain";
@@ -35,6 +39,8 @@ function screens(card: CustomerCard) {
 }
 
 // No urgency tier, flags, segment name or payment field anywhere in Customer 360° (§3.2, §4).
+// Engine wording: rule and offer codes, tuple IDs, ΔCLV thresholds, "Held back until".
+const ENGINE_CODE = /\b[BCU]-\d{2}\b|\bP-[A-Z]{2}-\d{2}\b|ΔCLV|Held back|\[S\d+\]/;
 const FORBIDDEN =
   /payment|zahlung|dunning|mahnung|mahnstufe|inkasso|sepa|direct debit|bank transfer|urgency|archetype|outlier|service critical|contact fatigue|\bP[1-5]\b|loyalist|retention risk|eco-system adopter|connected household|\bEV driver\b|snapshot inconsist/i;
 
@@ -64,6 +70,7 @@ describe("Customer 360° acceptance customers", () => {
     expect(s.strip).toContain("MAINGAU Autostrom");
     expect(s.strip).toContain("Portal pop-up");
     expect(s.strip).toMatch(/bought a Wallbox .* no Autostrom contract/);
+    expect(s.actions).toContain("MAINGAU Autostrom · Newsletter Contact limit reached, possible from 5 Nov 2026");
     const journey = journeyText("MG-100023");
     expect(journey).toMatch(/Newsletters 13 .*Past proposals 3 .*Portal 16/);
     expect(journey).toContain("Offer MAINGAU Autostrom via newsletter email");
@@ -83,7 +90,43 @@ describe("Customer 360° acceptance customers", () => {
   it("MG-100026: the strip says from when the NBA is possible", () => {
     const card = load("MG-100026");
     expect(card.chosen.deferred_until).toBeTruthy();
-    expect(screens(card).strip).toContain(`from ${dateLabel(card.chosen.deferred_until)}`);
+    expect(screens(card).strip).toContain("from 2 Dec 2026");
+    expect(dateLabel(card.chosen.deferred_until)).toBe("2 Dec 2026");
+  });
+});
+
+describe("no offer right now", () => {
+  it("names the account-level reason, not a single offer's", () => {
+    expect(screens(load("MG-100011")).strip).toContain("No offer right now No sales offers right now (account status)");
+    expect(screens(load("MG-100017")).strip).toContain("No offer right now No marketing contact agreed: service contact only");
+  });
+});
+
+describe("dashboard switch and landing page", () => {
+  const at = (path: string, el: React.ReactElement) =>
+    text(
+      renderToStaticMarkup(
+        <MemoryRouter initialEntries={[path]}>
+          <Routes>
+            <Route path="/" element={el}>
+              <Route index element={<p>worklist page</p>} />
+              <Route path="service" element={<Service />} />
+            </Route>
+          </Routes>
+        </MemoryRouter>,
+      ),
+    );
+
+  it("labels every mock name on the landing page as a demo name", () => {
+    const page = at("/service", <Layout />);
+    for (const id of ["MG-100186", "MG-100096", "MG-100023", "MG-100112", "MG-100026"]) expect(page).toContain(`${id} · ${mockName(id)} demo`);
+  });
+
+  it("keeps the Orchestration navigation on its pages and hides it in Customer 360°", () => {
+    const orchestration = at("/", <Layout />);
+    expect(orchestration).toMatch(/Worklist .*Groups/);
+    expect(orchestration).toContain("worklist page");
+    expect(at("/service", <Layout />)).not.toMatch(/Worklist|Groups/);
   });
 });
 
@@ -93,8 +136,14 @@ describe("every customer", () => {
   it("renders without tier, flags, segment or payment wording", () => {
     const leaks: string[] = [];
     for (const id of ids) {
-      const m = screens(load(id)).all.match(new RegExp(`.{0,30}(?:${FORBIDDEN.source}).{0,30}`, "i"));
+      const card = load(id);
+      const all = screens(card).all;
+      const m = all.match(new RegExp(`.{0,30}(?:${FORBIDDEN.source}|${ENGINE_CODE.source}).{0,30}`, "i"));
       if (m) leaks.push(`${id}: …${m[0]}…`);
+      // this card's own triage words: flag labels and segment name (highlights repeat facts that the
+      // NBA reason may state, e.g. "3 failed charging sessions in 30 days", so they are not checked)
+      const own = [...(card.triage.flags ?? []).map((f) => f.label), card.triage.archetype.name];
+      for (const w of own) if (w && w.length > 3 && w !== "Other" && all.includes(w)) leaks.push(`${id}: shows "${w}"`);
     }
     expect(ids.length).toBeGreaterThan(0);
     expect(leaks).toEqual([]);

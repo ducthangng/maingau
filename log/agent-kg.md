@@ -694,3 +694,28 @@ Claude Code (Opus) on Windows, in the user's checkout `E:\Projects\maingau`. On 
 - **Journey tab:** `web/src/lib/journey.ts` (new) loads `GET /api/customers/{id}/journey`, static `data/journey/{id}.json`. `JourneyTab` shows all nine chips (newsletters, past proposals, agent suggestions, tickets, orders, charging, portal, contracts, consent) with detail, reaction and neutral flag tags. It falls back to the card timeline if the journey cannot be loaded.
 - `npm run types` now also generates `Journey` (the regeneration also brought in `PSource.k` and `reason_code`).
 - **Tests:** 2 new vitest cases: every customer's journey renders all chips with no CLV, tier, flag, segment or payment wording; the fallback works. 39/39 pass; build passes.
+
+### Session 17 · 2026-10-27 · Claude Code (Opus) · branch feat/kg
+
+**Goal (user):** fix the findings of the Customer 360° review (4 lenses, each verified: 27 findings, about 10 distinct issues; the journey tab was already fixed in 7efd022).
+
+**Done:**
+- **Plain text for every rule in the real export** (`plain.ts`):
+  - B-05 "Turned down recently, possible from …", B-06 "No sales offers just after a ticket, possible from …", B-08 "Not worth a phone call", B-09 capacity, MEMORY "Paused after earlier feedback (…)";
+  - C-01 without a channel: "No marketing contact agreed: service contact only";
+  - the fallback never shows rule or offer codes, tuple IDs, ΔCLV or "Held back until".
+- **"Not recommended":** a hold-back or call threshold names its channel ("MAINGAU Autostrom · Newsletter: Contact limit reached, possible from 5 Nov 2026"), so it is not read as the whole offer.
+- **"No offer right now"** (strip and NBA tab): new `noOfferReason`, in this order: account-level rule, then no marketing consent, then contact limit, then "No offer is worth making right now". Before, it showed the first per-offer row.
+- **Static export** (`nba/engine/export.py`): deferred rows are kept once per offer × channel (before: once per offer, and dropped for offers the card shows). MG-100023's newsletter deferral now reaches static mode. The export is 24.0 MB.
+- **Service page:**
+  - the landing page labels mock names "demo";
+  - no double `decodeURIComponent` (a `%` in the URL crashed the app);
+  - in static mode, a non-JSON answer reads as "No customer".
+- **Feedback store:** another tab's writes are picked up; a parse result that is not a list is ignored.
+- **Tests:** 48 vitest cases, up from 39:
+  - real B-05 / B-06 / B-08 / MEMORY / C-01 rows;
+  - the MG-100023 newsletter "possible from" and the literal MG-100026 date;
+  - no-offer reasons, demo labels, Orchestration nav kept on `/` and hidden on `/service`;
+  - the 750-customer scan now also fails on engine codes and the card's own flag labels and segment name.
+- Test files are type-checked again (`tsconfig` exclude removed; 2 type errors in tests fixed).
+- **Not done (low, plausible):** the sticky strip offset on narrow screens; a marketer-rejected proposal is still shown as "Suggest first" in API mode.

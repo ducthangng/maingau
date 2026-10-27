@@ -393,11 +393,12 @@ What happened to one customer and how they reacted, newest first (`nba/kg/journe
 | `blocked`, `signals`, `profile` | Identical to the API |
 | JSON format | Compact |
 
-**Static export size:** `customers/` is about 19.2 MB, `index.json` about 0.5 MB and `rules.json` (the Rule Center tree and the Field / Operator catalog) about 41 KB; `journey/` (Customer 360°) is about 3.8 MB. The whole export stays under 30 MB (about 23.5 MB now). Regenerate it from `main` whenever the engine changes: `python -m nba.build --export web/public/data`.
+**Static export size:** `customers/` is about 19.2 MB, `index.json` about 0.5 MB and `rules.json` (the Rule Center tree and the Field / Operator catalog) about 41 KB; `journey/` (Customer 360°) is about 3.8 MB. The whole export stays under 30 MB (about 24 MB now). Regenerate it from `main` whenever the engine changes: `python -m nba.build --export web/public/data`.
 
 **Rule Center data in static mode:**
 - each card keeps only tier 2 outcomes in `rules.results` (block / defer / off), plus `counter_line`;
 - a waiting card keeps the planned action and one fallback;
+- `blocked` keeps one "possible from" row per offer × channel, as in the API (e.g. MG-100023: Autostrom by newsletter, possible from 5 Nov 2026);
 - the API keeps everything.
 
 A real export removes `manifest.json`, the mock-data marker. MG-100068, for example, has 12 tuples in the API but 4 candidates in the static file.

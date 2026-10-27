@@ -5,10 +5,10 @@ import { normaliseId } from "./ViewSwitch";
 
 // Plain-language rules of Customer 360° (prompts/ui-customer360.md §3.1, §3.4).
 
-const blocked = (x: Partial<Blocked> & { rule_id: string }): Blocked => ({ offer_id: "*", reason: "", ...x }) as Blocked;
+const blocked = (x: Partial<Blocked> & Pick<Blocked, "rule_id">): Blocked => ({ offer_id: "*", reason: "", ...x }) as Blocked;
 
 describe("blockedText: rule → plain text (rule_center_id first, then rule_id)", () => {
-  it.each([
+  it.each<[Partial<Blocked> & Pick<Blocked, "rule_id">, string]>([
     [{ rule_center_id: "C-07", rule_id: "EXCL-OPEN-TICKET" }, "No sales offers while a ticket is open"],
     [{ rule_id: "EXCL-OPEN-TICKET" }, "No sales offers while a ticket is open"],
     [{ rule_center_id: "C-08", rule_id: "EXCL-CANCELLATION" }, "No sales offers: a cancellation is in progress"],
@@ -23,7 +23,14 @@ describe("blockedText: rule → plain text (rule_center_id first, then rule_id)"
     [{ rule_center_id: "B-07", rule_id: "HOLDING-PRECONDITION", reason: "Wallbox-Integration (from S3): needs HEMS gateway" }, "Needs HEMS gateway"],
     [{ rule_center_id: "B-02", rule_id: "CONTACT-CAP", until: "2026-10-14T09:00:00" }, "Contact limit reached, possible from 14 Oct 2026"],
     [{ rule_center_id: "B-01", rule_id: "BUSINESS-RULE", until: "2026-12-02" }, "Contact limit reached, possible from 2 Dec 2026"],
-    [{ rule_center_id: "MEMORY", rule_id: "BUSINESS-RULE", reason: "P-SH-01: declined on 2026-09-01" }, "The customer said no to this before (declined on 2026-09-01)"],
+    [{ rule_center_id: "MEMORY", rule_id: "BUSINESS-RULE", reason: "P-SH-01: declined on 2026-09-01" }, "Paused after earlier feedback (declined on 2026-09-01)"],
+    // Rule Center rows from the real export (web/public/data): no rule codes, timestamps or ΔCLV thresholds
+    [{ rule_center_id: "B-05", rule_id: "BUSINESS-RULE", channel: "portal_popup", until: "2026-10-12T22:53:20", reason: "P-SH-03|portal_popup|sie: Held back until 2026-10-12 22:53 (B-05): Offer paused: dismissed or ignored 2 times, last on 2026-08-13" }, "Turned down recently, possible from 12 Oct 2026"],
+    [{ rule_center_id: "B-06", rule_id: "BUSINESS-RULE", channel: "email", until: "2026-10-05T17:28:31", reason: "P-MO-01|email|sie: Held back until 2026-10-05 17:28 (B-06): Sales paused: ticket TK-200254 resolved on 2026-09-21" }, "No sales offers just after a ticket, possible from 5 Oct 2026"],
+    [{ rule_center_id: "B-08", rule_id: "BUSINESS-RULE", channel: "outbound_call", reason: "P-EN-02|outbound_call|sie: outbound_call needs ΔCLV ≥ €10; this one is €3.09" }, "Not worth a phone call"],
+    [{ rule_center_id: "MEMORY", rule_id: "BUSINESS-RULE", until: "2026-12-01T10:00:00", reason: "P-EN-02|email|sie: Held back until 2026-12-01 10:00 (MEMORY): rejected: has it already (M-MG-100068-1)" }, "Paused after earlier feedback (has it already), possible from 1 Dec 2026"],
+    [{ rule_center_id: "C-01", rule_id: "CONSENT-CHANNEL", channel: null }, "No marketing contact agreed: service contact only"],
+    [{ rule_id: "BUSINESS-RULE", rule_center_id: "U-03", reason: "P-SH-01|email|sie: blocked by U-03 (custom)" }, "Not recommended now"],
     [{ rule_id: "ECON-NONPOSITIVE", reason: "expected ΔCLV €-1.20 ≤ 0" }, "Not worth offering now"],
     [{ rule_id: "DATA-MISSING", reason: "GasAktiv: not enough data (Gas heating is not in the data)" }, "Not enough data"],
     // rule_center_id wins over rule_id
@@ -36,7 +43,7 @@ describe("blockedText: rule → plain text (rule_center_id first, then rule_id)"
     const rows = [
       blocked({ rule_center_id: "C-06", rule_id: "EXCL-DUNNING", reason: "All sales blocked: dunning_level = 3" }),
       blocked({ rule_id: "EXCL-DUNNING", reason: "dunning_level = 2" }),
-      blocked({ rule_center_id: "B-09", rule_id: "BUSINESS-RULE", reason: "Payment overdue (Mahnung)" }),
+      blocked({ rule_center_id: "U-01", rule_id: "BUSINESS-RULE", reason: "Payment overdue (Mahnung)" }),
     ];
     for (const r of rows) {
       const t = blockedText(r);

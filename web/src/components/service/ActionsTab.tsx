@@ -10,7 +10,7 @@ import {
   type Reaction,
 } from "../../lib/serviceFeedback";
 import { channelLabel, toneLabel } from "../nba/ui";
-import { dateLabel, notRecommended, openTickets, reasonOf, sortedActions, ticketId } from "./plain";
+import { dateLabel, noOfferReason, notRecommended, openTickets, reasonOf, sortedActions, ticketId } from "./plain";
 
 // Tab 3: Next best actions (prompts/ui-customer360.md §3.4). Same engine output as the marketer's
 // page; the only re-ordering is "service first while a ticket is open". The agent records the
@@ -117,7 +117,7 @@ export default function ActionsTab({ card }: { card: CustomerCard }) {
         </div>
         {actions.length === 0 ? (
           <p className="rounded-xl border border-neutral-200 bg-white p-6 text-sm text-neutral-600">
-            No offer right now{blocked[0] ? `: ${blocked[0].text}` : ""}.
+            No offer right now: {noOfferReason(card)}.
           </p>
         ) : (
           <ol className="space-y-3">

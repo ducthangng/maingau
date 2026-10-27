@@ -41,7 +41,8 @@ let cached: ServiceFeedback[] | null = null;
 function read(): ServiceFeedback[] {
   if (cached) return cached;
   try {
-    cached = JSON.parse(localStorage.getItem(KEY) ?? "[]") as ServiceFeedback[];
+    const parsed: unknown = JSON.parse(localStorage.getItem(KEY) ?? "[]");
+    cached = Array.isArray(parsed) ? (parsed as ServiceFeedback[]) : [];
   } catch {
     cached = [];
   }
@@ -104,11 +105,17 @@ async function post(row: ServiceFeedback) {
 }
 
 function subscribe(cb: () => void) {
+  // Another tab wrote the list: drop the cache so read() picks up its rows.
+  const onStorage = (e: StorageEvent) => {
+    if (e.key !== KEY && e.key !== null) return;
+    cached = null;
+    cb();
+  };
   window.addEventListener(EVENT, cb);
-  window.addEventListener("storage", cb);
+  window.addEventListener("storage", onStorage);
   return () => {
     window.removeEventListener(EVENT, cb);
-    window.removeEventListener("storage", cb);
+    window.removeEventListener("storage", onStorage);
   };
 }
 

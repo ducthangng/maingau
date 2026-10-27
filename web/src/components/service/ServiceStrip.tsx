@@ -2,7 +2,7 @@ import type { CustomerCard } from "../../types/contracts";
 import { eur } from "../../lib/format";
 import { mockName } from "../../lib/customerMock";
 import { channelLabel, toneLabel } from "../nba/ui";
-import { dateLabel, driverLabels, notRecommended, offerName, openTickets, reasonOf } from "./plain";
+import { dateLabel, driverLabels, noOfferReason, offerName, openTickets, reasonOf } from "./plain";
 
 // Fixed strip (prompts/ui-customer360.md §3.1): who, what happened, what to suggest — in one glance.
 function Item({ label, children, className = "" }: { label: string; children: React.ReactNode; className?: string }) {
@@ -24,7 +24,7 @@ export default function ServiceStrip({ card }: { card: CustomerCard }) {
 
   let nba: React.ReactNode;
   if (chosen.tuple_id === "NO_ACTION" || !top) {
-    const why = notRecommended(card)[0]?.text;
+    const why = noOfferReason(card);
     nba = (
       <>
         <span className="font-medium">No offer right now</span>
