@@ -7,7 +7,8 @@ Delta table `kg_nodes` / `kg_edges` would have on Databricks.
 Node IDs: policy nodes use their policy ID (S1, N-HEAT-PUMP, P-EN-03, EXCL-DUNNING, A2), except
 channels and consent types, which share names and are namespaced (`channel:email`,
 `consent:marketing_email`). Instance nodes use source IDs (contract_id, device_id, order_id,
-ticket_id, session_id, action_id) or `<customer_id>:<rule|signal|consent>`.
+ticket_id, session_id, action_id) or `<customer_id>:<rule|signal|consent>`; Feedback nodes use the
+customer memory ID (`M-<customer_id>-<n>`, nba.ai.feedback).
 """
 
 from __future__ import annotations
@@ -66,7 +67,9 @@ def policy_graph(policy: Policy) -> nx.MultiDiGraph:
     return g
 
 
-def customer_graph(state: CustomerState, policy: Policy, archetype: str | None = None) -> nx.MultiDiGraph:
+def customer_graph(state: CustomerState, policy: Policy, archetype: str | None = None,
+                   memory: list[dict] | None = None) -> nx.MultiDiGraph:
+    """`memory`: this customer's feedback memory (Runtime cfg.memory[customer_id]), added as Feedback nodes."""
     g = policy_graph(policy)
     cid = state.customer_id
     g.add_node(cid, type="Customer", label=cid)
@@ -122,15 +125,24 @@ def customer_graph(state: CustomerState, policy: Policy, archetype: str | None =
     if archetype:
         g.add_node(archetype, type="Archetype", label=policy.archetypes.get(archetype, archetype))
         g.add_edge(cid, archetype, type="IN_ARCHETYPE")
+    for m in memory or []:  # what a person said no to, remembered until a date (knowledge base for the engine)
+        g.add_node(m["id"], type="Feedback", kind=m.get("kind"), reason_code=m.get("reason_code"),
+                   since=m.get("since"), until=m.get("until"), source=m.get("source"), note=m.get("note"))
+        g.add_edge(cid, m["id"], type="GAVE_FEEDBACK")
+        if m.get("offer_id") in policy.offers:
+            g.add_edge(m["id"], m["offer_id"], type="ABOUT")
+        if m.get("channel") in policy.channels:
+            g.add_edge(m["id"], ch_id(m["channel"]), type="ABOUT")
     return g
 
 
 def export_graph(states: dict[str, CustomerState], policy: Policy, out_dir: str | Path,
-                 archetypes: dict[str, str] | None = None) -> tuple[int, int]:
+                 archetypes: dict[str, str] | None = None, memory: dict[str, list[dict]] | None = None) -> tuple[int, int]:
     """Write kg_nodes.jsonl / kg_edges.jsonl: the policy layer once, then each customer's instance layer.
 
     Pass `archetypes` (customer_id -> A0..A5) to link customers to archetype nodes; an archetype node is
-    written once, with the first customer in it, so the export has no orphans.
+    written once, with the first customer in it, so the export has no orphans. Pass `memory` (Runtime
+    cfg.memory) to add each customer's Feedback nodes.
     """
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -150,7 +162,7 @@ def export_graph(states: dict[str, CustomerState], policy: Policy, out_dir: str 
         write(base, sorted(base.nodes), base.edges(data=True))
         seen: set[str] = set()
         for cid in sorted(states):
-            g = customer_graph(states[cid], policy, (archetypes or {}).get(cid))
+            g = customer_graph(states[cid], policy, (archetypes or {}).get(cid), (memory or {}).get(cid))
             instance = [n for n in g.nodes if n not in policy_ids and n not in seen]
             seen.update(instance)
             edges = [(u, v, a) for u, v, a in g.edges(data=True) if u not in policy_ids or v not in policy_ids]

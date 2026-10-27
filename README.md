@@ -1101,7 +1101,7 @@ The backend is configured by `MAINGAU_LLM` (auto | claude | ollama | none; `nba/
 - The engine applies active memory as rule `MEMORY` (holds tuples back until its date).
 - The AI classifies free-text reasons, writes the note, may make the memory stricter (never looser), and suggests changes for everyone. Only a person can apply those, through the Rule Center what-if.
 
-**On the mock data:** 467 act-now proposals in 88 clusters. 74 agent-feedback items become memory and change 14 decisions.
+**On the mock data:** 467 act-now proposals in 88 clusters. 74 agent-feedback items become memory and change 14 decisions (3 get another action, 11 wait until a later date). `python -m nba.build` applies `out/customer_memory.jsonl` when it exists; `--learn` creates it first, so the static export shows the memory too (`docs/nba-guide.md` §6.3).
 
 ## 7. Tasks: three agents in parallel
 

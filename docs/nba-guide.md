@@ -94,6 +94,7 @@ The workbook and the event stream are already in `data/`. The first load parses 
 .venv/bin/python -m nba.build --out out/                                 # all 750 customers + reports
 .venv/bin/python -m nba.build --out out/ --export web/public/data        # also replace the UI's mock data
 .venv/bin/python -m nba.build --customers MG-100023,MG-100112 --no-report  # a few customers, fast
+.venv/bin/python -m nba.build --out out/ --learn                         # learn customer memory from feedback first
 ```
 
 **Options:**
@@ -104,8 +105,13 @@ The workbook and the event stream are already in `data/`. The first load parses 
 | `--asof 2026-10-02T12:00:00` | Another evaluation time |
 | `--workbook path.xlsx` | Another workbook |
 | `--skip-validation` | Build even if the data check finds errors |
+| `--memory path.jsonl` | Customer memory to apply (default `out/customer_memory.jsonl`, used only if the file exists) |
+| `--no-memory` | Ignore the customer memory |
+| `--learn` | First turn new feedback into memory, code only (no AI): the workbook's `service_nba_feedback`, plus `decision_log.jsonl` and `service_feedback.jsonl` next to the memory file when they exist |
 
 The build stops with a message if the data check finds an error. The static export stays under 30 MB.
+
+**Customer memory:** what people said no to is remembered per customer (`nba.ai.feedback`) and held back by rule `MEMORY` until its date. The build prints how many memory entries it used. `--learn` adds each feedback item only once, so a fresh clone builds the same memory and the same export every time. On the mock data it learns 74 entries (58 active at the evaluation time) and changes 14 decisions: 3 get another action and 11 wait until a later date.
 
 ### 6.4 Run the API
 

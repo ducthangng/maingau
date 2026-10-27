@@ -45,3 +45,41 @@ def test_export_has_no_orphan_nodes(states, policy, kg_all, tmp_path):
     assert touched <= nodes
     orphans = {n for n in nodes - touched}
     assert not orphans, sorted(orphans)[:10]
+
+
+MEMORY = [  # one entry per kind that the engine applies (nba.ai.feedback); pause_sales points at no offer or channel
+    {"id": "M-MG-100068-1", "customer_id": "MG-100068", "kind": "pause_offer", "offer_id": "P-EN-02", "channel": None,
+     "since": "2026-09-20T10:00:00", "until": "2026-12-19T10:00:00", "reason_code": "not_relevant", "source": "agent_feedback"},
+    {"id": "M-MG-100068-2", "customer_id": "MG-100068", "kind": "block_channel", "offer_id": None, "channel": "email",
+     "since": "2026-09-21T10:00:00", "until": "2026-12-20T10:00:00", "reason_code": "wrong_channel", "source": "decision_log"},
+    {"id": "M-MG-100068-3", "customer_id": "MG-100068", "kind": "pause_sales", "offer_id": None, "channel": None,
+     "since": "2026-09-22T10:00:00", "until": "2026-10-22T10:00:00", "reason_code": "customer_upset", "source": "decision_log"},
+]
+
+
+def test_customer_memory_becomes_feedback_nodes(states, policy, tmp_path):
+    import json
+    from pathlib import Path
+
+    import yaml
+
+    from nba.kg.graph import ch_id
+
+    edge_types = yaml.safe_load((Path(__file__).parents[1] / "kg" / "ontology.yaml").read_text())["edge_types"]
+    ids = {m["id"] for m in MEMORY}
+    g = customer_graph(states["MG-100068"], policy, memory=MEMORY)
+    assert {n for n, d in g.nodes(data=True) if d["type"] == "Feedback"} == ids
+    assert {v for _, v, d in g.out_edges("MG-100068", data=True) if d["type"] == "GAVE_FEEDBACK"} == ids
+    about = {(u, v) for u, v, d in g.edges(data=True) if d["type"] == "ABOUT"}
+    assert about == {("M-MG-100068-1", "P-EN-02"), ("M-MG-100068-2", ch_id("email"))}
+    for u, v, d in g.edges(data=True):  # endpoints as kg/ontology.yaml declares them
+        if d["type"] in {"GAVE_FEEDBACK", "ABOUT"}:
+            spec = {k: x if isinstance(x, list) else [x] for k, x in edge_types[d["type"]].items()}
+            assert g.nodes[u]["type"] in spec["from"] and g.nodes[v]["type"] in spec["to"], (u, v)
+    assert g.nodes["M-MG-100068-3"]["kind"] == "pause_sales" and g.nodes["M-MG-100068-3"]["until"] == "2026-10-22T10:00:00"
+    assert not [n for n, d in customer_graph(states["MG-100068"], policy).nodes(data=True) if d["type"] == "Feedback"]
+    export_graph({c: states[c] for c in ("MG-100068", "MG-100009")}, policy, tmp_path, memory={"MG-100068": MEMORY})
+    nodes = [json.loads(line) for line in (tmp_path / "kg_nodes.jsonl").open()]
+    edges = [json.loads(line) for line in (tmp_path / "kg_edges.jsonl").open()]
+    assert {n["id"] for n in nodes if n["type"] == "Feedback"} == ids
+    assert sum(e["type"] == "GAVE_FEEDBACK" for e in edges) == 3 and sum(e["type"] == "ABOUT" for e in edges) == 2
