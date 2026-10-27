@@ -645,6 +645,8 @@ export interface IndexRow {
   outlier?: boolean;
   p_accept?: number | null;
   personalised?: boolean | null;
+  reason_need?: string | null;
+  reason_signal?: string | null;
   service_mode?: boolean;
   tone?: ("du" | "sie") | null;
   top_reason?: string | null;
@@ -676,11 +678,17 @@ export interface Summary {
     [k: string]: number;
   };
   n_customers: number;
+  need_labels?: {
+    [k: string]: string;
+  };
   no_action_by_reason?: {
     [k: string]: number;
   };
   signal_counts?: {
     [k: string]: number;
+  };
+  signal_labels?: {
+    [k: string]: string;
   };
   sources?: {
     [k: string]: SourceInfo;

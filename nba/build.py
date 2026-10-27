@@ -34,7 +34,7 @@ def build(runtime: Runtime, out_dir, customer_ids=None, *, export_dir=None, repo
     full = runtime.cards(ids)
     cards = [export_card(card) for card in full]
     rows = index_rows(cards, runtime.states)
-    totals = summary(cards, runtime.cfg, runtime.states[ids[0]].eval_time)
+    totals = summary(cards, runtime.cfg, runtime.states[ids[0]].eval_time, runtime.policy)
     out = Path(out_dir)
     (out / "customers").mkdir(parents=True, exist_ok=True)
     files = []

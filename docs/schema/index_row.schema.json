@@ -255,6 +255,30 @@
       "default": null,
       "title": "Personalised"
     },
+    "reason_need": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Reason Need"
+    },
+    "reason_signal": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Reason Signal"
+    },
     "service_mode": {
       "default": false,
       "title": "Service Mode",

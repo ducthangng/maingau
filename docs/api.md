@@ -94,7 +94,7 @@ Example: `GET /api/customers?q=darmstadt&offer=P-EN-02` returns 6 rows (`MG-1000
   "archetype": "A4", "archetype_name": "Retention risk (do no harm)",
   "urgency_tier": "P1", "urgency_score": 429.45,
   "top_reason": "electricity cancellation received on 2026-08-21 [EXCL-CANCELLATION]",
-  "flags": ["service_critical"], "outlier": true, "triggers": ["S13"],
+  "flags": ["service_critical"], "outlier": true, "triggers": ["S13"], "reason_signal": null, "reason_need": null,
   "chosen_offer": "NO_ACTION", "chosen_tuple": "NO_ACTION", "channel": null, "tone": null,
   "delta_clv": null, "p_accept": null, "contact_cost": null, "confidence": null,
   "checklist_failed": ["consent_for_channel", "profiling_consent", "no_exclusion", "not_owned", "contact_cap", "data_fresh"],
@@ -106,6 +106,7 @@ Example: `GET /api/customers?q=darmstadt&offer=P-EN-02` returns 6 rows (`MG-1000
 **UI notes:**
 - **Bulk approval** groups rows by `chosen_tuple`. Exclude rows where `outlier` is true or `checklist_failed` is non-empty, unless the user confirms each one.
 - **`NO_ACTION` rows** currently list all six items in `checklist_failed`, because no tuple was checked. Show "No action" instead of six failures (Q-KG-19).
+- **`reason_signal` / `reason_need`** are the Signal and Need on the chosen action's path (e.g. `"S11"`, `"N-HOME-ELECTRICITY"`), for the Overview page (`prompts/ui-overview.md`). They are `null` for general offers (no profiling consent) and for `NO_ACTION`. Labels are in `Summary.signal_labels` / `need_labels`.
 
 ### 3.2 `GET /api/customers/{customer_id}`: customer page
 
@@ -169,6 +170,7 @@ Returns `Summary` for all customers. A subset:
 
 Also present:
 - `blocked_by_rule`, `no_action_by_reason`, `signal_counts`, `flag_counts`;
+- `signal_labels` (e.g. `"S4": "Price guarantee ends within 90 days"`, parameters filled in) and `need_labels` (e.g. `"N-HEAT-PUMP": "Heat pump / electric heating"`), from `kg/policy.yaml`;
 - `sources` for all 18 source tables, used for tooltips;
 - `column_src` for every worklist column.
 
@@ -393,11 +395,12 @@ What happened to one customer and how they reacted, newest first (`nba/kg/journe
 | `blocked`, `signals`, `profile` | Identical to the API |
 | JSON format | Compact |
 
-**Static export size:** `customers/` is about 19.2 MB, `index.json` about 0.5 MB and `rules.json` (the Rule Center tree and the Field / Operator catalog) about 41 KB; `journey/` (Customer 360°) is about 3.8 MB. The whole export stays under 30 MB (about 23.5 MB now). Regenerate it from `main` whenever the engine changes: `python -m nba.build --export web/public/data`.
+**Static export size:** `customers/` is about 19.2 MB, `index.json` about 0.5 MB and `rules.json` (the Rule Center tree and the Field / Operator catalog) about 41 KB; `journey/` (Customer 360°) is about 3.8 MB. The whole export stays under 30 MB (about 24 MB now). Regenerate it from `main` whenever the engine changes: `python -m nba.build --export web/public/data`.
 
 **Rule Center data in static mode:**
 - each card keeps only tier 2 outcomes in `rules.results` (block / defer / off), plus `counter_line`;
 - a waiting card keeps the planned action and one fallback;
+- `blocked` keeps one "possible from" row per offer × channel, as in the API (e.g. MG-100023: Autostrom by newsletter, possible from 5 Nov 2026);
 - the API keeps everything.
 
 A real export removes `manifest.json`, the mock-data marker. MG-100068, for example, has 12 tuples in the API but 4 candidates in the static file.

@@ -132,7 +132,10 @@ export default function CustomerList({ rows }: { rows: IndexRow[] }) {
                         className="font-medium text-neutral-900 hover:text-accent-700 hover:underline"
                       >
                         {mockName(r.customer_id)}
-                      </button>
+                      </button>{" "}
+                      <span className="rounded bg-neutral-100 px-1 text-[10px] font-medium uppercase text-neutral-500" title="Demo name: the data has no names">
+                        demo
+                      </span>
                       <span className="ml-1.5 font-mono text-xs text-neutral-400">{r.customer_id}</span>
                       <p className="mt-1.5 truncate text-xs text-neutral-600">{noPayment(ev.text, "Account status needs attention")}</p>
                     </td>

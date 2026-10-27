@@ -30,7 +30,7 @@ function CustomerView({ id }: { id: string }) {
     return (
       <div className="mx-auto max-w-xl space-y-4 py-12 text-center">
         <p className="text-neutral-700">
-          {card.error === "Unknown customer" ? `No customer ${id}.` : `Could not load ${id}: ${card.error}`}
+          {card.error === "Unknown customer" || card.error.endsWith("not JSON") ? `No customer ${id}.` : `Could not load ${id}: ${card.error}`}
         </p>
         <div className="flex justify-center">
           <CustomerSearch autoFocus size="lg" />
@@ -62,6 +62,6 @@ function CustomerView({ id }: { id: string }) {
 export default function Service() {
   const { id } = useParams();
   if (!id) return <Landing />;
-  const cid = decodeURIComponent(id).toUpperCase();
+  const cid = id.toUpperCase(); // useParams already decodes
   return <CustomerView key={cid} id={cid} />;
 }

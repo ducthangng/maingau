@@ -527,6 +527,8 @@ class IndexRow(Model):
     flags: list[FlagId] = Field(default_factory=list)
     outlier: bool = False
     triggers: list[str] = Field(default_factory=list)  # signal IDs
+    reason_signal: Optional[str] = None  # the Signal on the chosen action's path (Overview "situation"); None for general offers
+    reason_need: Optional[str] = None  # the Need on that path (Overview "need")
     chosen_offer: str
     chosen_tuple: Optional[str] = None  # group key for bulk execution
     channel: Optional[str] = None
@@ -553,6 +555,8 @@ class Summary(Model):
     no_action_by_reason: dict[str, int] = Field(default_factory=dict)
     signal_counts: dict[str, int] = Field(default_factory=dict)
     archetype_counts: dict[str, int] = Field(default_factory=dict)
+    signal_labels: dict[str, str] = Field(default_factory=dict)  # kg/policy.yaml signal labels, parameters filled in
+    need_labels: dict[str, str] = Field(default_factory=dict)  # kg/policy.yaml needs, label_en
     urgency_counts: dict[str, int] = Field(default_factory=dict)
     flag_counts: dict[str, int] = Field(default_factory=dict)
     sources: dict[str, SourceInfo] = Field(default_factory=dict)  # refresh/latency per table, for worklist tooltips

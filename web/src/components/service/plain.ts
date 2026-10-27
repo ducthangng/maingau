@@ -92,8 +92,26 @@ export function sortedActions(card: CustomerCard): Candidate[] {
 
 const CONTACT_LIMIT = new Set(["B-01", "B-02", "B-03", "B-04"]);
 
+/** "…, possible from 5 Nov 2026" for rules that only hold an action back. */
+function from(b: Blocked, text: string): string {
+  return b.until ? `${text}, possible from ${dateLabel(b.until)}` : text;
+}
+
 function contactLimit(b: Blocked): string {
-  return b.until ? `Contact limit reached, possible from ${dateLabel(b.until)}` : "Contact limit reached";
+  return from(b, "Contact limit reached");
+}
+
+const NO_MARKETING = "No marketing contact agreed: service contact only";
+// Engine wording that must never reach a service agent: rule and offer codes, tuple IDs, ΔCLV thresholds.
+const ENGINE_CODE = /\b[BCU]-\d{2}\b|\bP-[A-Z]{2}-\d{2}\b|ΔCLV|Held back|\|/;
+
+/** The engine reason without its tuple prefix, the "Held back until … (B-05):" clause or a memory ID. */
+function reasonText(b: Blocked): string {
+  return plainText(b.reason)
+    .replace(/^P-[A-Z]{2}-\d{2}\|[a-z_]+\|[a-z]+:\s*/, "")
+    .replace(/^Held back until [^(]*\([^)]*\):\s*/, "")
+    .replace(/\s*\(M-[^)]*\)$/, "")
+    .replace(/^[^:]{1,60}:\s*/, "");
 }
 
 function noChannel(b: Blocked): string {
@@ -104,8 +122,9 @@ function noChannel(b: Blocked): string {
 
 /** Rule → plain text; rule_center_id first, then rule_id. Account-status rules never quote their reason. */
 export function blockedText(b: Blocked): string {
-  const reason = plainText(b.reason).replace(/^[^:]{1,60}:\s*/, "");
+  const reason = reasonText(b);
   if (b.rule_id === "CHANNEL-AVAILABLE") return noChannel(b);
+  if (!b.channel && (b.rule_center_id === "C-01" || (b.rule_id === "CONSENT-CHANNEL" && !b.rule_center_id))) return NO_MARKETING;
   switch (b.rule_center_id) {
     case "C-07":
       return "No sales offers while a ticket is open";
@@ -123,8 +142,16 @@ export function blockedText(b: Blocked): string {
       return "No personalised offers (no consent for personalisation)";
     case "B-07":
       return humanize(reason) || "Already has it, or a needed product is missing";
+    case "B-05":
+      return from(b, "Turned down recently");
+    case "B-06":
+      return from(b, "No sales offers just after a ticket");
+    case "B-08":
+      return "Not worth a phone call";
+    case "B-09":
+      return from(b, "Daily capacity for this channel is full");
     case "MEMORY":
-      return `The customer said no to this before${reason ? ` (${reason})` : ""}`;
+      return from(b, reason && !ENGINE_CODE.test(reason) ? `Paused after earlier feedback (${reason})` : "Paused after earlier feedback");
   }
   if (b.rule_center_id && CONTACT_LIMIT.has(b.rule_center_id)) return contactLimit(b);
   switch (b.rule_id) {
@@ -148,7 +175,8 @@ export function blockedText(b: Blocked): string {
     case "DATA-MISSING":
       return "Not enough data";
   }
-  return noPayment(humanize(reason) || "Not recommended now", "No sales offers right now (account status)");
+  const text = noPayment(humanize(reason) || "Not recommended now", "No sales offers right now (account status)");
+  return ENGINE_CODE.test(text) ? from(b, "Not recommended now") : text;
 }
 
 const ORDER = ["EXCL-", "CONSENT-PROFILING", "HOLDING-PRECONDITION", "CONTACT-CAP", "BUSINESS-RULE", "CONSENT-CHANNEL", "CHANNEL-AVAILABLE", "ECON-NONPOSITIVE", "DATA-MISSING"];
@@ -167,7 +195,16 @@ export function notRecommended(card: CustomerCard): NotRecommended[] {
   const seen = new Set<string>();
   const out: NotRecommended[] = [];
   for (const b of [...(card.blocked ?? [])].sort((a, z) => rank(a) - rank(z))) {
-    const subject = b.offer_id === "*" ? (b.channel ? channelName(b.channel) : "All sales offers") : offerName(b.offer_id);
+    // A hold-back or a call threshold is about one channel: name it, so it is not read as the whole offer.
+    const perChannel = b.channel && (b.until || b.rule_center_id === "B-08");
+    const subject =
+      b.offer_id === "*"
+        ? b.channel
+          ? channelName(b.channel)
+          : "All sales offers"
+        : perChannel
+          ? `${offerName(b.offer_id)} · ${channelName(b.channel)}`
+          : offerName(b.offer_id);
     const text = blockedText(b);
     const key = `${subject}|${text}`;
     if (seen.has(key)) continue;
@@ -175,4 +212,16 @@ export function notRecommended(card: CustomerCard): NotRecommended[] {
     out.push({ subject, text });
   }
   return out;
+}
+
+/** Why there is no offer at all: an account-level rule first, then "no marketing contact agreed". */
+export function noOfferReason(card: CustomerCard): string {
+  const wide = (card.blocked ?? []).filter((b) => b.offer_id === "*").sort((a, z) => rank(a) - rank(z));
+  const account = wide.find((b) => b.rule_id.startsWith("EXCL-") || ["C-06", "C-07", "C-08"].includes(b.rule_center_id ?? ""));
+  if (account) return blockedText(account);
+  const marketing = (card.profile.channels ?? []).filter((c) => c.channel !== "service_agent");
+  if (marketing.length > 0 && marketing.every((c) => !c.allowed)) return NO_MARKETING;
+  const limit = wide.find((b) => b.rule_id === "CONTACT-CAP" || CONTACT_LIMIT.has(b.rule_center_id ?? ""));
+  if (limit) return blockedText(limit);
+  return "No offer is worth making right now";
 }

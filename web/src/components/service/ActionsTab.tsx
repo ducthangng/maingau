@@ -6,7 +6,7 @@ import { pct, signedEur } from "../../lib/format";
 import { DecisionBox, OverrideNote, ruleText, scopeText, type Option, type Why } from "../customer/NbaPanel";
 import { channelLabel, toneLabel } from "../nba/ui";
 import { ValueBar } from "../viz";
-import { dateLabel, noPayment, notRecommended, reasonOf } from "./plain";
+import { dateLabel, noOfferReason, noPayment, notRecommended, reasonOf } from "./plain";
 
 // Next best actions card (prompts/ui-customer360.md §3.4). The same options, ranking and decision
 // box as the orchestration pop-up (NbaPanel): the engine's #1 first, click one to choose, a reason
@@ -146,7 +146,7 @@ export default function ActionsTab({ card }: { card: CustomerCard }) {
         )}
         {options.length === 0 ? (
           <p className="rounded-xl bg-white p-6 text-sm text-neutral-600 ring-1 ring-neutral-200">
-            No offer right now{blocked[0] ? `: ${blocked[0].text}` : ""}.
+            No offer right now: {noOfferReason(card)}.
           </p>
         ) : (
           <ol className="space-y-2">

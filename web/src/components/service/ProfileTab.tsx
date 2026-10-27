@@ -96,7 +96,12 @@ export default function ProfileTab({ card }: { card: CustomerCard }) {
           <User size={28} />
         </div>
         <div className="min-w-0">
-          <p className="text-lg font-semibold tracking-tight">{mockName(card.customer_id)}</p>
+          <p className="text-lg font-semibold tracking-tight">
+            {mockName(card.customer_id)}{" "}
+            <span className="rounded bg-neutral-100 px-1 align-middle text-[10px] font-medium uppercase text-neutral-500" title="Demo name: the data has no names">
+              demo
+            </span>
+          </p>
           <p className="truncate text-sm text-neutral-500 tabular-nums">{card.customer_id}</p>
         </div>
       </div>

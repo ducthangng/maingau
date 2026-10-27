@@ -213,7 +213,7 @@ def create_app(*, workbook=DEFAULT_WORKBOOK, out_dir=REPO / "out", p_mode=None, 
     @app.get("/api/summary", response_model=Summary)
     def get_summary():
         rt = context()
-        return summary(rt.cards(), rt.cfg, next(iter(rt.states.values())).eval_time)
+        return summary(rt.cards(), rt.cfg, next(iter(rt.states.values())).eval_time, rt.policy)
 
     @app.post("/api/replay")
     def preview_replay(until: datetime | None = None):

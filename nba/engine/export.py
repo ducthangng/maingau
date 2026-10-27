@@ -30,14 +30,13 @@ def export_card(card: CustomerCard) -> CustomerCard:
         rules = rules.model_copy(update={"counters": [], "results": [
             r.model_copy(update={"measured": {}, "detail": r.detail if r.result == "defer" else None})
             for r in rules.results if r.tier != "compliance" and r.result in {"block", "defer", "off"}]})
-    shown = {c.offer_id for c in projected}
-    seen: set[str] = set()
+    seen: set[tuple[str, str | None]] = set()
     blocked = []
-    for row in card.blocked:  # "waits until" once per offer, and only for offers the card does not show
+    for row in card.blocked:  # "waits until" once per offer × channel, as the API shows it (Customer 360° "possible from")
         if row.until and row.rule_id in {"BUSINESS-RULE", "CONTACT-CAP"} and row.offer_id != "*":
-            if row.offer_id in seen or row.offer_id in shown:
+            if (row.offer_id, row.channel) in seen:
                 continue
-            seen.add(row.offer_id)
+            seen.add((row.offer_id, row.channel))
         blocked.append(row)
     for candidate in projected[1:4] if chosen else []:
         gap = chosen.valuation.delta_clv - candidate.valuation.delta_clv
