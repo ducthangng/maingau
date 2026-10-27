@@ -1,19 +1,30 @@
 import { useId, useMemo, useState } from "react";
 import { Check, Repeat2, X } from "lucide-react";
 import type { Candidate, CustomerCard } from "../../types/contracts";
-import { recordDecisions, REVIEWER, type DecisionAction } from "../../lib/decisions";
+import { recordDecisions, rejectText, REVIEWER, type DecisionAction, type ReasonCode } from "../../lib/decisions";
 import { signedEur, tupleLabel } from "../../lib/format";
+import { OVERRIDE_REASONS, RejectReasonSelect, whyCode, whyOk, whyText } from "../customer/NbaPanel";
 
 // C8 human in the loop. Decisions go to the local decision log only; there is no send button.
 // Override choices are limited to tuples the engine already gated (Q-CARDS-13), so a blocked
-// combination can never be selected here.
+// combination can never be selected here. Reject and override need a reason from a list, so the
+// decision carries a reason_code the feedback memory can act on; the note is optional.
 
 type Panel = null | "override" | "reject";
 
 const btn =
   "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-40";
+const select =
+  "w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-100";
 
-function record(card: CustomerCard, action: DecisionAction, target: Candidate | undefined, tupleId: string, reason: string | null) {
+function record(
+  card: CustomerCard,
+  action: DecisionAction,
+  target: Candidate | undefined,
+  tupleId: string,
+  reason: string | null,
+  code: ReasonCode | null = null,
+) {
   const v = target?.valuation;
   recordDecisions([
     {
@@ -22,6 +33,7 @@ function record(card: CustomerCard, action: DecisionAction, target: Candidate | 
       tuple_id: tupleId,
       from_tuple: card.chosen.tuple_id,
       reason,
+      reason_code: code,
       reviewer: REVIEWER,
       delta_clv: v?.delta_clv ?? null,
       p_accept: v?.p_accept ?? null,
@@ -44,7 +56,9 @@ export function DecisionBar({
   allowOverride?: boolean;
 }) {
   const [panel, setPanel] = useState<Panel>(null);
-  const [reason, setReason] = useState("");
+  const [reason, setReason] = useState(""); // the note under the reason
+  const [preset, setPreset] = useState(""); // override reason (OVERRIDE_REASONS)
+  const [code, setCode] = useState<ReasonCode | "">(""); // reject reason
   const [saved, setSaved] = useState<string | null>(null);
   const others = useMemo(
     () => (card.candidates ?? []).filter((c) => c.tuple_id !== card.chosen.tuple_id),
@@ -53,10 +67,14 @@ export function DecisionBar({
   const [target, setTarget] = useState<string>(variant === "alternative" ? (candidate?.tuple_id ?? "") : (others[0]?.tuple_id ?? ""));
   const reasonId = useId();
   const selectId = useId();
+  const codeId = useId();
+  const why = { preset, note: reason };
 
   const close = () => {
     setPanel(null);
     setReason("");
+    setPreset("");
+    setCode("");
   };
   const done = (msg: string) => {
     close();
@@ -68,20 +86,30 @@ export function DecisionBar({
     done("Approved");
   };
   const reject = () => {
-    record(card, "rejected", candidate, card.chosen.tuple_id, reason.trim());
+    if (!code) return;
+    record(card, "rejected", candidate, card.chosen.tuple_id, rejectText(code, reason), code);
     done("Rejected");
   };
   const override = () => {
     const to = others.find((c) => c.tuple_id === target);
-    if (!to) return;
-    record(card, "overridden", to, to.tuple_id, reason.trim());
+    if (!to || !whyOk(why)) return;
+    record(card, "overridden", to, to.tuple_id, whyText(why), whyCode(why));
     done(`Overridden → ${tupleLabel(to.tuple_id)}`);
   };
 
-  const reasonBox = (placeholder: string) => (
+  const reasonPick = (control: React.ReactNode) => (
+    <div className="space-y-1">
+      <label htmlFor={codeId} className="text-xs font-medium text-neutral-600">
+        Reason <span className="text-neutral-400">(required)</span>
+      </label>
+      {control}
+    </div>
+  );
+
+  const reasonBox = (placeholder: string, required: boolean) => (
     <div className="space-y-1">
       <label htmlFor={reasonId} className="text-xs font-medium text-neutral-600">
-        Reason <span className="text-neutral-400">(required)</span>
+        Note <span className="text-neutral-400">({required ? "required" : "optional"})</span>
       </label>
       <textarea
         id={reasonId}
@@ -147,12 +175,7 @@ export function DecisionBar({
               <label htmlFor={selectId} className="text-xs font-medium text-neutral-600">
                 Change channel, tone or offer
               </label>
-              <select
-                id={selectId}
-                value={target}
-                onChange={(e) => setTarget(e.target.value)}
-                className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-100"
-              >
+              <select id={selectId} value={target} onChange={(e) => setTarget(e.target.value)} className={select}>
                 {others.map((c) => (
                   <option key={c.tuple_id} value={c.tuple_id}>
                     {c.rank ? `#${c.rank} ` : ""}
@@ -167,12 +190,24 @@ export function DecisionBar({
             </p>
           )}
           <p className="text-xs text-neutral-500">Only combinations that passed every rule can be selected.</p>
-          {reasonBox("Why is this the better action?")}
+          {reasonPick(
+            <select id={codeId} value={preset} onChange={(e) => setPreset(e.target.value)} className={select}>
+              <option value="" disabled>
+                Why this one?
+              </option>
+              {Object.keys(OVERRIDE_REASONS).map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </select>,
+          )}
+          {reasonBox("Why is this the better action?", preset === "Other")}
           <div className="flex gap-2">
             <button
               type="button"
               onClick={override}
-              disabled={!reason.trim() || !others.some((c) => c.tuple_id === target)}
+              disabled={!whyOk(why) || !others.some((c) => c.tuple_id === target)}
               className={`${btn} bg-neutral-900 text-white hover:bg-neutral-700`}
             >
               Confirm override
@@ -186,12 +221,13 @@ export function DecisionBar({
 
       {panel === "reject" && (
         <div className="space-y-3 rounded-lg border border-neutral-200 bg-neutral-50 p-3">
-          {reasonBox("e.g. customer asked not to be contacted about this")}
+          {reasonPick(<RejectReasonSelect id={codeId} value={code} onChange={setCode} className={select} />)}
+          {reasonBox("e.g. customer asked not to be contacted about this", false)}
           <div className="flex gap-2">
             <button
               type="button"
               onClick={reject}
-              disabled={!reason.trim()}
+              disabled={!code}
               className={`${btn} bg-red-600 text-white hover:bg-red-700`}
             >
               Confirm reject

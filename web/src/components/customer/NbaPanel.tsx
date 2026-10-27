@@ -2,7 +2,17 @@ import { useMemo, useState } from "react";
 import { Check, ChevronDown, CircleSlash, Lock, Plus, ShieldBan, Trash2 } from "lucide-react";
 import type { Alternative, Candidate, CustomerCard } from "../../types/contracts";
 import { addRule, removeRule, rulesFor, useHardRules, violation, type HardRule, type RuleKind, type RuleScope } from "../../lib/hardRules";
-import { latestByCustomer, recordDecisions, removeDecision, REVIEWER, useDecisions, type DecisionAction } from "../../lib/decisions";
+import {
+  latestByCustomer,
+  recordDecisions,
+  REJECT_REASONS,
+  rejectText,
+  removeDecision,
+  REVIEWER,
+  useDecisions,
+  type DecisionAction,
+  type ReasonCode,
+} from "../../lib/decisions";
 import { CHANNEL_LABEL, pct, signedEur, tupleLabel } from "../../lib/format";
 import { WithSignalRefs } from "../nba/ActionCard";
 import { RuleChip, StatusChip, statusFor, toneLabel } from "../nba/ui";
@@ -325,7 +335,7 @@ function OptionItem({
 const btn =
   "inline-flex min-w-28 items-center justify-center rounded-xl px-5 py-2.5 text-sm font-semibold shadow-sm transition-[background-color,transform,box-shadow] duration-150 active:translate-y-px active:scale-[0.98] active:shadow-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100";
 
-function recordFor(card: CustomerCard, action: DecisionAction, target: Option, why: string | null) {
+function recordFor(card: CustomerCard, action: DecisionAction, target: Option, why: string | null, code: ReasonCode | null = null) {
   recordDecisions([
     {
       customer_id: card.customer_id,
@@ -333,6 +343,7 @@ function recordFor(card: CustomerCard, action: DecisionAction, target: Option, w
       tuple_id: target.tuple,
       from_tuple: card.chosen.tuple_id,
       reason: why,
+      reason_code: code,
       reviewer: REVIEWER,
       delta_clv: target.cand?.valuation?.delta_clv ?? null,
       p_accept: target.cand?.valuation?.p_accept ?? null,
@@ -342,14 +353,15 @@ function recordFor(card: CustomerCard, action: DecisionAction, target: Option, w
   ]);
 }
 
-// Common reasons for choosing another option than the engine's #1; "Other" needs a note.
-export const OVERRIDE_REASONS = [
-  "Customer asked for this",
-  "Better channel for this customer",
-  "More relevant right now",
-  "Recent talk with the customer",
-  "Other",
-];
+// Common reasons for choosing another option than the engine's #1, each with the code the API
+// remembers for the engine's proposal (a recent talk makes it badly timed); "Other" needs a note.
+export const OVERRIDE_REASONS: Record<string, ReasonCode> = {
+  "Customer asked for this": "other",
+  "Better channel for this customer": "wrong_channel",
+  "More relevant right now": "not_relevant",
+  "Recent talk with the customer": "wrong_timing",
+  Other: "other",
+};
 
 export interface Why {
   preset: string;
@@ -358,22 +370,22 @@ export interface Why {
 
 export const whyOk = (w: Why) => !!w.preset && (w.preset !== "Other" || !!w.note.trim());
 export const whyText = (w: Why) => (w.preset === "Other" ? w.note.trim() : w.note.trim() ? `${w.preset}: ${w.note.trim()}` : w.preset);
+export const whyCode = (w: Why): ReasonCode => OVERRIDE_REASONS[w.preset] ?? "other";
+
+// Small reason select and note, shared by the override note and the reject bar.
+const pick = "rounded-md border border-neutral-200 bg-white py-1 pr-6 pl-2 text-xs text-neutral-700 focus:border-accent-500 focus:outline-none";
+const noteField =
+  "min-w-0 flex-1 rounded-md border border-neutral-200 bg-white px-2 py-1 text-xs placeholder:text-neutral-400 focus:border-accent-500 focus:outline-none";
 
 /** Justification right under a newly chosen option: a reason dropdown and a short note. Approve is at the bottom. */
 export function OverrideNote({ why, onChange }: { why: Why; onChange: (w: Why) => void }) {
   return (
     <div className="flex items-center gap-2 border-t border-accent-100 px-3.5 py-2 pl-12">
-      <select
-        autoFocus
-        aria-label="Why this option"
-        value={why.preset}
-        onChange={(e) => onChange({ ...why, preset: e.target.value })}
-        className="rounded-md border border-neutral-200 bg-white py-1 pr-6 pl-2 text-xs text-neutral-700 focus:border-accent-500 focus:outline-none"
-      >
+      <select autoFocus aria-label="Why this option" value={why.preset} onChange={(e) => onChange({ ...why, preset: e.target.value })} className={pick}>
         <option value="" disabled>
           Why this one?
         </option>
-        {OVERRIDE_REASONS.map((r) => (
+        {Object.keys(OVERRIDE_REASONS).map((r) => (
           <option key={r} value={r}>
             {r}
           </option>
@@ -385,8 +397,86 @@ export function OverrideNote({ why, onChange }: { why: Why; onChange: (w: Why) =
         onChange={(e) => onChange({ ...why, note: e.target.value })}
         placeholder={why.preset === "Other" ? "Short note (required)" : "Short note (optional)"}
         aria-label="Short note"
-        className="min-w-0 flex-1 rounded-md border border-neutral-200 bg-white px-2 py-1 text-xs placeholder:text-neutral-400 focus:border-accent-500 focus:outline-none"
+        className={noteField}
       />
+    </div>
+  );
+}
+
+/** The required reason for a reject, in plain words; the decision keeps its code (DecisionRequest.reason_code). */
+export function RejectReasonSelect({
+  value,
+  onChange,
+  id,
+  autoFocus,
+  className = pick,
+}: {
+  value: ReasonCode | "";
+  onChange: (code: ReasonCode) => void;
+  id?: string;
+  autoFocus?: boolean;
+  className?: string;
+}) {
+  return (
+    <select
+      id={id}
+      autoFocus={autoFocus}
+      required
+      aria-label="Reject reason"
+      value={value}
+      onChange={(e) => onChange(e.target.value as ReasonCode)}
+      className={className}
+    >
+      <option value="" disabled>
+        Why reject?
+      </option>
+      {Object.entries(REJECT_REASONS).map(([code, label]) => (
+        <option key={code} value={code}>
+          {label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+export interface RejectWhy {
+  code: ReasonCode | "";
+  note: string;
+}
+
+/** Reject bar for the engine's proposal: a required reason and an optional note; Reject stays off until a reason is picked. */
+export function RejectBar({
+  why,
+  onChange,
+  onReject,
+  onCancel,
+}: {
+  why: RejectWhy;
+  onChange: (w: RejectWhy) => void;
+  onReject: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="space-y-2.5">
+      <div className="flex items-center gap-2">
+        <RejectReasonSelect autoFocus value={why.code} onChange={(code) => onChange({ ...why, code })} />
+        <input
+          value={why.note}
+          maxLength={120}
+          onChange={(e) => onChange({ ...why, note: e.target.value })}
+          placeholder="Short note (optional)"
+          aria-label="Short note"
+          className={noteField}
+        />
+      </div>
+      <div className="flex justify-end gap-2">
+        <button type="button" disabled={!why.code} onClick={onReject} className={`${btn} shrink-0 bg-red-600 text-white hover:bg-red-700`}>
+          Reject
+        </button>
+        <button type="button" onClick={onCancel} className={`${btn} shrink-0 bg-white text-neutral-600 shadow-none hover:bg-neutral-100`}>
+          Cancel
+        </button>
+      </div>
     </div>
   );
 }
@@ -402,7 +492,7 @@ export function DecisionBox({ card, top, sel, lock, why }: { card: CustomerCard;
     [decisions, card.customer_id],
   );
   const [rejecting, setRejecting] = useState(false);
-  const [reason, setReason] = useState("");
+  const [rejectWhy, setRejectWhy] = useState<RejectWhy>({ code: "", note: "" });
   const chosen = card.chosen;
   const isTop = sel.tuple === top.tuple;
   const status = statusFor(chosen.tuple_id, chosen.tuple_id, chosen.status, latest);
@@ -411,11 +501,13 @@ export function DecisionBox({ card, top, sel, lock, why }: { card: CustomerCard;
   const approve = () => {
     if (!canApprove) return;
     if (isTop) recordFor(card, "approved", sel, null);
-    else recordFor(card, "overridden", sel, whyText(why));
+    else recordFor(card, "overridden", sel, whyText(why), whyCode(why));
   };
   const reject = () => {
-    recordFor(card, "rejected", top, reason.trim());
-    setReason("");
+    const { code, note } = rejectWhy;
+    if (!code) return;
+    recordFor(card, "rejected", top, rejectText(code, note), code);
+    setRejectWhy({ code: "", note: "" });
     setRejecting(false);
   };
   const overridden = latest?.action === "overridden" ? latest : undefined;
@@ -450,27 +542,7 @@ export function DecisionBox({ card, top, sel, lock, why }: { card: CustomerCard;
           <Lock size={12} aria-hidden /> Locked by hard rule: {ruleText(lock)}. Pick another option or remove the rule.
         </p>
       ) : rejecting ? (
-        <div className="flex gap-2">
-          <input
-            autoFocus
-            value={reason}
-            maxLength={120}
-            onChange={(e) => setReason(e.target.value)}
-            placeholder="Why reject? (short)"
-            aria-label="Reason"
-            className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-sm placeholder:text-neutral-400 focus:border-accent-500 focus:ring-2 focus:ring-accent-100 focus:outline-none"
-          />
-          <button type="button" disabled={!reason.trim()} onClick={reject} className={`${btn} shrink-0 bg-red-600 text-white hover:bg-red-700`}>
-            Reject
-          </button>
-          <button
-            type="button"
-            onClick={() => setRejecting(false)}
-            className={`${btn} shrink-0 bg-white text-neutral-600 shadow-none hover:bg-neutral-100`}
-          >
-            Cancel
-          </button>
-        </div>
+        <RejectBar why={rejectWhy} onChange={setRejectWhy} onReject={reject} onCancel={() => setRejecting(false)} />
       ) : (
         <div className="flex flex-wrap items-center justify-end gap-3">
           {latest && !overridden ? (
