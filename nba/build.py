@@ -8,6 +8,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+from nba import lakehouse
 from nba.contracts import CustomerCard, IndexRow, RulesFile, Summary
 from nba.data import DEFAULT_WORKBOOK
 from nba.engine.export import export_card
@@ -103,7 +104,12 @@ def main(argv=None):
         cards, _, _ = build(runtime, args.out, ids, export_dir=args.export_dir, report=not args.no_report)
     except (ValueError, FileNotFoundError, NotImplementedError) as exc:
         parser.error(str(exc))
+    # Which data this run read (Databricks or the local files, config/databricks.yaml); read by the publish step
+    source = lakehouse.status() if args.workbook.resolve() == DEFAULT_WORKBOOK.resolve() else {
+        "source": "local", "detail": str(args.workbook)}
+    (Path(args.out) / "data_source.json").write_text(json_text(source), encoding="utf-8")
     print(f"Built {len(cards)} customers in {time.perf_counter() - start:.2f}s; mode={runtime.cfg.p_mode}; output={args.out}")
+    print(f"Data: {source['source']} ({source['detail']})")
 
 
 if __name__ == "__main__":

@@ -71,6 +71,7 @@ These are kept up to date and edited in place. Status values: `open`, `answered`
 | Q-KG-24 | Agent NBA (from the A–D review): (a) `nba/engine/runtime.py` should call `load_policy(tables=tables)` (KG now infers the workbook from the catalog, but explicit is safer) and send `--asof` through `nba.state.resolve_eval_time` (timezone offsets); (b) `content.py` / `assemble.py` hard-code `< 90` days for the P-EN-02 date and note: use the S4 hit (`P.price_guarantee_ending(state, policy.params)`) or `policy.params['price_guarantee_window_days']`; (c) optionally gate `nba.build` with `nba.kg.intake.validate_workbook` (exit on ERROR) | New snapshots and tunable thresholds (README §6.15) | Agent NBA | closed | Done by Agent KG at the user's request (26 Oct): load_policy(tables=…), --asof via resolve_eval_time, P-EN-02 window from policy.params, nba.build data gate (--skip-validation) |
 | Q-KG-25 | Rule Center R1: do newsletters count toward B-02 (2 contacts / 30 days)? As in the spec: 336 of 549 marketing decisions deferred (204 until 03.10), including test customers MG-100023/100001/100267/100102/100051. Recommended: newsletters only in B-01, with a per-rule `sources` setting | docs/rule-center.md §9 | User / mentor | answered | User: build with defaults (26 Oct). R1 = newsletters only in B-01; switch: config/kg.yaml contact_cap.sources (+newsletter changes 328 decisions) |
 | Q-KG-26 | Rule Center R2–R5: C-07 stricter scope (recommended: keep, same result today); B-05 test MG-100051 (block ended 23.09; test at 2026-09-01); who builds the page (`web/` = CARDS, busy); B-08 €10 drops 9 of 12 chosen calls | docs/rule-center.md §9 | User / mentor | answered | Defaults applied (26 Oct): C-07 stays stricter; B-05 tested at 01.09; page on temporary branch feat/rule-card; B-08 €10 |
+| Q-KG-27 | Is the managed MCP server (preview) available on our Free Edition workspace? `scripts/databricks_sync.py check --mcp` lists the four function tools and calls `customer_360`, or says "not available". If it is not available, the demo shows the same functions in the SQL editor and says so | Pitch slide 10 (MCP data access) | User | open | |
 
 ## Session entries
 
@@ -793,3 +794,60 @@ Claude Code (Opus) on Windows, in the user's checkout `E:\Projects\maingau`. On 
 - The "service first while a ticket is open" order is replaced by the engine order: the chosen action, then the alternatives (3 in static mode).
 - New amber banner "Resolve the service issue first". The brief has no warning colours in Customer 360°.
 - No `?tab=` URL state any more (three columns at ≥ 1280 px).
+
+## 2026-10-27 · Databricks connection · feat/databricks @ 303a232
+
+**Goal:** assess the finished architecture, set the target on Databricks with MCP (Customer 360 and orchestration included), and connect the project to the user's own Databricks workspace, with the local files as the backup.
+
+**Done:**
+- Architecture assessment and target: `docs/databricks.md` §1–§2. The pitch slide is updated to the final code: the AI flags cases for review and does not decide.
+- Source switch in `nba/data.py`:
+  - `load_workbook()` / `load_events()` / the new `read_raw_sheets()` read the Databricks raw layer when `config/databricks.yaml → source: databricks` (or `MAINGAU_DATA_SOURCE`).
+  - Otherwise, or on any failure, they read `data/`. The decision is made once per process (`nba.lakehouse.remote_raw()`), so sources are never mixed.
+  - `nba/kg/intake.py` validates the same raw text.
+- `nba/lakehouse.py`:
+  - upload: 23 sheet tables as text plus `_row`, `events_raw`, and `_manifest` written last;
+  - read with a row-count check;
+  - publish: worklist, nba_options, nba_blocked, customer_cards, customer_journey, decision_log, customer_memory, run_info;
+  - four read-only UC functions for managed MCP: customer_360, next_best_actions, why_blocked, action_group;
+  - a minimal MCP client (initialize, tools/list, tools/call).
+- `scripts/databricks_sync.py`: `upload`, `check [--mcp]` (cell-by-cell comparison with `data/`), `publish`.
+- `nba.build` prints the data source and writes `out/data_source.json`.
+- Config: `config/databricks.yaml`, with no secrets. Credentials come from `DATABRICKS_*` or `~/.databrickscfg`, and `.databrickscfg` / `.env` are git-ignored.
+- `databricks-sdk` is listed in `requirements.txt` as an optional comment line.
+- README §2, §6.18, §8 and §11 updated. `docs/nba-guide.md` §6.6 has a new line.
+
+**Verified:**
+- `pytest tests/test_lakehouse.py` → 13 passed. It uses an in-memory warehouse that runs the emitted SQL, and covers:
+  - upload, then read back identical to `pd.read_excel(dtype=str)`;
+  - typed tables and events equal to local;
+  - fallback when unreachable, on a partial upload and with no raw layer;
+  - local mode never connects;
+  - identifier injection rejected;
+  - publish rows and functions;
+  - MCP reply parsing.
+- Full 750-customer build through the Databricks path (fake warehouse) against the local build from `main`: 1,504 files, 0 differ.
+- No credentials on this machine:
+  - `MAINGAU_DATA_SOURCE=databricks` loads 23 sheets from the local files, with one warning ("fallback, Databricks unavailable: default auth …");
+  - `databricks_sync.py check` exits 1 with setup instructions.
+
+**Not done / carried over:**
+- Not run against the user's live workspace yet. It needs their host and token in `~/.databrickscfg`.
+- Target only, not built: Job schedule, Databricks App, Auto Loader, the API writing decisions to Delta, Genie space, UC grants and column masks.
+
+**Contract changes:** none to §5. New §6.18; §11 rewritten (own workspace with mock data, not a MAINGAU integration).
+
+**Questions to consider:** Q-KG-27 (managed MCP preview on Free Edition).
+
+**Issues / risks:**
+- Free Edition: non-commercial terms and a daily compute quota. When the quota is used up, the build falls back to `data/` and says so.
+- The SDK retries for up to 60 s before a fallback.
+- Full suite on this branch (Windows): 446 passed, 4 failed. All 4 also fail on a clean `main` worktree, so they are not caused by this branch:
+  - `test_engine_build.py::test_all_four_schema_files_match_the_models`: `docs/schema/` is stale against `nba/contracts.py`.
+  - `test_rules_book.py` (2 tests) and `test_rules_cards.py::test_apply_from_cards_writes_compact_lines`: Windows paths (`kg\\policy.yaml`) and a `›` key. Agent NBA should look at these.
+
+**Handoff:**
+- Agent NBA: `nba/build.py` has two added lines (source print, `out/data_source.json`).
+- Agent CARDS: nothing changes for the static demo; the default source is `local`.
+
+**Next session starts with:** with the user's credentials, run `upload`, then `check`, then `MAINGAU_DATA_SOURCE=databricks python -m nba.build --out out/`, then `publish`, then `check --mcp`.

@@ -20,3 +20,8 @@ web/dist/
 # rulebook working copy (python -m nba.rules export); the source files are the truth
 rules.yaml
 rules.technical.yaml
+
+# Databricks credentials (nba/lakehouse.py reads them from the environment or ~/.databrickscfg)
+.databrickscfg
+.env
+.env.*
