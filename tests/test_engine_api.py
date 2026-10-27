@@ -104,6 +104,8 @@ def test_replay_preview_redecides_affected_customers_without_mutating_snapshot(c
     assert {card['customer_id'] for card in result['customers']} == set(result['affected'])
     assert all(card['meta']['events_applied_until'] == result['eval_time'] for card in result['customers'])
     assert any('EXCL-OPEN-TICKET' in row['revoked_by'] for row in result['pending_revocations'].values())
+    # Cards deferred for the contact cap already wait for it; on this stream the cap alone revokes none of them.
+    assert not any('CONTACT-CAP' in row['revoked_by'] for row in result['pending_revocations'].values())
     assert revisions == {cid: state.revision for cid, state in runtime.states.items()}
     assert not (directory / 'decision_log.jsonl').exists()
     assert api.post('/api/replay', params={'until': '2026-09-01T00:00:00'}).status_code == 422

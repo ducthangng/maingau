@@ -105,3 +105,27 @@ def test_pending_cards_are_revoked_by_hard_rules(states, policy, pop, events):
     assert by["MG-100003"].outcome.ingested_at == datetime(2026, 10, 1, 10, 14, 5)
     assert "EXCL-OPEN-TICKET" in by["MG-100125"].revoked_by
     assert not is_profiled(res.states["MG-100003"], policy)
+
+
+def test_waiting_card_is_not_revoked_by_the_cap_it_waits_for(states, policy, pop, events):
+    # MG-100138 is capped until 2026-10-06 08:37:48; its T0 card already waits for that cap.
+    card = "P-MO-01|portal_popup|sie"
+    waiting = replay(states, events, policy, pop, pending={
+        "MG-100138": (card, False, "2026-10-06T08:37:48"),
+        "MG-100694": ("P-EN-01|app_push|du", True, datetime(2026, 10, 6, 14, 4, 40)),  # a datetime works too
+    })
+    trs = [t for t in waiting.transitions if t.outcome.customer_id in {"MG-100138", "MG-100694"}]
+    assert {t.outcome.customer_id for t in trs} == {"MG-100138", "MG-100694"}
+    assert all(t.pending_status == "valid" for t in trs)
+    # The same card without a wait, or waiting less than the cap needs, is still revoked by the cap.
+    for entry in ((card, False), (card, False, "2026-10-01T00:00:00")):
+        res = replay(states, events, policy, pop, pending={"MG-100138": entry})
+        tr = next(t for t in res.transitions if t.pending_status == "revoked")
+        assert tr.outcome.customer_id == "MG-100138" and tr.revoked_by == ("CONTACT-CAP",)
+
+
+def test_waiting_card_is_still_revoked_by_a_ticket(states, policy, pop, events):
+    # MG-100006 waits for the cap until 2026-10-11 15:42:31; a new open ticket still revokes it.
+    res = replay(states, events, policy, pop, pending={"MG-100006": ("P-EN-02|email|sie", False, "2026-10-11T15:42:31")})
+    tr = next(t for t in res.transitions if t.pending_status == "revoked")
+    assert tr.outcome.customer_id == "MG-100006" and tr.revoked_by == ("EXCL-OPEN-TICKET",)

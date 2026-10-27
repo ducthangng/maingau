@@ -237,6 +237,7 @@ Other English refusal texts:
 This replays the 2026-10-01 event stream (README §6.14) against the current decisions and returns what would change.
 - It **never** changes API state, cards or approvals (`preview_only: true`).
 - Every chosen tuple that is not `NO_ACTION` or rejected is treated as a pending card.
+- A waiting card keeps its `deferred_until`: the contact cap it already waits for does not revoke it; any other hard rule does.
 
 **Query parameter:**
 
@@ -259,8 +260,8 @@ This replays the 2026-10-01 event stream (README §6.14) against the current dec
 **Results on the mock stream:**
 - Full stream: about 3.6 s and 3.6 MB.
   - Counts: `{"applied": 126, "informational": 508, "orphan": 1}`.
-  - 118 affected customers, 29 pending revocations, 127 transitions.
-- With `until=2026-10-01T12:00:00`: 28 affected, 11 revocations.
+  - 118 affected customers, 33 pending revocations (32 open ticket, 1 cancellation), 127 transitions.
+- With `until=2026-10-01T12:00:00`: 28 affected, 12 revocations.
 
 The revocation for MG-100125:
 

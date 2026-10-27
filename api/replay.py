@@ -23,7 +23,7 @@ def replay_preview(runtime, until: datetime | None = None, *, card_provider=None
         if card.chosen.tuple_id == NO_ACTION or card.chosen.status == "rejected":
             continue
         selected = next(c for c in card.candidates if c.tuple_id == card.chosen.tuple_id)
-        pending[cid] = (selected.tuple_id, selected.personalised)
+        pending[cid] = (selected.tuple_id, selected.personalised, card.chosen.deferred_until)
     result = replay(runtime.states, events, runtime.policy, runtime.pop, until=until, pending=pending)
     cutoff = next(iter(result.states.values())).eval_time.isoformat()
     cards = []

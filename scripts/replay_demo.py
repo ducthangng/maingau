@@ -57,7 +57,9 @@ def main() -> None:
         chosen = next((c for c in card.candidates if c.tuple_id == card.chosen.tuple_id), None)
         return bool(chosen and chosen.personalised)
 
-    pending = {cid: (c.chosen.tuple_id, personalised(c)) for cid, c in t0_cards.items() if c.chosen.tuple_id != NO_ACTION}
+    # A deferred card carries its deferred_until: replay does not revoke it for the cap it already waits for.
+    pending = {cid: (c.chosen.tuple_id, personalised(c), c.chosen.deferred_until)
+               for cid, c in t0_cards.items() if c.chosen.tuple_id != NO_ACTION}
 
     start = time.perf_counter()
     res = replay(rt.states, events, rt.policy, rt.pop, until=args.until, pending=pending)

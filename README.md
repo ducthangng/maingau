@@ -1008,14 +1008,14 @@ Counts are from Agent KG's check script; `scripts/kg_report.py` reproduces them.
 - **Online order:** events (deduplicated) are applied in `ingested_at` order. At any moment the engine only knows what has arrived. `occurred_at` updates the fact; `effective_date` defers a contract change (a gas meter deregistration creates S1 at once, but the gas contract stays active until the effective date).
 - **Per-fact-key clocks:** consent per type, contract status, dunning and ticket status each keep their own clock. An older event that arrives later is `stale` and never overwrites a newer fact.
 - **Unknown IDs:** a ticket update for an ID missing from the snapshot (`TK-open-complaint`) becomes a conservative open placeholder ticket with provenance. It is never merged into another ticket.
-- **Pending cards:** after each decision-relevant event, every pending card (offer, channel) is re-checked with `check_tuple`. A personalised card is also revoked when profiling consent is gone. A revoked card can no longer be exported, and the engine re-decides. A card already sent cannot be recalled.
+- **Pending cards:** after each decision-relevant event, every pending card (offer, channel) is re-checked with `check_tuple`. A personalised card is also revoked when profiling consent is gone. A deferred card carries its `deferred_until`: a contact cap that frees up by then does not revoke it, because the card already waits for it (any other hard rule still does). A revoked card can no longer be exported, and the engine re-decides. A card already sent cannot be recalled.
 - **Three freshness measures:**
   - arrival-to-invalidation: re-check at ingest, about 0.7 ms per event;
   - decision-time known-state validity: every transition is re-checked;
   - retrospective late-data exposure: `ingested_at − occurred_at` of revoking events.
 - **Result on the stream:**
   - 635 events: 126 applied, 508 informational, 1 orphan. Decision facts changed for 118 customers.
-  - Of those 118 customers (92 with a pending T0 card): 29 cards revoked (28 by a new open ticket, 1 by a late cancellation), 5 decisions superseded, 84 unchanged.
+  - Of those 118 customers (102 with a pending T0 card): 33 cards revoked (32 by a new open ticket, 1 by a late cancellation), 1 decision superseded, 84 unchanged. No card is revoked by the contact cap it already waits for.
   - Late decision events: MG-100465 cancellation 16.9 h, MG-100510 cancellation 9.9 h, MG-100125 gas deregistration 14.7 h, MG-100004 dunning 25.5 h.
   - Report: `python scripts/replay_demo.py` → `out/replay_report.md`, `out/replay/timeline.json`.
 
