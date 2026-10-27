@@ -988,3 +988,17 @@ Claude Code (Opus) on Windows, in the user's checkout `E:\Projects\maingau`. On 
   - prints the API restart step and the localStorage snippet.
 
 **Verified:** 15 related Python tests pass (new `test_learning_impact_api`); tsc 0; a screenshot of the Learning view; the reset script ran in this worktree.
+
+### Session 27 · 2026-10-27 · Claude Code (Opus) · branch feat/kg
+
+**Goal (user):** write down which rules come from MAINGAU (slides, spec) and which the team generated (thresholds, formulas, defaults), in a Markdown file.
+
+**Done:** `docs/rules-provenance.md`, written by a 6-agent read-only workflow (spec list, then 4 code areas classified against it, then the writer). Spot-checked against the slides text, README §4/§6.6 and `docs/rule-center.md`.
+- **Part 1, rules given by MAINGAU:** 233 entries, by source:
+  - slides (35);
+  - spec §4 (44);
+  - mentor Rule Center (25);
+  - workbook (36);
+  - spec-versus-data conflicts.
+- **Part 2, rules the team added:** 184 rows, each with a file:line reference. 103 are "Detail" rows: MAINGAU gave the rule and the team chose the numbers. Example: the spec only says "n < 30 → low"; the team added high ≥ 100 / medium ≥ 30, and only at offer × channel × tone.
+- **Part 3:** 13 team choices to confirm with MAINGAU, in order of how much they move the demo numbers.
