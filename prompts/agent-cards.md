@@ -1,6 +1,6 @@
 # Prompt for Agent CARDS: MAINGAU NBA orchestration dashboard
 
-Paste everything below the line into the AI that builds the UI. It is self-contained, so it also works for tools without repo access (e.g. v0). With repo access, also read `README.md` §0–§6, §7.2, §9 and §12, and `log/agent-cards.md`.
+Paste everything below the line into the AI that builds the UI. It is self-contained, so it also works for tools without repo access (e.g. v0). With repo access, also read `docs/build-brief.md` §0–§6, §7.2, §9 and §12, and `log/agent-cards.md`.
 
 ---
 

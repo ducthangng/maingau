@@ -2,7 +2,7 @@
 
 **Owner:** Agent KG, run by Claude in the main session. Agent KG also reviews Agent CARDS and Agent NBA.
 
-**Status:** 26 Oct 2026. This plan details README §7.1. If it disagrees with `README.md`, the README wins, and this plan gets fixed in the same PR.
+**Status:** 26 Oct 2026. This plan details README §7.1. If it disagrees with `docs/build-brief.md` (the README), the brief wins, and this plan gets fixed in the same PR.
 
 ## 1. Scope and outputs
 

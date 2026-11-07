@@ -13,7 +13,7 @@ You are **Agent NBA** on a 5-person hackathon team (Futury Build Days, 26–27 O
 
 Repo: `https://github.com/ducthangng/maingau`. Work in the folder `/Users/linhngo/Downloads/Work/Hackathon/MAINGAU-nba` on branch `feat/nba`. **Follow the git rules in §6 below.**
 
-Read `README.md` completely before writing code. Key sections:
+Read `docs/build-brief.md` completely before writing code. Key sections:
 - §3: verified data facts;
 - §5: contracts;
 - §6.5–§6.7: CLV, churn, p_accept, costs;

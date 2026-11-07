@@ -1,7 +1,7 @@
 # MAINGAU Next Best Action: what it does and how to run it
 
 For team members who demo, develop or pitch the engine. Details:
-- [README.md](../README.md): the build brief;
+- [build-brief.md](build-brief.md): the build brief;
 - [docs/api.md](api.md): the API;
 - [docs/rule-center.md](rule-center.md): the rules.
 

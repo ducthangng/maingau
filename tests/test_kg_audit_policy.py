@@ -128,7 +128,7 @@ def test_contact_cost_has_a_single_source():
     chans = POLICY_RAW["channels"]
     duplicated = sorted(ch for ch in CHANNELS if "contact_cost_eur" in (chans.get(ch) or {}))
     assert not duplicated, f"contact cost duplicated in kg/policy.yaml: {duplicated}"
-    readme = (REPO / "README.md").read_text(encoding="utf-8")
+    readme = (REPO / "docs" / "build-brief.md").read_text(encoding="utf-8")
     assert "Contact cost € (from `value_assumptions`)" in readme
 
 
